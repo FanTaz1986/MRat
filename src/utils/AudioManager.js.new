@@ -1,0 +1,312 @@
+import { sound } from '@pixi/sound';
+import { createAssetLoader } from './AssetLoader';
+
+// Disable auto-pause to improve stability
+sound.disableAutoPause = true;
+
+// Sound state management
+let musicVolume = 0.5;
+let sfxVolume = 1.0;
+let currentFootstepInstance = null;
+let currentFootstepMapId = null;
+let lastFootstepIdx = -1;
+let currentAmbianceInstance = null;
+let currentAmbianceMapId = null;
+
+// Sound mappings
+const footstepSoundsByMap = {
+  "maparea0": [
+    "/0MAP/Sounds/Sand_footstep_1_sfx.mp3",
+    "/0MAP/Sounds/Sand_footstep_2_sfx.mp3",
+    "/0MAP/Sounds/Sand_footstep_3_sfx.mp3"
+  ],
+  "maparea1": [
+    "/1MAP/Sounds/Grass_footstep_1_sfx.mp3",
+    "/1MAP/Sounds/Grass_footstep_2_sfx.mp3"
+  ],
+  "maparea2": [
+    "/2MAP/Sounds/Wet_footstep_1_sfx.mp3",
+    "/2MAP/Sounds/Wet_footstep_2_sfx.mp3"
+  ],
+  "mapareax": [
+    "/XMAP/Sounds/Hard_surface_footstep_1_sfx.mp3",
+    "/XMAP/Sounds/Hard_surface_footstep_2_sfx.mp3",
+    "/XMAP/Sounds/Hard_surface_footstep_3_sfx.mp3"
+  ]
+};
+
+const ambianceByMap = {
+  "maparea0": "/0MAP/play_area/1_First_loop.mp3",
+  "maparea1": "/1MAP/play_area/Grass_planes_ambiance.mp3",
+  "maparea2": "/2MAP/play_area/Swamp_ambiance.mp3",
+  "mapareax": "/XMAP/play_area/boss_room_ambiance_3.mp3"
+};
+
+// Helper function to safely play a sound
+function safePlaySound(id, url, options = {}, onEnd = null) {
+  // First, ensure we stop any existing instances
+  try {
+    if (sound.exists(id)) {
+      sound.stop(id);
+      sound.remove(id);
+    }
+  } catch (err) {
+    console.warn(`Error cleaning up sound ${id}:`, err);
+  }
+  
+  // Then add the sound again
+  try {
+    sound.add(id, {
+      url: process.env.PUBLIC_URL + url,
+      preload: true,
+      loaded: () => {
+        try {
+          // Play the sound after it's loaded
+          sound.play(id, {
+            ...options,
+            complete: () => {
+              if (onEnd) onEnd();
+              
+              // Clean up after playing to avoid buffer issues
+              if (!options.loop) {
+                try {
+                  sound.remove(id);
+                } catch (e) {
+                  console.warn(`Error removing sound ${id} after play:`, e);
+                }
+              }
+            }
+          });
+        } catch (playError) {
+          console.warn(`Error playing sound ${id}:`, playError);
+          if (onEnd) onEnd(); // Still call onEnd if there's an error
+        }
+      }
+    });
+  } catch (addError) {
+    console.warn(`Error adding sound ${id}:`, addError);
+    if (onEnd) onEnd(); // Still call onEnd if there's an error
+  }
+}
+
+// Helper function to get a consistent resource ID from a path
+function getResourceId(path) {
+  return path.split('/').pop().replace('.mp3', '').toLowerCase();
+}
+
+// Use this function to pre-register all audio resources
+export function registerAudioResources() {
+  // Register all footstep sounds
+  Object.values(footstepSoundsByMap).forEach(soundArray => {
+    soundArray.forEach(soundPath => {
+      sound.add(getResourceId(soundPath), {
+        url: process.env.PUBLIC_URL + soundPath,
+        preload: false
+      });
+    });
+  });
+  
+  // Register all ambiance sounds
+  Object.entries(ambianceByMap).forEach(([mapId, soundPath]) => {
+    sound.add(`ambiance_${mapId}`, {
+      url: process.env.PUBLIC_URL + soundPath,
+      preload: false
+    });
+  });
+  
+  // Register menu and UI sounds
+  sound.add('menu_music', {
+    url: process.env.PUBLIC_URL + '/meniu/Start_menu_music.mp3',
+    preload: false
+  });
+  
+  sound.add('menu_select', {
+    url: process.env.PUBLIC_URL + '/meniu/Sellect.mp3',
+    preload: false
+  });
+  
+  sound.add('menu_start', {
+    url: process.env.PUBLIC_URL + '/meniu/Start.mp3',
+    preload: false
+  });
+  
+  sound.add('portal_enter', {
+    url: process.env.PUBLIC_URL + '/Portal/Portal_enter.mp3',
+    preload: false
+  });
+  
+  sound.add('evil_cackle', {
+    url: process.env.PUBLIC_URL + '/Intro/Evil_cackle_vocal.mp3',
+    preload: false
+  });
+  
+  sound.add('outro_music', {
+    url: process.env.PUBLIC_URL + '/Outro/8_Eight_loop.mp3',
+    preload: false
+  });
+}
+
+// --- VOLUME SETTERS ---
+export function setMusicVolume(vol) {
+  musicVolume = vol;
+  // Update currently playing music/ambiance
+  if (currentAmbianceInstance) {
+    currentAmbianceInstance.volume = musicVolume;
+  }
+  if (sound.exists('menu_music')) {
+    sound.volume('menu_music', musicVolume);
+  }
+  if (sound.exists('outro_music')) {
+    sound.volume('outro_music', musicVolume);
+  }
+}
+
+export function setSfxVolume(vol) {
+  sfxVolume = vol;
+}
+
+// --- AMBIANCE FUNCTIONS ---
+export function playAmbianceForMap(mapId) {
+  if (currentAmbianceMapId === mapId && currentAmbianceInstance) {
+    return;
+  }
+  
+  stopAmbiance();
+  
+  safePlaySound(`ambiance_${mapId}`, ambianceByMap[mapId], {
+    loop: true,
+    volume: musicVolume
+  });
+  
+  currentAmbianceMapId = mapId;
+}
+
+export function stopAmbiance() {
+  if (currentAmbianceMapId && sound.exists(`ambiance_${currentAmbianceMapId}`)) {
+    sound.stop(`ambiance_${currentAmbianceMapId}`);
+    currentAmbianceInstance = null;
+    currentAmbianceMapId = null;
+  }
+}
+
+// --- FOOTSTEP FUNCTIONS ---
+export function getFootstepSoundsForMap(mapId) {
+  return footstepSoundsByMap[mapId] || [];
+}
+
+export function playFootstepLoop(sounds, mapId = null) {
+  // If already playing for this map, do nothing
+  if (currentFootstepMapId === mapId && currentFootstepInstance) {
+    return;
+  }
+  
+  stopFootstepLoop();
+  currentFootstepMapId = mapId;
+  
+  function playNext() {
+    // Only play if still the active map
+    if (currentFootstepMapId !== mapId) {
+      return;
+    }
+    
+    // Select next sound
+    let idx;
+    if (sounds.length > 1) {
+      do {
+        idx = Math.floor(Math.random() * sounds.length);
+      } while (idx === lastFootstepIdx);
+    } else {
+      idx = 0;
+    }
+    lastFootstepIdx = idx;
+    
+    const soundPath = sounds[idx];
+    const resourceId = getResourceId(soundPath);
+    
+    safePlaySound(resourceId, soundPath, {
+      volume: sfxVolume
+    }, playNext);
+  }
+  
+  playNext();
+}
+
+export function stopFootstepLoop() {
+  if (currentFootstepMapId && lastFootstepIdx >= 0) {
+    const sounds = footstepSoundsByMap[currentFootstepMapId] || [];
+    if (sounds[lastFootstepIdx]) {
+      const resourceId = getResourceId(sounds[lastFootstepIdx]);
+      if (sound.exists(resourceId)) {
+        sound.stop(resourceId);
+      }
+    }
+  }
+  
+  currentFootstepInstance = null;
+  currentFootstepMapId = null;
+  lastFootstepIdx = -1;
+}
+
+// --- PORTAL SOUND ---
+export function playPortalSound(onEnd) {
+  safePlaySound('portal_enter', '/Portal/Portal_enter.mp3', {
+    volume: sfxVolume
+  }, onEnd);
+}
+
+// --- MENU SOUNDS ---
+export function playMenuMusic() {
+  safePlaySound('menu_music', '/meniu/Start_menu_music.mp3', {
+    loop: true,
+    volume: musicVolume
+  });
+}
+
+export function stopMenuMusic() {
+  if (sound.exists('menu_music')) {
+    sound.stop('menu_music');
+    try {
+      sound.remove('menu_music');
+    } catch (e) {
+      console.warn("Error removing menu music:", e);
+    }
+  }
+}
+
+export function playMenuSelect() {
+  safePlaySound('menu_select', '/meniu/Sellect.mp3', {
+    volume: sfxVolume
+  });
+}
+
+export function playMenuStart() {
+  safePlaySound('menu_start', '/meniu/Start.mp3', {
+    volume: sfxVolume
+  });
+}
+
+// --- EVIL CACKLE ---
+export function playEvilCackle(onEnd) {
+  safePlaySound('evil_cackle', '/Intro/Evil_cackle_vocal.mp3', {
+    volume: sfxVolume
+  }, onEnd);
+}
+
+// --- OUTRO MUSIC ---
+export function playOutroMusic() {
+  safePlaySound('outro_music', '/Outro/8_Eight_loop.mp3', {
+    loop: true,
+    volume: musicVolume
+  });
+}
+
+export function stopOutroMusic() {
+  if (sound.exists('outro_music')) {
+    sound.stop('outro_music');
+    try {
+      sound.remove('outro_music');
+    } catch (e) {
+      console.warn("Error removing outro music:", e);
+    }
+  }
+}

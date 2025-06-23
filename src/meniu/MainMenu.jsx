@@ -7,9 +7,10 @@ import {
   playMenuStart,
   setMusicVolume,
   setSfxVolume,
-} from "../AudioManager";
+  initAudio,
+} from "../utils/AudioManager";
+// Removed unused import: useGameStore
 
-const loginBg = process.env.PUBLIC_URL + "/meniu/loginscreen.png";
 const menuItems = ["Start", "Options", "Credits"];
 
 export default function MainMenu({ onStart }) {
@@ -18,16 +19,63 @@ export default function MainMenu({ onStart }) {
   const [showCredits, setShowCredits] = useState(false);
   const [musicVolume, setMusicVolumeState] = useState(5);
   const [sfxVolume, setSfxVolumeState] = useState(7);
+  const loginBg = process.env.PUBLIC_URL + "/meniu/loginscreen.png";
+
+  // Function to initialize audio and play music on user interaction
+  const handleUserInteraction = () => {
+    try {
+      // Initialize audio on first interaction
+      initAudio();
+      
+      // Slight delay before playing music to ensure context is ready
+      setTimeout(() => {
+        try {
+          playMenuMusic();
+        } catch (playError) {
+          console.warn('Error playing menu music:', playError);
+        }
+      }, 100);
+    } catch (e) {
+      console.warn('Error initializing audio:', e);
+    }
+    
+    // Remove event listeners once initialized regardless of success/failure
+    document.removeEventListener('click', handleUserInteraction);
+    document.removeEventListener('touchstart', handleUserInteraction);
+    document.removeEventListener('keydown', handleUserInteraction);
+  };
 
   useEffect(() => {
-    playMenuMusic();
+    // Set up volume
     setMusicVolume(musicVolume / 10);
     setSfxVolume(sfxVolume / 10);
+    
+    // Add event listeners to initialize audio on user interaction
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('touchstart', handleUserInteraction);
+    document.addEventListener('keydown', handleUserInteraction);
+    
+    // Try to play music immediately (might be blocked by autoplay policy)
+    try {
+      playMenuMusic();
+    } catch (e) {
+      console.warn('Error playing menu music on load:', e);
+    }
+    
     return () => {
-      stopMenuMusic();
+      try {
+        stopMenuMusic();
+      } catch (e) {
+        console.warn('Error stopping menu music:', e);
+      }
+      
+      // Clean up event listeners
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
     };
-    // eslint-disable-next-line
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [musicVolume, sfxVolume]);
 
   useEffect(() => {
     setMusicVolume(musicVolume / 10);
@@ -62,19 +110,13 @@ export default function MainMenu({ onStart }) {
     }, 400);
   };
 
-return (
+  return (
     <div
       className="main-menu-bg"
       style={{
         backgroundImage: `url(${loginBg})`,
         backgroundSize: "cover",
-        backgroundPosition: "center",
-        minHeight: "100vh",
-        minWidth: "100vw",
-        position: "fixed",
-        top: 0,
-        left: 0,
-        zIndex: 100,
+        backgroundPosition: "center"
       }}
     >
       <div className="main-menu-overlay">
@@ -84,21 +126,6 @@ return (
             <li key={item}>
               <button
                 className={`main-menu-btn${selected === idx ? " selected" : ""}`}
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "2px solid rgba(128,0,255,0.3)",
-                  color: "#a259ff",
-                  fontWeight: "bold",
-                  fontSize: "2rem",
-                  letterSpacing: "2px",
-                  margin: "18px 0",
-                  padding: "18px 60px",
-                  borderRadius: "18px",
-                  cursor: "pointer",
-                  transition: "background 0.2s, color 0.2s",
-                  opacity: selected === idx ? 1 : 0.7,
-                  boxShadow: selected === idx ? "0 0 16px #a259ff88" : "none",
-                }}
                 onClick={() => {
                   handleMenuClick(idx);
                   if (item === "Start") handleStart();
@@ -152,7 +179,6 @@ return (
               <div>Programming: <b>Algirdas Kazlauskas </b></div>
               <div>Art: <b>Domantas Drebulys </b></div>
               <div>Music director: <b>Emilis Kazlauskas</b></div>
-              {/* Add more names/roles as needed */}
             </div>
             <button
               className="main-menu-btn"

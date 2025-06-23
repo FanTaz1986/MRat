@@ -3,6 +3,12 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { initImageErrorHandling } from './utils/ImageErrorHandler';
+import { initPixiErrorHandling } from './utils/PixiErrorHandler';
+
+// Initialize global error handling for images and PixiJS
+initImageErrorHandling();
+initPixiErrorHandling();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

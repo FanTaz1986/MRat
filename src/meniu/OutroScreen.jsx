@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { playOutroMusic, stopOutroMusic } from "../AudioManager";
+import { playOutroMusic, stopOutroMusic } from "../utils/AudioManager";
 
 const outroImg = process.env.PUBLIC_URL + "/Outro/debeseliai.png";
 

@@ -1,140 +1,145 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, Suspense } from "react";
+import { createAssetLoader } from "./utils/AssetLoader";
+import { useGameStore } from "./stores/gameStore";
 import MainMenu from "./meniu/MainMenu";
 import IntroScreen from "./meniu/IntroScreen";
-import MapRouter from "./MapRouter";
 import OutroScreen from "./meniu/OutroScreen";
-import { playEvilCackle } from "./AudioManager";
+import LoadingScreen from "./meniu/LoadingScreen";
+import { playEvilCackle } from "./utils/AudioManager";
+import { initPixiErrorHandling } from "./utils/PixiErrorHandler";
 import './App.css';
 
-// Import prop file arrays
-import { propFilesA, propFilesB } from "./Map1/mapprops1";
-import { propFiles0, getLinePropsForTile as getLinePropsForTile0 } from "./Map0/mapprops0";
-import { propFilesA as propFiles2A } from "./Map2/mapprops2";
-import { propFiles0 as propFilesX0 } from "./MapX/mappropsX";
+// Initialize PixiJS error handling
+initPixiErrorHandling();
 
-// Portal area props (hardcoded here to avoid circular import)
-const portalPropFiles = [
-  "1CBush.png",
-  "1CTree.png",
-  "2CBush.png",
-  "2CTree.png",
-  "3CTree.png",
-  "1C.png"
-];
+// Lazy load the game component to reduce initial load time
+const GameScreen = React.lazy(() => import("./Game/GameScreen"));
 
-function preloadImage(src) {
-  const img = new window.Image();
-  img.src = src;
-}
+// Create asset loader instance
+const assetLoader = createAssetLoader();
 
 function App() {
-  const [started, setStarted] = useState(false);
-  const [showIntro, setShowIntro] = useState(false);
-  const [showOutro, setShowOutro] = useState(false);
-
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const { gameState, setGameState } = useGameStore();
+  
+  // Load all assets on mount
   useEffect(() => {
-    // Preload Map1A props
-    propFilesA.forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/1MAP/Props/" + file)
-    );
-    // Preload Map1B props
-    propFilesB.forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/1MAP/Props/" + file)
-    );
-    // Preload portal area props
-    portalPropFiles.forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/1MAP/Props/" + file)
-    );
-    // Preload Map1 map images
-    preloadImage(process.env.PUBLIC_URL + "/1MAP/play_area/1Amap.png");
-    preloadImage(process.env.PUBLIC_URL + "/1MAP/play_area/1Bmap.png");
-    // Preload Map0 map image and props
-    preloadImage(process.env.PUBLIC_URL + "/0MAP/play_area/Jura.png");
-    // Preload Map0 props (get all unique prop files from getLinePropsForTile)
-    const map0Props = getLinePropsForTile0("0_0", 2048);
-    const uniqueMap0Files = Array.from(new Set(map0Props.map(p => p.file)));
-    uniqueMap0Files.forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/0MAP/Props/" + file)
-    );
-    // Preload Map2 props and map
-    propFiles2A.forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/2MAP/Props/" + file)
-    );
-    preloadImage(process.env.PUBLIC_URL + "/2MAP/play_area/1Amap.png");
-    // Preload MapX props and map
-    propFilesX0.forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/XMAP/Props/" + file)
-    );
-    preloadImage(process.env.PUBLIC_URL + "/XMAP/play_area/cave_water.png");
-    // Preload MapX footstep sounds
-    [
-      "Hard_surface_footstep_1_sfx.mp3",
-      "Hard_surface_footstep_2_sfx.mp3",
-      "Hard_surface_footstep_3_sfx.mp3"
-    ].forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/XMAP/Sounds/" + file)
-    );
-    // Preload Map0 footstep sounds
-    [
-      "Sand_footstep_1_sfx.mp3",
-      "Sand_footstep_2_sfx.mp3",
-      "Sand_footstep_3_sfx.mp3"
-    ].forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/0MAP/Sounds/" + file)
-    );
-    // Preload Map1 footstep sounds
-    [
-      "Grass_footstep_1_sfx.mp3",
-      "Grass_footstep_2_sfx.mp3"
-    ].forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/1MAP/Sounds/" + file)
-    );
-    // Preload Map2 footstep sounds
-    [
-      "Wet_footstep_1_sfx.mp3",
-      "Wet_footstep_2_sfx.mp3"
-    ].forEach(file =>
-      preloadImage(process.env.PUBLIC_URL + "/2MAP/Sounds/" + file)
-    );
-    // Preload portal animation frames if you have them (example)
-    // import { portalFrames } from "./portalprop";
-    // portalFrames.forEach(src => preloadImage(src));
-  }, []);
+    const assetManifest = {
+      images: [
+        // Map images
+        { name: "map1A", url: "/1MAP/play_area/1Amap.png" },
+        { name: "map1B", url: "/1MAP/play_area/1Bmap.png" },
+        { name: "map0", url: "/0MAP/play_area/Jura.png" },
+        { name: "mapX", url: "/XMAP/play_area/cave_water.png" },
+        { name: "map2", url: "/2MAP/play_area/1Amap.png" },
+        
+        // Map1 props
+        { name: "1a_bush", url: "/1MAP/Props/1ABush.png" },
+        { name: "1a_tree", url: "/1MAP/Props/1ATree.png" },
+        { name: "2a_tree", url: "/1MAP/Props/2ATree.png" },
+        { name: "3a_tree", url: "/1MAP/Props/3ATree.png" },
+        { name: "4a_tree", url: "/1MAP/Props/4Atree.png" },
+        { name: "1b_bush", url: "/1MAP/Props/1BBush.png" },
+        { name: "1b_tree", url: "/1MAP/Props/1BTree.png" },
+        { name: "2b_tree", url: "/1MAP/Props/2BTree.png" },
+        { name: "3b_tree", url: "/1MAP/Props/3BTree.png" },
+        { name: "1_grass", url: "/1MAP/Props/1Grass.png" },
+        { name: "2_grass", url: "/1MAP/Props/2Grass.png" },
+        { name: "3_grass", url: "/1MAP/Props/3Grass.png" },
+        { name: "4_grass", url: "/1MAP/Props/4Grass.png" },
+        
+        // Map2 props
+        { name: "map2_1A", url: "/2MAP/Props/1A.png" },
+        { name: "map2_2A", url: "/2MAP/Props/2A.png" },
+        { name: "map2_3A", url: "/2MAP/Props/3A.png" },
+        { name: "map2_4A", url: "/2MAP/Props/4A.png" },
+        { name: "map2_5A", url: "/2MAP/Props/5A.png" },
+        { name: "map2_1C", url: "/2MAP/Props/1C.png" },
+        { name: "map2_fog", url: "/2MAP/Effects/fog.png" },
+        
+        // UI images
+        { name: "introSky", url: "/Intro/sky.png" },
+        { name: "menuBg", url: "/meniu/loginscreen.png" },
+        { name: "outroBg", url: "/Outro/debeseliai.png" },
+        
+        // Character frames
+        { name: "char_idle_down", url: "/Main_char_frames/0F.png" },
+        { name: "char_idle_up", url: "/Main_char_frames/0B.png" },
+        { name: "char_idle_left", url: "/Main_char_frames/0L.png" },
+        { name: "char_idle_right", url: "/Main_char_frames/0R.png" },
+        // Add all other character frames
+      ],
+      sprites: [
+        // Using a different approach for character frames
+      ],
+      audio: [
+        // Audio manifest is kept for progress tracking only
+        // All audio is now loaded on demand by AudioManager.js using Howler
+        { name: "menuMusic", url: "/meniu/Start_menu_music.mp3" }, // Updated path to match AudioManager
+        { name: "portalSound", url: "/Portal/Portal_enter.mp3" },
+        { name: "evilLaugh", url: "/Intro/Evil_cackle_vocal.mp3" }, // Updated path to match AudioManager 
+        { name: "footstep_grass1", url: "/1MAP/Sounds/Grass_footstep_1_sfx.mp3" },
+        { name: "footstep_grass2", url: "/1MAP/Sounds/Grass_footstep_2_sfx.mp3" },
+        // Audio list is now only used for loading progress calculation
+      ]
+    };
 
+    assetLoader.loadAssets(assetManifest, (progress) => {
+      setLoadingProgress(progress);
+      if (progress === 100) {
+        setTimeout(() => setAssetsLoaded(true), 500);
+      }
+    });
+  }, []);
+  
   // Handler for Begin button: play cackle, then start game
   function handleBeginWithCackle() {
-    playEvilCackle(() => setStarted(true));
+    playEvilCackle(() => setGameState('PLAYING'));
+  }
+  
+  // Render the appropriate screen based on game state
+  function renderGameScreen() {
+    switch (gameState) {
+      case 'MENU':
+        return <MainMenu onStart={() => setGameState('INTRO')} />;
+      
+      case 'INTRO':
+        return (
+          <IntroScreen
+            onBack={() => setGameState('MENU')}
+            onBeginCackle={handleBeginWithCackle}
+          />
+        );
+      
+      case 'PLAYING':
+        return (
+          <Suspense fallback={<LoadingScreen progress={100} message="Starting game..." />}>
+            <GameScreen onGameEnd={() => setGameState('OUTRO')} />
+          </Suspense>
+        );
+      
+      case 'OUTRO':
+        return (
+          <OutroScreen
+            onMainMenu={() => setGameState('MENU')}
+            onEnd={() => window.close()}
+          />
+        );
+        
+      default:
+        return <MainMenu onStart={() => setGameState('INTRO')} />;
+    }
+  }
+
+  // Show loading screen until assets are loaded
+  if (!assetsLoaded) {
+    return <LoadingScreen progress={loadingProgress} />;
   }
 
   return (
-    <div className="App" style={{ minHeight: "100vh", minWidth: "100vw", position: "relative", overflow: "hidden" }}>
-      {!started && !showIntro && (
-        <MainMenu onStart={() => setShowIntro(true)} />
-      )}
-      {showIntro && !started && (
-        <IntroScreen
-          onBack={() => setShowIntro(false)}
-          onBeginCackle={handleBeginWithCackle}
-        />
-      )}
-            {started && !showOutro && (
-        <MapRouter
-          onGameEnd={() => {
-            setStarted(false);
-            setShowOutro(true);
-          }}
-        />
-      )}
-      {showOutro && (
-        <OutroScreen
-          onMainMenu={() => {
-            setShowOutro(false);
-            setShowIntro(false);
-            setStarted(false);
-          }}
-          onEnd={() => window.close()}
-        />
-      )}
+    <div className="App">
+      {renderGameScreen()}
     </div>
   );
 }

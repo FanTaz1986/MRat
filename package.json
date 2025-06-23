@@ -3,26 +3,38 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^13.5.0",
+    "@pixi/sound": "^5.2.3",
     "classnames": "^2.5.1",
-    "framer-motion": "^12.17.3",
+    "detect-collisions": "^9.1.1",
+    "fontfaceobserver": "^2.3.0",
+    "fps-emitter": "^1.0.0",
     "howler": "^2.2.4",
-    "konva": "^9.3.20",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-konva": "^19.0.5",
+    "lodash.throttle": "^4.1.1",
+    "matter-js": "^0.19.0",
+    "pathfinding": "^0.4.18",
+    "pixi.js": "^7.4.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-pixi-fiber": "^1.0.6",
     "react-scripts": "^5.0.1",
-    "web-vitals": "^2.1.4",
-    "zustand": "^5.0.5"
+    "stats.js": "^0.17.0",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.5.1",
+    "eslint": "^8.57.0",
+    "jest-canvas-mock": "^2.5.2",
+    "prettier": "^3.1.1",
+    "web-vitals": "^3.5.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "profile": "react-scripts start --profile"
   },
   "eslintConfig": {
     "extends": [
@@ -41,9 +53,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "eslint": "^8.57.1",
-    "prettier": "^3.5.3"
   }
 }
