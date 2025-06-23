@@ -192,6 +192,11 @@ export default class Map2 {
         sprite.anchor.set(0.5);
         sprite.zIndex = prop.zIndex || 1;
         
+        // Handle mirroring (horizontal flip)
+        if (prop.mirrored) {
+          sprite.scale.x = -Math.abs(sprite.scale.x);
+        }
+        
         // Apply visual effects for portal areas
         if (prop.alpha !== undefined) {
           sprite.alpha = prop.alpha;
@@ -209,7 +214,7 @@ export default class Map2 {
         this.layers.props.addChild(sprite);
         this.props.push(sprite);
         
-        debugLog(`Loaded prop: ${fileName}, scale: ${prop.scale.toFixed(2)}, rotation: ${(prop.rotation * 180 / Math.PI).toFixed(0)}°, zIndex: ${sprite.zIndex}`, 'map');
+        debugLog(`Loaded prop: ${fileName}, scale: ${prop.scale.toFixed(2)}, rotation: ${(prop.rotation * 180 / Math.PI).toFixed(0)}°, zIndex: ${sprite.zIndex}${prop.mirrored ? ', mirrored' : ''}`, 'map');
       } catch (error) {
         debugLog(`Failed to load prop: ${prop.file || prop.texturePath} - ${error.message}`, 'map');
       }

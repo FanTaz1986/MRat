@@ -205,6 +205,10 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
         if (prop.tint !== undefined) {
           sprite.tint = prop.tint;
         }
+        // Handle mirroring (horizontal flip)
+        if (prop.mirrored) {
+          sprite.scale.x = -Math.abs(sprite.scale.x);
+        }
 
         // Store the original texture path for debugging (store the filename)
         sprite._originalTexturePath = prop.texturePath;
