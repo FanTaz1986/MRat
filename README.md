@@ -33,7 +33,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to play.
 
 ## 🎮 Basic Game Controls
 
-- **Movement:** Use the arrow keys (`←`, `↑`, `→`, `↓`) or `W`, `A`, `S`, `D` to move your character.
+- **Movement:** Use the arrow keys (`←`, `↑`, `→`, `↓`) to move your character.
 - **Interact:** Use the `Spacebar` to enter a portal when standing on it.
 - **Camera:** The camera follows your character automatically.
 - **Portals:** Stand on a portal tile and press `Spacebar` to teleport to another map area.
