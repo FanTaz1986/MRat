@@ -142,14 +142,16 @@ const resizeHandler = () => {
       // Expose character and camera globally for debug access
       if (window.game && mapManager.current) {
         window.game.characterManager = {
-          character: mapManager.current.character
+          character: mapManager.current.character,
+          pet: mapManager.current.pet
         };
         window.game.cameras = {
           main: mapManager.current.camera
         };
         
-        console.log('🎮 Character and camera exposed globally:', {
+        console.log('🎮 Character, pet, and camera exposed globally:', {
           character: !!window.game.characterManager.character,
+          pet: !!window.game.characterManager.pet,
           camera: !!window.game.cameras.main
         });
       }

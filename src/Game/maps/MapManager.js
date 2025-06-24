@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import Character from '../entities/Character';
+import Pet from '../entities/Pet';
 import CameraController from '../engine/CameraController';
 import PortalManager from '../engine/Portal/PortalManager';
 import Map0 from './Map0';
@@ -14,6 +15,7 @@ export default class MapManager {
     this.app = app;
     this.currentMap = null;
     this.character = null;
+    this.pet = null;
     this.camera = null;
     this.mapContainer = null;
     this.portalManager = null;
@@ -157,6 +159,23 @@ export default class MapManager {
     // Make sure the character layer has sortable children
     this.characterLayer.sortableChildren = true;
     debugLog(`Character layer sortableChildren enabled: ${this.characterLayer.sortableChildren}`, 'character');
+    
+    // Create pet companion
+    const petStartPosition = {
+      x: characterPosition.x + (targetPosition ? 50 : 100), // Closer when teleporting
+      y: characterPosition.y + (targetPosition ? 0 : 20)    // Slightly offset when not teleporting
+    };
+    this.pet = new Pet(this.app, petStartPosition.x, petStartPosition.y, mapId);
+    this.pet.setCharacter(this.character); // Connect pet to character for following behavior
+    this.pet.setBounds(mapConfig.bounds); // Set map boundaries for pet
+    
+    // Add pet to character layer with proper z-indexing
+    this.characterLayer.addChild(this.pet.getSprite());
+    
+    debugLog(`Pet created at position: ${petStartPosition.x}, ${petStartPosition.y}`, 'pet');
+    debugLog(`Pet level for map ${mapId}: ${this.pet.currentLevel}`, 'pet');
+    debugLog(`Pet max distance: ${this.pet.currentMaxDistance}px`, 'pet');
+    debugLog(`Pet sprite added to character layer with z-index: ${this.pet.getSprite().zIndex}`, 'pet');
     
     // Debug layer hierarchy    debugLog(`Map container children count: ${this.mapContainer.children.length}`, 'character');
     debugLog(`Background layer index: ${this.mapContainer.getChildIndex(this.backgroundLayer)}`, 'character');
@@ -578,6 +597,12 @@ export default class MapManager {
     if (this.character) {
       this.character.destroy();
       this.character = null;
+    }
+    
+    // Destroy pet
+    if (this.pet) {
+      this.pet.destroy();
+      this.pet = null;
     }
     
     // Destroy camera

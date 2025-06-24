@@ -94,6 +94,24 @@ function App() {
         { name: "char_idle_right_2", url: "/Main_char_frames/2R.png" },
         { name: "char_idle_right_3", url: "/Main_char_frames/3R.png" },
         { name: "char_idle_right_4", url: "/Main_char_frames/4R.png" },
+        
+        // Pet frames - Level 0
+        { name: "pet_idle_0", url: "/Ziurke/0lvl/1_ziurke_still.png" },
+        { name: "pet_move_0_1", url: "/Ziurke/0lvl/1_ejimas_1.png" },
+        { name: "pet_move_0_2", url: "/Ziurke/0lvl/1_ejimas_2.png" },
+        { name: "pet_attack_0", url: "/Ziurke/0lvl/1_ziurke_spjauna.png" },
+        
+        // Pet frames - Level 1
+        { name: "pet_idle_1", url: "/Ziurke/1lvl/2_ziurke_still.png" },
+        { name: "pet_move_1_1", url: "/Ziurke/1lvl/2_ejimas_1.png" },
+        { name: "pet_move_1_2", url: "/Ziurke/1lvl/2_ejimas_2.png" },
+        { name: "pet_attack_1", url: "/Ziurke/1lvl/2_ziurke_spjauna.png" },
+        
+        // Pet frames - Level 2
+        { name: "pet_idle_2", url: "/Ziurke/2lvl/3_ziurke_still.png" },
+        { name: "pet_move_2_1", url: "/Ziurke/2lvl/3_ejimas_1.png" },
+        { name: "pet_move_2_2", url: "/Ziurke/2lvl/3_ejimas_2.png" },
+        { name: "pet_attack_2", url: "/Ziurke/2lvl/3_ziurke_spjauna.png" },
       ],
       sprites: [
         // Using a different approach for character frames

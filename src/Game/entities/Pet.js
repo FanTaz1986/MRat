@@ -15,6 +15,24 @@ export default class Pet {
     this.isAttacking = false;
     this.attackDuration = 100; // ms
     this.lastAttackTime = 0;
+    
+    // Growth and range system
+    this.characterReference = null; // Reference to main character
+    this.baseRange = 164; // Base range (one character height) for map0
+    this.currentRange = this.baseRange;
+    
+    // Pet scaling based on level/map
+    this.baseScale = 0.7; // Base scale for map0
+    this.currentScale = this.baseScale;
+    this.isFollowing = false; // Whether pet is following the character
+    this.followSpeed = 4.5; // Slightly faster than move speed when following
+    
+    // Character reference for following
+    this.character = null;
+    
+    // Distance limits based on character size
+    this.baseMaxDistance = 164; // One character height at map0
+    this.currentMaxDistance = this.baseMaxDistance;
 
     // Animation frames by direction
     this.frameIndices = {
@@ -43,9 +61,15 @@ export default class Pet {
   setupSprite() {
     debugLog('Setting up pet sprite', 'pet');
 
-    // Helper to create mirrored texture
+    // Helper to create mirrored texture with high quality
     const createMirroredTexture = (path) => {
       const baseTexture = PIXI.BaseTexture.from(process.env.PUBLIC_URL + path);
+      
+      // High-quality settings for pet textures
+      baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+      baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+      baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+      
       const frame = new PIXI.Rectangle(0, 0, baseTexture.width, baseTexture.height);
       const texture = new PIXI.Texture(baseTexture, frame);
       texture.defaultAnchor = new PIXI.Point(0.5, 0.5);
@@ -53,9 +77,16 @@ export default class Pet {
       return texture;
     };
 
-    // Helper to create normal texture
+    // Helper to create normal texture with high quality
     const createTexture = (path) => {
-      const texture = PIXI.Texture.from(process.env.PUBLIC_URL + path);
+      const baseTexture = PIXI.BaseTexture.from(process.env.PUBLIC_URL + path);
+      
+      // High-quality settings for pet textures
+      baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+      baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+      baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+      
+      const texture = new PIXI.Texture(baseTexture);
       texture.defaultAnchor = new PIXI.Point(0.5, 0.5);
       return texture;
     };
@@ -103,8 +134,11 @@ export default class Pet {
       attack_left_2: [createMirroredTexture('/Ziurke/2lvl/3_ziurke_spjauna.png')],
     };
 
-    // Set current level (0, 1, or 2)
-    this.currentLevel = 0;
+    // Set current level based on map
+    this.currentLevel = this.getPetLevelForMap(this.mapId);
+    
+    // Calculate max distance based on level
+    this.currentMaxDistance = this.baseMaxDistance * (1 + this.currentLevel);
 
     // Default to idle right for current level
     this.sprite = new PIXI.Sprite(this.animations[`idle_${this.currentLevel}`][0]);
@@ -112,16 +146,22 @@ export default class Pet {
     this.sprite.visible = true;
     this.sprite.alpha = 1;
 
-    // Scale to match character (assume 164px width as in Character.js)
-    const desiredWidth = 164;
-    const scale = desiredWidth / 2790;
+    // Scale based on map (different sizes for different maps) with high-quality scaling
+    const petSize = this.getPetSizeForMap(this.mapId);
+    const scale = petSize / 2790; // 2790 is original art width
+    
+    // Apply high-quality scaling for crisp pet rendering
     this.sprite.scale.set(scale);
+    this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+    this.sprite.roundPixels = false; // Allow sub-pixel positioning for smooth movement
 
     this.sprite.position.set(this.position.x, this.position.y);
     this.sprite.zIndex = 999; // Just below main character (1000)
 
-    // Add to stage or relevant container in your game logic
-    this.app.stage.addChild(this.sprite);
+    // Don't add to stage here - let MapManager add it to the proper layer
+    // this.app.stage.addChild(this.sprite);
+    
+    debugLog(`Pet: Initialized for map ${this.mapId} - Level: ${this.currentLevel}, Size: ${petSize}px, Scale: ${scale.toFixed(4)}`, 'pet');
   }
 
   setupInputListeners() {
@@ -133,6 +173,7 @@ export default class Pet {
   }
 
   handleKeyDown(e) {
+    // Pet controls - only WASD and spacebar, not teleport key 'T'
     switch (e.key.toLowerCase()) {
       case 'w':
         this.keys.up = true;
@@ -147,6 +188,7 @@ export default class Pet {
         this.keys.right = true;
         break;
       case ' ':
+        e.preventDefault(); // Prevent default spacebar behavior
         if (!this.isAttacking) {
           this.keys.attack = true;
           this.isAttacking = true;
@@ -188,9 +230,13 @@ export default class Pet {
         // Show attack frame
         if (this.direction === 'left') {
           this.sprite.texture = this.animations[`attack_left_${this.currentLevel}`][0];
+          // Ensure high-quality rendering for attack texture
+          this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
           this.sprite.scale.set(-Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
         } else {
           this.sprite.texture = this.animations[`attack_${this.currentLevel}`][0];
+          // Ensure high-quality rendering for attack texture
+          this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
           this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
         }
         return;
@@ -220,8 +266,48 @@ export default class Pet {
     else if (dx > 0) this.direction = 'right';
 
     // Update position
-    this.position.x += this.velocity.x;
-    this.position.y += this.velocity.y;
+    let newX = this.position.x + this.velocity.x;
+    let newY = this.position.y + this.velocity.y;
+    
+    // Check if the pet would move out of allowed range from character
+    if (this.character && this.character.position) {
+      const futureDistance = Math.sqrt(
+        Math.pow(newX - this.character.position.x, 2) +
+        Math.pow(newY - this.character.position.y, 2)
+      );
+      
+      // If the pet would move out of range, restrict movement
+      if (futureDistance > this.currentMaxDistance) {
+        // Calculate the maximum allowed position
+        const currentDistance = Math.sqrt(
+          Math.pow(this.position.x - this.character.position.x, 2) +
+          Math.pow(this.position.y - this.character.position.y, 2)
+        );
+        
+        if (currentDistance < this.currentMaxDistance) {
+          // Pet is within range but trying to move out - allow partial movement
+          const dx = newX - this.character.position.x;
+          const dy = newY - this.character.position.y;
+          const angle = Math.atan2(dy, dx);
+          
+          newX = this.character.position.x + Math.cos(angle) * this.currentMaxDistance;
+          newY = this.character.position.y + Math.sin(angle) * this.currentMaxDistance;
+        } else {
+          // Pet is already at or beyond range - don't allow movement away from character
+          newX = this.position.x;
+          newY = this.position.y;
+        }
+      }
+    }
+    
+    // Also check bounds to prevent pet from going outside map
+    if (this.bounds) {
+      newX = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, newX));
+      newY = Math.max(this.bounds.minY, Math.min(this.bounds.maxY, newY));
+    }
+    
+    this.position.x = newX;
+    this.position.y = newY;
     this.sprite.position.set(this.position.x, this.position.y);
 
     // Animation
@@ -237,18 +323,174 @@ export default class Pet {
       }
       if (this.direction === 'left') {
         this.sprite.texture = this.animations[`move_left_${this.currentLevel}`][this.frameIndices.left];
+        // Ensure high-quality rendering for new texture
+        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
         this.sprite.scale.set(-Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       } else {
         this.sprite.texture = this.animations[`move_${this.currentLevel}`][this.frameIndices.right];
+        // Ensure high-quality rendering for new texture
+        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
         this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       }
     } else {
       // Idle
       if (this.direction === 'left') {
         this.sprite.texture = this.animations[`idle_left_${this.currentLevel}`][0];
+        // Ensure high-quality rendering for new texture
+        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
         this.sprite.scale.set(-Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       } else {
         this.sprite.texture = this.animations[`idle_${this.currentLevel}`][0];
+        // Ensure high-quality rendering for new texture
+        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
+      }
+    }
+
+    // Check following behavior (only when not being controlled by player)
+    const playerControlling = this.keys.up || this.keys.down || this.keys.left || this.keys.right;
+    
+    if (this.character && !this.isAttacking && !playerControlling) {
+      if (this.isOutOfRange()) {
+        this.moveTowardsCharacter(delta);
+        return; // Skip other animations when following
+      }
+    }
+  }
+
+  // Set character reference for following behavior
+  setCharacter(character) {
+    this.character = character;
+    debugLog('Pet: Character reference set for following behavior', 'pet');
+  }
+
+  // Get the pet sprite for adding to containers
+  getSprite() {
+    return this.sprite;
+  }
+
+  // Calculate pet size based on current map
+  getPetSizeForMap(mapId) {
+    const characterSize = 164; // Base character size
+    
+    switch (mapId) {
+      case 'maparea0':
+        return characterSize * 0.25; // 2x larger - 1/4 of character size
+      case 'maparea1':
+        return characterSize * 0.5;  // 2x larger - 1/2 of character size  
+      case 'maparea2':
+      case 'mapareax':
+        return characterSize * 1.0;  // 2x larger - same as character size
+      default:
+        return characterSize * 0.25;  // Default to smallest size
+    }
+  }
+
+  // Calculate pet level based on map
+  getPetLevelForMap(mapId) {
+    switch (mapId) {
+      case 'maparea0':
+        return 0; // Smallest level
+      case 'maparea1':
+        return 1; // Medium level
+      case 'maparea2':
+      case 'mapareax':
+        return 2; // Largest level
+      default:
+        return 0;
+    }
+  }
+
+  // Update pet when map changes
+  updateForMap(mapId) {
+    this.mapId = mapId;
+    this.currentLevel = this.getPetLevelForMap(mapId);
+    
+    // Update max distance based on level (100% more each level)
+    this.currentMaxDistance = this.baseMaxDistance * (1 + this.currentLevel);
+    
+    // Update sprite size with high-quality scaling
+    const newSize = this.getPetSizeForMap(mapId);
+    const scale = newSize / 2790; // 2790 is original art width
+    this.sprite.scale.set(Math.abs(scale), Math.abs(scale));
+    
+    // Ensure high-quality rendering after resize
+    this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+    this.sprite.roundPixels = false;
+    
+    // Preserve direction when updating scale
+    if (this.direction === 'left') {
+      this.sprite.scale.x = -Math.abs(this.sprite.scale.x);
+    }
+    
+    debugLog(`Pet: Updated for map ${mapId} - Level: ${this.currentLevel}, Size: ${newSize}px, Max Distance: ${this.currentMaxDistance}px`, 'pet');
+  }
+
+  // Set bounds for the pet (prevent it from going outside map)
+  setBounds(bounds) {
+    this.bounds = bounds;
+    debugLog(`Pet bounds set: ${JSON.stringify(bounds)}`, 'pet');
+  }
+
+  // Check if pet is too far from character
+  isOutOfRange() {
+    if (!this.character || !this.character.position) {
+      return false;
+    }
+    
+    const distance = Math.sqrt(
+      Math.pow(this.position.x - this.character.position.x, 2) +
+      Math.pow(this.position.y - this.character.position.y, 2)
+    );
+    
+    return distance > this.currentMaxDistance;
+  }
+
+  // Move pet towards character when out of range
+  moveTowardsCharacter(delta) {
+    if (!this.character || !this.character.position) {
+      return;
+    }
+    
+    const dx = this.character.position.x - this.position.x;
+    const dy = this.character.position.y - this.position.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance > 0) {
+      // Normalize direction and apply speed
+      const normalizedDx = dx / distance;
+      const normalizedDy = dy / distance;
+      
+      // Move at double speed when following
+      const followSpeed = this.moveSpeed * 2;
+      
+      this.position.x += normalizedDx * followSpeed * delta;
+      this.position.y += normalizedDy * followSpeed * delta;
+      this.sprite.position.set(this.position.x, this.position.y);
+      
+      // Update direction based on movement
+      if (normalizedDx < 0) {
+        this.direction = 'left';
+      } else if (normalizedDx > 0) {
+        this.direction = 'right';
+      }
+      
+      // Update animation while following
+      const now = Date.now();
+      if (!this.lastFrameTime || now - this.lastFrameTime > this.frameUpdateInterval) {
+        this.lastFrameTime = now;
+        this.frameIndices[this.direction] = (this.frameIndices[this.direction] + 1) % 2;
+      }
+      
+      if (this.direction === 'left') {
+        this.sprite.texture = this.animations[`move_left_${this.currentLevel}`][this.frameIndices.left];
+        // Ensure high-quality rendering for following texture
+        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        this.sprite.scale.set(-Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
+      } else {
+        this.sprite.texture = this.animations[`move_${this.currentLevel}`][this.frameIndices.right];
+        // Ensure high-quality rendering for following texture
+        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
         this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       }
     }
@@ -258,9 +500,11 @@ export default class Pet {
     this.app.ticker.remove(this.update, this);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
-    if (this.sprite.parent) {
+    if (this.sprite && this.sprite.parent) {
       this.sprite.parent.removeChild(this.sprite);
     }
-    this.sprite.destroy();
+    if (this.sprite) {
+      this.sprite.destroy();
+    }
   }
 }
