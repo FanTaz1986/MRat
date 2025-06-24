@@ -9,7 +9,7 @@ import { createDebugOverlay, initializeConsoleCapture, debugLog } from "../devel
 
 // PIXI settings for best performance
 // Use BaseTexture.defaultOptions instead of deprecated settings.SCALE_MODE
-PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.NEAREST;
+PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.LINEAR;
 PIXI.settings.ROUND_PIXELS = true;
 
 export default function GameScreen({ onGameEnd }) {
@@ -31,11 +31,15 @@ export default function GameScreen({ onGameEnd }) {
       backgroundColor: 0x000000,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
-      antialias: false,
+      antialias: true,
     });
     
-    // Add canvas to DOM
-    gameContainerRef.current.appendChild(pixiApp.current.view);
+// Add canvas to DOM
+gameContainerRef.current.appendChild(pixiApp.current.view);
+// Force canvas to always fill the container and match window size
+pixiApp.current.view.style.width = window.innerWidth + 'px';
+pixiApp.current.view.style.height = window.innerHeight + 'px';
+pixiApp.current.view.style.display = 'block';
       // Initialize game engine with the PIXI app
     initializeGameEngine(pixiApp.current);
     
@@ -54,12 +58,18 @@ export default function GameScreen({ onGameEnd }) {
     }
     
     // Handle resizing
-    const resizeHandler = () => {
-      pixiApp.current.renderer.resize(window.innerWidth, window.innerHeight);
-      if (mapManager.current) {
-        mapManager.current.handleResize();
-      }
-    };
+const resizeHandler = () => {
+  pixiApp.current.renderer.resize(window.innerWidth, window.innerHeight);
+  pixiApp.current.view.style.width = window.innerWidth + 'px';
+  pixiApp.current.view.style.height = window.innerHeight + 'px';
+  if (gameContainerRef.current) {
+    gameContainerRef.current.style.width = window.innerWidth + 'px';
+    gameContainerRef.current.style.height = window.innerHeight + 'px';
+  }
+  if (mapManager.current) {
+    mapManager.current.handleResize();
+  }
+};
     
     window.addEventListener('resize', resizeHandler);    // Set app as ready
     setAppReady(true);
@@ -154,8 +164,8 @@ export default function GameScreen({ onGameEnd }) {
     <div 
       ref={gameContainerRef}
       style={{
-        width: '100vw',
-        height: '100vh',
+        width: window.innerWidth + 'px',
+        height: window.innerHeight + 'px',
         overflow: 'hidden',
         position: 'absolute',
         left: 0,

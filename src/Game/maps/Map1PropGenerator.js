@@ -155,26 +155,7 @@ export default class Map1PropGenerator extends BasePropGenerator {
       let alpha = 1.0;
       let tint = 0xFFFFFF; // Default white tint
       let rotation = 0;
-      
-      if (this.portalTiles.has(tileKey)) {
-        // Portal area visual enhancements
-        
-        // 1. Subtle magical glow effect (higher alpha for mystical look)
-        alpha = 0.85 + this.seededRandom() * 0.15; // 85% to 100% alpha for subtle translucency
-        
-        // 2. Apply mystical tint if specified in prop type
-        if (propType.tint) {
-          tint = propType.tint;
-        }
-        
-        // 3. Subtle magical rotation for trees (creates otherworldly feel)
-        if (propType.type === "tree") {
-          rotation = (this.seededRandom() - 0.5) * 0.2; // -0.1 to +0.1 radians (~6 degrees)
-        }
-        
-        // 4. Slightly reduced scale for mystical "ethereal" effect
-        scale *= 0.9 + this.seededRandom() * 0.2; // 90% to 110% of calculated scale
-      }
+
       
       // Random mirroring (horizontal flip) for all props
       const mirrored = this.seededRandom() < 0.5; // 50% chance

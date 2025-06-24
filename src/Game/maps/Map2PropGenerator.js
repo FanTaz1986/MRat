@@ -41,9 +41,9 @@ export default class Map2PropGenerator extends BasePropGenerator {
       { file: "5A.png", baseScale: 1.0, zIndex: 3, type: "prop" }
     ];
     
-    // C-type props for portal areas with enhanced visual distinction
+    // C-type props for portal areas (no special tint)
     this.portalProps = [
-      { file: "1C.png", baseScale: 1.0, zIndex: 2, type: "prop", tint: 0xE0FFFF }, // Light cyan tint
+      { file: "1C.png", baseScale: 1.0, zIndex: 2, type: "prop" },
     ];
     
     // Track portal tile locations (same as Map1)
@@ -123,9 +123,6 @@ export default class Map2PropGenerator extends BasePropGenerator {
         // Random mirroring (horizontal flip)
         const mirrored = this.seededRandom() < 0.5; // 50% chance
         
-        // Portal area visual enhancements for A props
-        const alpha = 0.85 + this.seededRandom() * 0.15; // 85% to 100% alpha
-        
         // Create A prop
         const prop = {
           x: worldX,
@@ -135,8 +132,8 @@ export default class Map2PropGenerator extends BasePropGenerator {
           rotation: 0,
           mirrored: mirrored,
           zIndex: propType.zIndex || 1,
-          alpha: alpha,
-          tint: 0xFFFFFF // Default white tint for A props
+          alpha: 1.0,
+          tint: 0xFFFFFF
         };
         
         props.push(prop);
@@ -165,10 +162,6 @@ export default class Map2PropGenerator extends BasePropGenerator {
         // Random mirroring (horizontal flip)
         const mirrored = this.seededRandom() < 0.5; // 50% chance
         
-        // Portal area visual enhancements for C props
-        const alpha = 0.85 + this.seededRandom() * 0.15; // 85% to 100% alpha
-        const tint = propType.tint || 0xFFFFFF; // Cyan tint for C props
-        
         // Create C prop
         const prop = {
           x: worldX,
@@ -178,8 +171,8 @@ export default class Map2PropGenerator extends BasePropGenerator {
           rotation: 0,
           mirrored: mirrored,
           zIndex: propType.zIndex || 1,
-          alpha: alpha,
-          tint: tint // Apply cyan tint for C props
+          alpha: 1.0,
+          tint: 0xFFFFFF
         };
         
         props.push(prop);
@@ -219,22 +212,6 @@ export default class Map2PropGenerator extends BasePropGenerator {
       // No rotation for Map2 props (keep them upright)
       const rotation = 0;
       
-      // Enhanced visual effects for portal areas (same as Map1)
-      let alpha = 1.0;
-      let tint = 0xFFFFFF; // Default white tint
-      
-      if (this.portalTiles.has(tileKey)) {
-        // Portal area visual enhancements (same as Map1)
-        
-        // 1. Subtle magical glow effect (higher alpha for mystical look)
-        alpha = 0.85 + this.seededRandom() * 0.15; // 85% to 100% alpha for subtle translucency
-        
-        // 2. Apply mystical tint if specified in prop type
-        if (propType.tint) {
-          tint = propType.tint;
-        }
-      }
-      
       // Create prop with texture path
       const prop = {
         x: worldX,
@@ -244,8 +221,8 @@ export default class Map2PropGenerator extends BasePropGenerator {
         rotation: rotation,
         mirrored: mirrored,
         zIndex: propType.zIndex || 1,
-        alpha: alpha, // Apply mystical alpha for portal areas
-        tint: tint // Apply mystical tint for portal areas
+        alpha: 1.0,
+        tint: 0xFFFFFF
       };
       
       props.push(prop);

@@ -128,8 +128,9 @@ export default class Character {
       debugLog(`Character sprite properties - Visible: ${this.sprite.visible}, Alpha: ${this.sprite.alpha}`, 'character');
       
       // Set sprite properties
-      this.sprite.width = 192;
-      this.sprite.height = 192;
+      const desiredWidth = 164; // or whatever you want in-game
+      const scale = desiredWidth / 2970; // 2970 is your art's width
+      this.sprite.scale.set(scale);
       this.sprite.position.set(this.position.x, this.position.y);
       this.sprite.zIndex = 1000; // Higher z-index to ensure it's on top
       

@@ -31,7 +31,7 @@ function App() {
         { name: "map1A", url: "/1MAP/play_area/1Amap.png" },
         { name: "map1B", url: "/1MAP/play_area/1Bmap.png" },
         { name: "map0", url: "/0MAP/play_area/Jura.png" },
-        { name: "mapX", url: "/XMAP/play_area/cave_water.png" },
+        { name: "mapX", url: "/XMAP/play_area/cave.png" },
         { name: "map2", url: "/2MAP/play_area/1Amap.png" },
         
         // Map1 props
@@ -40,14 +40,25 @@ function App() {
         { name: "2a_tree", url: "/1MAP/Props/2ATree.png" },
         { name: "3a_tree", url: "/1MAP/Props/3ATree.png" },
         { name: "4a_tree", url: "/1MAP/Props/4Atree.png" },
+
         { name: "1b_bush", url: "/1MAP/Props/1BBush.png" },
         { name: "1b_tree", url: "/1MAP/Props/1BTree.png" },
         { name: "2b_tree", url: "/1MAP/Props/2BTree.png" },
         { name: "3b_tree", url: "/1MAP/Props/3BTree.png" },
+
+        { name: "1c_bush", url: "/1MAP/Props/1CBush.png" },
+        { name: "1c_tree", url: "/1MAP/Props/1CTree.png" },
+        { name: "2c_bush", url: "/1MAP/Props/2CBush.png" },
+        { name: "2c_tree", url: "/1MAP/Props/2CTree.png" },
+        { name: "3c_tree", url: "/1MAP/Props/3CTree.png" },
+
         { name: "1_grass", url: "/1MAP/Props/1Grass.png" },
         { name: "2_grass", url: "/1MAP/Props/2Grass.png" },
         { name: "3_grass", url: "/1MAP/Props/3Grass.png" },
         { name: "4_grass", url: "/1MAP/Props/4Grass.png" },
+        
+        // MapX props
+        { name: "mapx_1a", url: "/XMAP/Props/1A.png" },
         
         // Map2 props
         { name: "map2_1A", url: "/2MAP/Props/1A.png" },
@@ -64,11 +75,25 @@ function App() {
         { name: "outroBg", url: "/Outro/debeseliai.png" },
         
         // Character frames
-        { name: "char_idle_down", url: "/Main_char_frames/0F.png" },
-        { name: "char_idle_up", url: "/Main_char_frames/0B.png" },
-        { name: "char_idle_left", url: "/Main_char_frames/0L.png" },
-        { name: "char_idle_right", url: "/Main_char_frames/0R.png" },
-        // Add all other character frames
+        { name: "char_idle_down_0", url: "/Main_char_frames/0F.png" },
+        { name: "char_idle_down_1", url: "/Main_char_frames/1F.png" },
+        { name: "char_idle_down_2", url: "/Main_char_frames/2F.png" },
+
+        { name: "char_idle_up_0", url: "/Main_char_frames/0B.png" },
+        { name: "char_idle_up_1", url: "/Main_char_frames/1B.png" },
+        { name: "char_idle_up_2", url: "/Main_char_frames/2B.png" },
+
+        { name: "char_idle_left_0", url: "/Main_char_frames/0L.png" },
+        { name: "char_idle_left_1", url: "/Main_char_frames/1L.png" },
+        { name: "char_idle_left_2", url: "/Main_char_frames/2L.png" },
+        { name: "char_idle_left_3", url: "/Main_char_frames/3L.png" },
+        { name: "char_idle_left_4", url: "/Main_char_frames/4L.png" },
+
+        { name: "char_idle_right_0", url: "/Main_char_frames/0R.png" },
+        { name: "char_idle_right_1", url: "/Main_char_frames/1R.png" },
+        { name: "char_idle_right_2", url: "/Main_char_frames/2R.png" },
+        { name: "char_idle_right_3", url: "/Main_char_frames/3R.png" },
+        { name: "char_idle_right_4", url: "/Main_char_frames/4R.png" },
       ],
       sprites: [
         // Using a different approach for character frames
