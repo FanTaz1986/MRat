@@ -30,18 +30,25 @@ export default class MapX {
    * Create simple background for MapX
    */
   createBackground() {
+    // Create high-quality background texture
+    const texture = PIXI.Texture.from(process.env.PUBLIC_URL + '/XMAP/play_area/cave.png');
+    texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+    texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+    texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+    
     // Create simple background sprite
-    const background = PIXI.Sprite.from(process.env.PUBLIC_URL + '/XMAP/play_area/cave.png');
+    const background = new PIXI.Sprite(texture);
     background.width = this.mapWidth;
     background.height = this.mapHeight;
     background.x = 0;
     background.y = 0;
     background.zIndex = 0;
+    background.roundPixels = false;
     
     // Add to background layer
     this.layers.background.addChild(background);
     
-    debugLog(`MapX: Created simple background ${this.mapWidth}x${this.mapHeight} (cave - half size)`, 'map');
+    debugLog(`MapX: Created high-quality background ${this.mapWidth}x${this.mapHeight} (cave - half size)`, 'map');
   }
   
   /**
@@ -68,7 +75,15 @@ export default class MapX {
     propData.forEach((propConfig, index) => {
       try {
         const texturePath = process.env.PUBLIC_URL + '/XMAP/Props/' + propConfig.file;
-        const propSprite = PIXI.Sprite.from(texturePath);
+        
+        // Create texture with high-quality settings
+        const texture = PIXI.Texture.from(texturePath);
+        texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+        texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+        texture.baseTexture.resolution = Math.max(window.devicePixelRatio || 1, 2);
+        
+        const propSprite = new PIXI.Sprite(texture);
         
         // Set position
         propSprite.x = propConfig.x;
@@ -76,6 +91,7 @@ export default class MapX {
         
         // Set scale
         propSprite.scale.set(propConfig.scale);
+        propSprite.roundPixels = false; // Enable sub-pixel positioning
           // Set rotation (convert degrees to radians)
         propSprite.rotation = (propConfig.rotation * Math.PI) / 180;
         

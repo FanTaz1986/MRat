@@ -16,7 +16,7 @@ export default class Portal {
     // Create container for portal
     this.container = new PIXI.Container();
     this.container.position.set(x, y);
-    this.container.zIndex = 5;
+    this.container.zIndex = 500; // Lower than character (1000) but higher than props
     
     // Setup animation
     this.setupAnimation();
@@ -26,13 +26,20 @@ export default class Portal {
     this.app.ticker.add(this.update, this);
   }
     setupAnimation() {
-    try {      // Use portal frames imported from portalFrames.js
+    try {      // Use portal frames imported from portalFrames.js with high-quality settings
       const portalFramePaths = portalFrames.map(path => process.env.PUBLIC_URL + path);
       
-      // Load portal frame textures with error handling
+      // Load portal frame textures with high-quality settings
       this.portalFrames = [];
       portalFramePaths.forEach((path, index) => {        try {
           const texture = PIXI.Texture.from(path);
+          
+          // Apply high-quality settings to portal textures
+          texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+          texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+          texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+          texture.baseTexture.resolution = Math.max(window.devicePixelRatio || 1, 2);
+          
           this.portalFrames.push(texture);
         } catch (err) {
           debugLog(`Failed to load portal texture ${index} from ${path}: ${err.message}`, 'portal');
@@ -43,11 +50,15 @@ export default class Portal {
         debugLog('No portal frames could be loaded', 'portal');
         return;
       }
-      // Create sprite with first frame
+      // Create sprite with first frame and high-quality settings
       this.sprite = new PIXI.Sprite(this.portalFrames[0]);
       this.sprite.anchor.set(0.5);
       this.sprite.width = this.width;
       this.sprite.height = this.height;
+      
+      // Enable high-quality rendering for portal
+      this.sprite.roundPixels = false;
+      this.sprite.filters = [];
       
       // Add to container
       this.container.addChild(this.sprite);
@@ -129,16 +140,16 @@ export default class Portal {
     promptElement.style.letterSpacing = '2px';
     promptElement.style.userSelect = 'none';
     promptElement.style.pointerEvents = 'none';
-    promptElement.textContent = 'press spacebar to teleport to next map';
+    promptElement.textContent = 'press T to teleport to next map';
       document.body.appendChild(promptElement);
       // Cleanup function
     const cleanup = () => {
-      document.removeEventListener('keydown', handleSpace);
+      document.removeEventListener('keydown', handleTKey);
       if (promptElement.parentNode) promptElement.parentNode.removeChild(promptElement);
     };
-      // Space handler
-    const handleSpace = (e) => {
-      if (e.code === 'Space' || e.key === ' ') {
+      // T key handler
+    const handleTKey = (e) => {
+      if (e.key.toLowerCase() === 't') {
         playPortalSound(() => {
           if (onConfirm) {            try {
               onConfirm(this.targetMap);
@@ -153,7 +164,7 @@ export default class Portal {
         });
       }
     };
-      document.addEventListener('keydown', handleSpace);
+      document.addEventListener('keydown', handleTKey);
     
     // Return cleanup function
     return cleanup;

@@ -118,7 +118,7 @@ export default class Pet {
     this.sprite.scale.set(scale);
 
     this.sprite.position.set(this.position.x, this.position.y);
-    this.sprite.zIndex = 999; // Just below main character
+    this.sprite.zIndex = 999; // Just below main character (1000)
 
     // Add to stage or relevant container in your game logic
     this.app.stage.addChild(this.sprite);

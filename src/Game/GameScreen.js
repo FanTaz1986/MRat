@@ -7,10 +7,11 @@ import MapManager from './maps/MapManager'; // Use relative path to avoid case s
 import { playAmbianceForMap } from "../utils/AudioManager";
 import { createDebugOverlay, initializeConsoleCapture, debugLog } from "../development/utils/Debug";
 
-// PIXI settings for best performance
-// Use BaseTexture.defaultOptions instead of deprecated settings.SCALE_MODE
-PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.LINEAR;
-PIXI.settings.ROUND_PIXELS = true;
+// PIXI settings for high-quality character rendering
+PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.LINEAR; // Use linear scaling for smooth character scaling
+PIXI.BaseTexture.defaultOptions.mipmap = PIXI.MIPMAP_MODES.ON; // Enable mipmapping for better scaling quality
+PIXI.settings.ROUND_PIXELS = false; // Don't round pixels for smoother character movement
+PIXI.settings.PRECISION_FRAGMENT = 'highp'; // Use high precision for better quality
 
 export default function GameScreen({ onGameEnd }) {
   const gameContainerRef = useRef(null);
@@ -24,21 +25,27 @@ export default function GameScreen({ onGameEnd }) {
   useEffect(() => {
     if (!gameContainerRef.current) return;
     
-    // Create PIXI Application
+    // Get actual container dimensions
+    const containerRect = gameContainerRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width || window.innerWidth;
+    const containerHeight = containerRect.height || window.innerHeight;
+    
+    // Create PIXI Application with high-quality settings for character art
     pixiApp.current = new PIXI.Application({
-      width: window.innerWidth,
-      height: window.innerHeight,
+      width: containerWidth,
+      height: containerHeight,
       backgroundColor: 0x000000,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
-      antialias: true,
+      resolution: window.devicePixelRatio || 1, // Use device pixel ratio for crisp rendering
+      autoDensity: true, // Enable auto density for better scaling
+      antialias: true, // Enable antialiasing for smooth character scaling
+      powerPreference: 'high-performance', // Use high-performance GPU if available
     });
     
 // Add canvas to DOM
 gameContainerRef.current.appendChild(pixiApp.current.view);
-// Force canvas to always fill the container and match window size
-pixiApp.current.view.style.width = window.innerWidth + 'px';
-pixiApp.current.view.style.height = window.innerHeight + 'px';
+// Force canvas to exactly match container size with no CSS scaling
+pixiApp.current.view.style.width = containerWidth + 'px';
+pixiApp.current.view.style.height = containerHeight + 'px';
 pixiApp.current.view.style.display = 'block';
       // Initialize game engine with the PIXI app
     initializeGameEngine(pixiApp.current);
@@ -59,12 +66,21 @@ pixiApp.current.view.style.display = 'block';
     
     // Handle resizing
 const resizeHandler = () => {
-  pixiApp.current.renderer.resize(window.innerWidth, window.innerHeight);
-  pixiApp.current.view.style.width = window.innerWidth + 'px';
-  pixiApp.current.view.style.height = window.innerHeight + 'px';
+  // Get actual container dimensions
+  const containerRect = gameContainerRef.current.getBoundingClientRect();
+  const containerWidth = containerRect.width || window.innerWidth;
+  const containerHeight = containerRect.height || window.innerHeight;
+  
+  // Resize renderer to exact container size
+  pixiApp.current.renderer.resize(containerWidth, containerHeight);
+  
+  // Ensure canvas matches container exactly
+  pixiApp.current.view.style.width = containerWidth + 'px';
+  pixiApp.current.view.style.height = containerHeight + 'px';
+  
   if (gameContainerRef.current) {
-    gameContainerRef.current.style.width = window.innerWidth + 'px';
-    gameContainerRef.current.style.height = window.innerHeight + 'px';
+    gameContainerRef.current.style.width = containerWidth + 'px';
+    gameContainerRef.current.style.height = containerHeight + 'px';
   }
   if (mapManager.current) {
     mapManager.current.handleResize();

@@ -188,7 +188,14 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
           debugLog(`Texture not in cache, preloading: ${texturePath}`, 'map');
           console.log(`Texture not in cache, preloading: ${texturePath}`);
         }
-          const sprite = PIXI.Sprite.from(texturePath);
+        // Create texture with high-quality settings
+        const texture = PIXI.Texture.from(texturePath);
+        texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+        texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+        texture.baseTexture.resolution = Math.max(window.devicePixelRatio || 1, 2);
+        
+        const sprite = new PIXI.Sprite(texture);
         const size = 128 * (prop.scale || 1);
         
         sprite.width = size;
@@ -197,6 +204,7 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
         sprite.rotation = prop.rotation || 0; // Use radians directly, not degrees
         sprite.anchor.set(0.5);
         sprite.zIndex = prop.zIndex || 1;
+        sprite.roundPixels = false; // Enable sub-pixel positioning
 
         // Apply visual enhancements for portal areas
         if (prop.alpha !== undefined) {

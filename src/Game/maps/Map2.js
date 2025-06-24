@@ -85,10 +85,10 @@ export default class Map2 {
     // Add obstacles after loading props
     this.addObstacles();
     
-    // Add portals to foreground layer (only if portal manager exists)
+    // Add portals to character layer for proper z-ordering (only if portal manager exists)
     if (this.portalManager) {
-      this.portalManager.addToScene(this.layers.foreground);
-      debugLog('Map2 portals added to MapManager foreground layer', 'map');
+      this.portalManager.addToScene(this.layers.character);
+      debugLog('Map2 portals added to MapManager character layer', 'map');
     } else {
       debugLog('Map2: No portal manager available, skipping portal setup', 'map');
     }
@@ -119,8 +119,14 @@ export default class Map2 {
     for (let tileY = 0; tileY < this.gridSize; tileY++) {
       for (let tileX = 0; tileX < this.gridSize; tileX++) {
         try {
+          // Create high-quality texture for background tile
+          const texture = PIXI.Texture.from(backgroundImagePath);
+          texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+          texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+          texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+          
           // Create sprite for this tile
-          const tileSprite = PIXI.Sprite.from(backgroundImagePath);
+          const tileSprite = new PIXI.Sprite(texture);
           
           // Set tile size to match our tile dimensions (2100x1485 like Map1)
           tileSprite.width = this.tileWidth;   // 2100px
@@ -132,6 +138,7 @@ export default class Map2 {
           
           // Set low z-index so it appears behind everything
           tileSprite.zIndex = 0;
+          tileSprite.roundPixels = false;
           
           // Add to background layer
           this.layers.background.addChild(tileSprite);
@@ -182,7 +189,14 @@ export default class Map2 {
           return;
         }
         
-        const sprite = PIXI.Sprite.from(texturePath);
+        // Create texture with high-quality settings
+        const texture = PIXI.Texture.from(texturePath);
+        texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+        texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+        texture.baseTexture.resolution = Math.max(window.devicePixelRatio || 1, 2);
+        
+        const sprite = new PIXI.Sprite(texture);
         const size = 128 * (prop.scale || 1);
         
         sprite.width = size;
@@ -191,6 +205,7 @@ export default class Map2 {
         sprite.rotation = (prop.rotation || 0);
         sprite.anchor.set(0.5);
         sprite.zIndex = prop.zIndex || 1;
+        sprite.roundPixels = false; // Enable sub-pixel positioning
         
         // Handle mirroring (horizontal flip)
         if (prop.mirrored) {

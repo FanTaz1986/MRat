@@ -108,8 +108,15 @@ export default class MapManager {
     this.characterLayer.sortableChildren = true;
     
     // UI layer gets added outside the map container so it doesn't move with camera
-    this.app.stage.addChild(this.uiLayer);    // Create background
+    this.app.stage.addChild(this.uiLayer);    // Create high-quality background
     const background = PIXI.Sprite.from(mapConfig.bgImage);
+    
+    // Apply high-quality settings to background
+    background.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+    background.texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+    background.texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+    background.roundPixels = false;
+    
     // Handle maparea1's new size structure
     if (mapId === 'maparea1') {
       background.width = mapConfig.mapSize;  // 67200
@@ -168,7 +175,8 @@ export default class MapManager {
     );
     this.camera.follow(this.character);    // Create portal manager
     this.portalManager = new PortalManager(this.app, mapId, mapConfig.mapSize, mapConfig.mapHeight);
-    this.portalManager.addToScene(this.foregroundLayer);this.portalManager.setOnTeleport((targetMap) => {
+    // Add portals to character layer so they can be properly z-ordered with character
+    this.portalManager.addToScene(this.characterLayer);this.portalManager.setOnTeleport((targetMap) => {
       debugLog(`TELEPORT TRIGGERED from ${mapId} to ${targetMap}`, 'portal');
       if (targetMap) {
         // Store previous map before loading new one
@@ -280,6 +288,9 @@ export default class MapManager {
     
     // This will generate and load all props
     this.map0Instance.loadProps();
+    
+    // Show controls overlay for Map0
+    this.showControlsOverlay();
     
     // Use the Map0's custom bounds
     const map0Bounds = this.map0Instance.getBounds();
@@ -444,6 +455,19 @@ export default class MapManager {
     this.app.ticker.add(this.updateMapX);
   }
   
+  // Create high-quality texture for map assets
+  createHighQualityTexture(path) {
+    const texture = PIXI.Texture.from(path);
+    
+    // Apply high-quality settings
+    texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+    texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+    texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+    texture.baseTexture.resolution = Math.max(window.devicePixelRatio || 1, 2);
+    
+    return texture;
+  }
+
   getPortals() {
     return this.portalManager ? this.portalManager.getPortals() : [];
   }
@@ -629,5 +653,48 @@ export default class MapManager {
     this.unloadCurrentMap();
     this.mapConfigs = null;
     this.onMapChanged = null;
+  }
+  
+  showControlsOverlay() {
+    // Create overlay element
+    const overlayElement = document.createElement('div');
+    overlayElement.setAttribute('data-controls-overlay', 'true');
+    overlayElement.style.position = 'fixed';
+    overlayElement.style.left = '50%';
+    overlayElement.style.top = '50%';
+    overlayElement.style.transform = 'translate(-50%, -50%)';
+    overlayElement.style.width = '500px';
+    overlayElement.style.color = '#a259ff';
+    overlayElement.style.background = 'rgba(30,0,60,0.97)';
+    overlayElement.style.border = '2px solid #a259ff';
+    overlayElement.style.borderRadius = '18px';
+    overlayElement.style.padding = '24px';
+    overlayElement.style.textAlign = 'center';
+    overlayElement.style.fontSize = '1.5rem';
+    overlayElement.style.zIndex = '200';
+    overlayElement.style.fontWeight = 'bold';
+    overlayElement.style.boxShadow = '0 0 32px #a259ff55';
+    overlayElement.style.textShadow = '0 0 24px #a259ff88, 0 0 2px #fff';
+    overlayElement.style.letterSpacing = '1px';
+    overlayElement.style.userSelect = 'none';
+    overlayElement.style.pointerEvents = 'none';
+    
+    overlayElement.innerHTML = `
+      <div style="font-size: 2rem; margin-bottom: 20px; color: #fff;">Game Controls</div>
+      <div style="margin-bottom: 15px;">Move Girl: ← ↑ ↓ → Arrow Keys</div>
+      <div style="margin-bottom: 15px;">Move Rat: W A S D Keys</div>
+      <div style="margin-bottom: 15px;">Rat Attack: Spacebar</div>
+      <div style="margin-bottom: 15px;">Teleport: T Key</div>
+      <div style="font-size: 1rem; margin-top: 20px; opacity: 0.8;">This message will disappear in 5 seconds</div>
+    `;
+    
+    document.body.appendChild(overlayElement);
+    
+    // Remove overlay after 5 seconds
+    setTimeout(() => {
+      if (overlayElement.parentNode) {
+        overlayElement.parentNode.removeChild(overlayElement);
+      }
+    }, 5000);
   }
 }

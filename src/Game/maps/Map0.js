@@ -59,9 +59,9 @@ export default class Map0 {
     // Add obstacles after loading props
     this.addObstacles();
     
-    // Add portals to foreground layer
-    this.portalManager.addToScene(this.layers.foreground);
-    debugLog('Map0 portals added to MapManager foreground layer', 'map');
+    // Add portals to character layer for proper z-ordering
+    this.portalManager.addToScene(this.layers.character);
+    debugLog('Map0 portals added to MapManager character layer', 'map');
     
     return props;
   }
@@ -81,11 +81,19 @@ export default class Map0 {
     this.props = [];
     
     debugLog(`Creating ${props.length} props for Map0`, 'map');
-      // Create new prop sprites
+      // Create new prop sprites with high-quality settings
     props.forEach(prop => {
       try {
         const texturePath = process.env.PUBLIC_URL + "/0MAP/Props/" + prop.file;
-        const sprite = PIXI.Sprite.from(texturePath);
+        
+        // Create texture with high-quality settings
+        const texture = PIXI.Texture.from(texturePath);
+        texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+        texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+        texture.baseTexture.resolution = Math.max(window.devicePixelRatio || 1, 2);
+        
+        const sprite = new PIXI.Sprite(texture);
         const size = 128 * (prop.scale || 1);
         
         sprite.width = size;
@@ -94,6 +102,7 @@ export default class Map0 {
         sprite.rotation = (prop.rotation || 0) * Math.PI / 180;
         sprite.anchor.set(0.5);
         sprite.zIndex = prop.zIndex || 1;
+        sprite.roundPixels = false; // Enable sub-pixel positioning
         
         // Handle mirroring (horizontal flip)
         if (prop.mirrored) {

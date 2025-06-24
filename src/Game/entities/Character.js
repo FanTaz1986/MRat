@@ -46,25 +46,27 @@ export default class Character {
   setupSprite() {
     debugLog('Setting up character sprite', 'character');
     
-    // Helper function to create texture with error handling
+    // Helper function to create texture with error handling and high-quality scaling
     const createTexture = (path) => {
       try {
-        const texture = PIXI.Texture.from(process.env.PUBLIC_URL + path);
-        debugLog(`Loading texture: ${path} - Valid: ${texture.valid}`, 'character');
+        // Use the high-quality texture method
+        const texture = this.createHighQualityTexture(path);
+        
+        debugLog(`Loading HQ texture: ${path} - Valid: ${texture.valid}`, 'character');
         
         // Check if texture loaded successfully
         if (!texture.valid) {
           texture.on('update', () => {
-            debugLog(`Texture loaded: ${path} - Valid: ${texture.valid}`, 'character');
+            debugLog(`HQ Texture loaded: ${path} - Valid: ${texture.valid}`, 'character');
           });
           texture.on('error', () => {
-            debugLog(`Texture failed to load: ${path}`, 'character');
+            debugLog(`HQ Texture failed to load: ${path}`, 'character');
           });
         }
         
         return texture;
       } catch (error) {
-        debugLog(`Error creating texture for ${path}: ${error.message}`, 'character');
+        debugLog(`Error creating HQ texture for ${path}: ${error.message}`, 'character');
         return PIXI.Texture.EMPTY;
       }
     };
@@ -127,10 +129,28 @@ export default class Character {
       
       debugLog(`Character sprite properties - Visible: ${this.sprite.visible}, Alpha: ${this.sprite.alpha}`, 'character');
       
-      // Set sprite properties
-      const desiredWidth = 164; // or whatever you want in-game
+      // Enhanced scaling for high-quality character art
+      const desiredWidth = 164; // Target in-game size
       const scale = desiredWidth / 2970; // 2970 is your art's width
+      
+      // Option 1: Standard high-quality scaling
       this.sprite.scale.set(scale);
+      
+      // Option 2: Enable supersampling for ultra-high quality (uncomment if needed)
+      // const desiredHeight = 164; // Assuming square for now, adjust as needed
+      // const supersampledSprite = this.createSuperSampledSprite(this.sprite, desiredWidth, desiredHeight);
+      // if (supersampledSprite) {
+      //   this.sprite.destroy();
+      //   this.sprite = supersampledSprite;
+      // }
+      
+      // Force high-quality rendering for character sprite
+      this.sprite.filters = []; // Clear any existing filters
+      this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+      
+      // Enable sub-pixel positioning for smoother movement
+      this.sprite.roundPixels = false;
+      
       this.sprite.position.set(this.position.x, this.position.y);
       this.sprite.zIndex = 1000; // Higher z-index to ensure it's on top
       
@@ -395,5 +415,59 @@ export default class Character {
     }
     
     this.sprite.destroy();
+  }
+  
+  // Create high-quality texture specifically for character art
+  createHighQualityTexture(path) {
+    const texture = PIXI.Texture.from(process.env.PUBLIC_URL + path);
+    
+    // Apply high-quality settings
+    texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+    texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+    texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+    
+    // Force high resolution for oversampling
+    texture.baseTexture.resolution = Math.max(window.devicePixelRatio || 1, 2);
+    
+    return texture;
+  }
+  
+  // Create super high-quality render texture for photorealistic character
+  createSuperSampledSprite(originalSprite, targetWidth, targetHeight) {
+    const app = this.app;
+    
+    // Create a render texture at 4x the target resolution for supersampling
+    const supersampleFactor = 4;
+    const renderTexture = PIXI.RenderTexture.create({
+      width: targetWidth * supersampleFactor,
+      height: targetHeight * supersampleFactor,
+      resolution: 1
+    });
+    
+    // Create a temporary sprite scaled up for rendering
+    const tempSprite = new PIXI.Sprite(originalSprite.texture);
+    tempSprite.anchor.set(0.5);
+    tempSprite.position.set(
+      (targetWidth * supersampleFactor) / 2,
+      (targetHeight * supersampleFactor) / 2
+    );
+    
+    // Scale the temp sprite to fill the supersampled render texture
+    const scaleX = (targetWidth * supersampleFactor) / originalSprite.texture.width;
+    const scaleY = (targetHeight * supersampleFactor) / originalSprite.texture.height;
+    tempSprite.scale.set(scaleX, scaleY);
+    
+    // Render the upscaled sprite to the render texture
+    app.renderer.render(tempSprite, renderTexture);
+    
+    // Create final sprite from the supersampled render texture
+    const finalSprite = new PIXI.Sprite(renderTexture);
+    finalSprite.anchor.set(0.5);
+    finalSprite.scale.set(1 / supersampleFactor); // Scale down to target size
+    
+    // Clean up temporary sprite
+    tempSprite.destroy();
+    
+    return finalSprite;
   }
 }
