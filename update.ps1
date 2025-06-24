@@ -4,7 +4,7 @@
 git add .
 
 # Commit with a message (edit the message as needed)
-git commit -m "Update game code and asset preloading"
+git commit -m "Update game code"
 
 # Push to the current branch on origin
 git push origin HEAD
