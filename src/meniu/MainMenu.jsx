@@ -20,6 +20,7 @@ export default function MainMenu({ onStart }) {
   const [musicVolume, setMusicVolumeState] = useState(5);
   const [sfxVolume, setSfxVolumeState] = useState(7);
   const loginBg = process.env.PUBLIC_URL + "/meniu/loginscreen.png";
+  const skyBg = process.env.PUBLIC_URL + "/Intro/sky.png";
 
   // Function to initialize audio and play music on user interaction
   const handleUserInteraction = () => {
@@ -111,15 +112,57 @@ export default function MainMenu({ onStart }) {
   };
 
   return (
-    <div
-      className="main-menu-bg"
-      style={{
-        backgroundImage: `url(${loginBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center"
-      }}
-    >
-      <div className="main-menu-overlay">
+    <div className="main-menu-container">
+      {/* Sky background layer - fills entire screen */}
+      <div
+        className="main-menu-sky-bg"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          backgroundImage: `url(${skyBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+          zIndex: 1
+        }}
+      ></div>
+      
+      {/* Main art layer - always fully visible, centered */}
+      <div
+        className="main-menu-art-bg"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          backgroundImage: `url(${loginBg})`,
+          backgroundSize: "contain", // Ensures the full 4200x2970 art is always visible
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+          zIndex: 2
+        }}
+      ></div>
+      
+      {/* UI overlay */}
+      <div className="main-menu-overlay"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          background: "rgba(0,0,0,0.25)", // Light overlay for text readability
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 3
+        }}
+      >
         <h1 className="main-menu-title">M RAT</h1>
         <ul className="main-menu-list">
           {menuItems.map((item, idx) => (

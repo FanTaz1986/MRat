@@ -112,7 +112,8 @@ function SimpleDebugOverlay({
   mapManager, 
   character, 
   camera,
-  onClose 
+  onClose,
+  onNavigateToScreen
 }) {  const [activeTab, setActiveTab] = useState('general');
   const [, forceUpdate] = useState({});
 
@@ -544,8 +545,12 @@ function SimpleDebugOverlay({
       position: 'fixed',
       top: '20px',
       right: '20px',
-      width: '420px',
-      maxHeight: '600px',
+      width: '520px', // Increased width to accommodate more tabs
+      minWidth: '520px', // Minimum width
+      maxWidth: '800px', // Maximum width
+      height: '700px', // Fixed height for consistency
+      minHeight: '600px', // Minimum height
+      maxHeight: '90vh', // Maximum height relative to viewport
       background: 'rgba(30,0,60,0.95)',
       border: '2px solid #a259ff',
       borderRadius: '18px',
@@ -553,7 +558,11 @@ function SimpleDebugOverlay({
       fontFamily: 'monospace',
       fontSize: '14px',
       zIndex: 10000,
-      boxShadow: '0 0 32px #a259ff55'
+      boxShadow: '0 0 32px #a259ff55',
+      resize: 'both', // Make it resizable
+      overflow: 'hidden', // Hide overflow to prevent content bleeding
+      display: 'flex',
+      flexDirection: 'column'
     }  }, [
     // Header
     React.createElement('div', {
@@ -574,7 +583,8 @@ function SimpleDebugOverlay({
           color: '#a259ff',
           fontSize: '18px',
           fontWeight: 'bold',
-          textShadow: '0 0 8px #a259ff88'
+          textShadow: '0 0 8px #a259ff88',
+          flex: '1' // Take available space
         }
       }, '🔧 Debug Menu'),
       React.createElement('button', {
@@ -591,7 +601,18 @@ function SimpleDebugOverlay({
           transition: 'all 0.2s ease',
           fontWeight: 'bold'
         }
-      }, '✕')    ]),
+      }, '✕'),
+      React.createElement('div', {
+        key: 'resize-indicator',
+        style: {
+          fontSize: '10px',
+          color: '#a259ff',
+          opacity: 0.5,
+          marginLeft: '8px',
+          userSelect: 'none',
+          cursor: 'nw-resize'
+        }
+      }, '↘️ Resizable')    ]),
 
     // Tabs
     React.createElement('div', {
@@ -599,24 +620,29 @@ function SimpleDebugOverlay({
       style: {
         display: 'flex',
         borderBottom: '2px solid rgba(162,89,255,0.3)',
-        background: 'rgba(0,0,0,0.2)'
+        background: 'rgba(0,0,0,0.2)',
+        flexWrap: 'wrap', // Allow tabs to wrap if needed
+        minHeight: '50px' // Ensure minimum height for tabs
       }
-    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet'].map(tab => 
+    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'screens'].map(tab => 
       React.createElement('button', {
         key: tab,
         onClick: () => setActiveTab(tab),
         style: {
-          flex: 1,
-          padding: '12px 16px',
+          flex: '1 1 auto', // Flexible sizing
+          minWidth: '60px', // Minimum width per tab
+          padding: '8px 12px', // Slightly reduced padding
           background: activeTab === tab ? 'rgba(162,89,255,0.3)' : 'transparent',
           border: 'none',
           color: activeTab === tab ? '#fff' : '#a259ff',
           cursor: 'pointer',
           textTransform: 'capitalize',
-          fontSize: '14px',
+          fontSize: '12px', // Slightly smaller font
           fontWeight: activeTab === tab ? 'bold' : 'normal',
           transition: 'all 0.2s ease',
-          textShadow: activeTab === tab ? '0 0 8px #a259ff88' : 'none'
+          textShadow: activeTab === tab ? '0 0 8px #a259ff88' : 'none',
+          wordBreak: 'keep-all', // Prevent text breaking
+          whiteSpace: 'nowrap' // Keep text on one line
         }
       }, tab)
     )),    // Content
@@ -624,9 +650,11 @@ function SimpleDebugOverlay({
       key: 'content',
       style: { 
         padding: '20px', 
-        maxHeight: '500px', 
-        overflowY: 'auto',
-        background: 'rgba(0,0,0,0.1)'
+        flex: '1', // Take remaining space
+        overflowY: 'auto', // Vertical scroll
+        overflowX: 'hidden', // Hide horizontal overflow
+        background: 'rgba(0,0,0,0.1)',
+        minHeight: '0' // Important for flex scrolling
       }
     }, [      activeTab === 'general' && React.createElement('div', { key: 'general' }, [        React.createElement('h4', {
           key: 'title',
@@ -1460,6 +1488,199 @@ function SimpleDebugOverlay({
             })() : null
           ])
         ])
+      ]),
+
+      activeTab === 'screens' && React.createElement('div', { key: 'screens' }, [
+        React.createElement('h4', {
+          key: 'title',
+          style: { 
+            color: '#a259ff', 
+            margin: '0 0 16px 0',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            textShadow: '0 0 8px #a259ff88'
+          }
+        }, 'Screen Navigation'),
+        
+        React.createElement('div', {
+          key: 'screenInfo',
+          style: { 
+            fontSize: '12px', 
+            color: '#a259ff', 
+            opacity: 0.8,
+            marginBottom: '16px',
+            padding: '8px',
+            background: 'rgba(162, 89, 255, 0.1)',
+            borderRadius: '6px'
+          }
+        }, 'Click any screen below to navigate directly to it for testing purposes.'),
+        
+        React.createElement('div', {
+          key: 'menuScreens',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'menuTitle',
+            style: { 
+              color: '#00bcd4', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #00bcd488'
+            }
+          }, 'Menu Screens'),
+          
+          React.createElement('div', {
+            key: 'menuButtons',
+            style: { 
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '8px'
+            }
+          }, [
+            React.createElement('button', {
+              key: 'mainMenu',
+              onClick: () => onNavigateToScreen && onNavigateToScreen('main-menu'),
+              style: {
+                padding: '10px 12px',
+                background: 'rgba(33, 150, 243, 0.2)',
+                border: '2px solid rgba(33, 150, 243, 0.5)',
+                borderRadius: '10px',
+                color: '#2196F3',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textShadow: '0 0 8px rgba(33, 150, 243, 0.3)'
+              }
+            }, '🏠 Main Menu'),
+            
+            React.createElement('button', {
+              key: 'introScreen',
+              onClick: () => onNavigateToScreen && onNavigateToScreen('intro'),
+              style: {
+                padding: '10px 12px',
+                background: 'rgba(76, 175, 80, 0.2)',
+                border: '2px solid rgba(76, 175, 80, 0.5)',
+                borderRadius: '10px',
+                color: '#4CAF50',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textShadow: '0 0 8px rgba(76, 175, 80, 0.3)'
+              }
+            }, '🌟 Intro Screen'),
+            
+            React.createElement('button', {
+              key: 'loadingScreen',
+              onClick: () => onNavigateToScreen && onNavigateToScreen('loading'),
+              style: {
+                padding: '10px 12px',
+                background: 'rgba(255, 152, 0, 0.2)',
+                border: '2px solid rgba(255, 152, 0, 0.5)',
+                borderRadius: '10px',
+                color: '#FF9800',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textShadow: '0 0 8px rgba(255, 152, 0, 0.3)'
+              }
+            }, '⏳ Loading Screen'),
+            
+            React.createElement('button', {
+              key: 'outroScreen',
+              onClick: () => onNavigateToScreen && onNavigateToScreen('outro'),
+              style: {
+                padding: '10px 12px',
+                background: 'rgba(156, 39, 176, 0.2)',
+                border: '2px solid rgba(156, 39, 176, 0.5)',
+                borderRadius: '10px',
+                color: '#9C27B0',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textShadow: '0 0 8px rgba(156, 39, 176, 0.3)'
+              }
+            }, '🎬 Outro Screen')
+          ])
+        ]),
+        
+        React.createElement('div', {
+          key: 'gameScreens',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'gameTitle',
+            style: { 
+              color: '#ff6b6b', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #ff6b6b88'
+            }
+          }, 'Game Screens'),
+          
+          React.createElement('div', {
+            key: 'gameButtons',
+            style: { 
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gap: '8px'
+            }
+          }, [
+            React.createElement('button', {
+              key: 'gameScreen',
+              onClick: () => onNavigateToScreen && onNavigateToScreen('game'),
+              style: {
+                padding: '10px 12px',
+                background: 'rgba(76, 175, 80, 0.2)',
+                border: '2px solid rgba(76, 175, 80, 0.5)',
+                borderRadius: '10px',
+                color: '#4CAF50',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textShadow: '0 0 8px rgba(76, 175, 80, 0.3)'
+              }
+            }, '🎮 Game Screen'),
+            
+            React.createElement('button', {
+              key: 'gameOverScreen',
+              onClick: () => onNavigateToScreen && onNavigateToScreen('game-over'),
+              style: {
+                padding: '10px 12px',
+                background: 'rgba(244, 67, 54, 0.2)',
+                border: '2px solid rgba(244, 67, 54, 0.5)',
+                borderRadius: '10px',
+                color: '#F44336',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textShadow: '0 0 8px rgba(244, 67, 54, 0.3)'
+              }
+            }, '💀 Game Over Screen')
+          ])
+        ]),
+        
+        React.createElement('div', {
+          key: 'screenNote',
+          style: { 
+            fontSize: '11px', 
+            color: '#a259ff', 
+            opacity: 0.7,
+            textAlign: 'center',
+            fontStyle: 'italic',
+            marginTop: '16px',
+            padding: '8px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '6px'
+          }
+        }, 'Note: Screen navigation will exit the current game state. Use for testing UI screens.')
       ])
     ])
   ]);
@@ -1560,7 +1781,13 @@ export function createDebugOverlay(app) {
           mapManager,
           character,
           camera,
-          onClose: toggleDebug
+          onClose: toggleDebug,
+          onNavigateToScreen: (screenType) => {
+            debugLog(`Debug: Navigating to screen: ${screenType}`, 'system');
+            // This callback should be provided by the parent application
+            // For now, we'll just log the request
+            window.debugNavigateToScreen && window.debugNavigateToScreen(screenType);
+          }
         })
       );
     }
@@ -1585,6 +1812,10 @@ export function createDebugOverlay(app) {
     },
     updatePortals: () => {
       renderDebugOverlay();
+    },
+    setScreenNavigationCallback: (callback) => {
+      window.debugNavigateToScreen = callback;
+      debugLog('Screen navigation callback set for debug overlay', 'system');
     },
     destroy: () => {
       isDestroyed = true;

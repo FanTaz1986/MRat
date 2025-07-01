@@ -13,7 +13,7 @@ PIXI.BaseTexture.defaultOptions.mipmap = PIXI.MIPMAP_MODES.ON; // Enable mipmapp
 PIXI.settings.ROUND_PIXELS = false; // Don't round pixels for smoother character movement
 PIXI.settings.PRECISION_FRAGMENT = 'highp'; // Use high precision for better quality
 
-export default function GameScreen({ onGameEnd }) {
+export default function GameScreen({ onGameEnd, onDebugNavigateToScreen }) {
   const gameContainerRef = useRef(null);
   const pixiApp = useRef(null);
   const mapManager = useRef(null);
@@ -63,6 +63,11 @@ pixiApp.current.view.style.display = 'block';
     if (debugSystem.current && debugSystem.current.setMapManager) {
       debugSystem.current.setMapManager(mapManager.current);
     }
+
+    // Set up screen navigation callback for debug overlay
+    if (debugSystem.current && debugSystem.current.setScreenNavigationCallback && onDebugNavigateToScreen) {
+      debugSystem.current.setScreenNavigationCallback(onDebugNavigateToScreen);
+    }
     
     // Handle resizing
 const resizeHandler = () => {
@@ -108,7 +113,7 @@ const resizeHandler = () => {
       }
       pixiApp.current.destroy(true, true);
     };
-  }, []);
+  }, [onDebugNavigateToScreen]);
     // Handle map changes
   useEffect(() => {
     if (!appReady || !mapManager.current) return;    // Load the current map

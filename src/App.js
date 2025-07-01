@@ -5,6 +5,7 @@ import MainMenu from "./meniu/MainMenu";
 import IntroScreen from "./meniu/IntroScreen";
 import OutroScreen from "./meniu/OutroScreen";
 import LoadingScreen from "./meniu/LoadingScreen";
+import GameOverScreen from "./meniu/GameOverScreen";
 import { playEvilCackle } from "./utils/AudioManager";
 import { initPixiErrorHandling } from "./utils/PixiErrorHandler";
 import './App.css';
@@ -112,6 +113,17 @@ function App() {
         { name: "pet_move_2_1", url: "/Ziurke/2lvl/3_ejimas_1.png" },
         { name: "pet_move_2_2", url: "/Ziurke/2lvl/3_ejimas_2.png" },
         { name: "pet_attack_2", url: "/Ziurke/2lvl/3_ziurke_spjauna.png" },
+        
+        // Boss frames
+        { name: "boss_idle_1", url: "/Boss/Frames/boss_idle_1.png" },
+        { name: "boss_idle_2", url: "/Boss/Frames/boss_idle_2.png" },
+        { name: "boss_fly_1", url: "/Boss/Frames/boss_fly_1.png" },
+        { name: "boss_fly_2", url: "/Boss/Frames/boss_fly_2.png" },
+        { name: "boss_atk_1", url: "/Boss/Frames/boss_atk_1.png" },
+        { name: "boss_atk_2", url: "/Boss/Frames/boss_atk_2.png" },
+        { name: "boss_atk_3_1", url: "/Boss/Frames/boss_atk_3_1.png" },
+        { name: "boss_atk_3_2", url: "/Boss/Frames/boss_atk_3_2.png" },
+        { name: "boss_dead", url: "/Boss/Frames/boss_dead.png" },
       ],
       sprites: [
         // Using a different approach for character frames
@@ -124,6 +136,7 @@ function App() {
         { name: "evilLaugh", url: "/Intro/Evil_cackle_vocal.mp3" }, // Updated path to match AudioManager 
         { name: "footstep_grass1", url: "/1MAP/Sounds/Grass_footstep_1_sfx.mp3" },
         { name: "footstep_grass2", url: "/1MAP/Sounds/Grass_footstep_2_sfx.mp3" },
+        { name: "bossRoomAmbiance", url: "/XMAP/play_area/boss_room_ambiance_3.mp3" }, // Boss room audio
         // Audio list is now only used for loading progress calculation
       ]
     };
@@ -140,6 +153,26 @@ function App() {
   function handleBeginWithCackle() {
     playEvilCackle(() => setGameState('PLAYING'));
   }
+
+  // Debug handler for navigating to different screens from debug overlay
+  function debugNavigateToScreen(screenName) {
+    const screenMap = {
+      'main-menu': 'MENU',
+      'intro': 'INTRO', 
+      'loading': 'LOADING',
+      'game': 'PLAYING',
+      'outro': 'OUTRO',
+      'game-over': 'GAME_OVER'
+    };
+    
+    const gameState = screenMap[screenName];
+    if (gameState) {
+      console.log(`🐛 Debug: Navigating to screen '${screenName}' (state: ${gameState})`);
+      setGameState(gameState);
+    } else {
+      console.warn(`🐛 Debug: Unknown screen '${screenName}'`);
+    }
+  }
   
   // Render the appropriate screen based on game state
   function renderGameScreen() {
@@ -154,11 +187,17 @@ function App() {
             onBeginCackle={handleBeginWithCackle}
           />
         );
+
+      case 'LOADING':
+        return <LoadingScreen progress={loadingProgress} message="Loading assets..." />;
       
       case 'PLAYING':
         return (
           <Suspense fallback={<LoadingScreen progress={100} message="Starting game..." />}>
-            <GameScreen onGameEnd={() => setGameState('OUTRO')} />
+            <GameScreen 
+              onGameEnd={() => setGameState('OUTRO')}
+              onDebugNavigateToScreen={debugNavigateToScreen}
+            />
           </Suspense>
         );
       
@@ -167,6 +206,14 @@ function App() {
           <OutroScreen
             onMainMenu={() => setGameState('MENU')}
             onEnd={() => window.close()}
+          />
+        );
+
+      case 'GAME_OVER':
+        return (
+          <GameOverScreen
+            onMainMenu={() => setGameState('MENU')}
+            onRestart={() => setGameState('PLAYING')}
           />
         );
         
