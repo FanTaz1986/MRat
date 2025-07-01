@@ -1,15 +1,39 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { playOutroMusic, stopOutroMusic } from "../utils/AudioManager";
+import { createDebugOverlay } from "../development/utils/Debug";
 
 const outroImg = process.env.PUBLIC_URL + "/Outro/debeseliai.png";
 
-export default function OutroScreen({ onMainMenu, onEnd }) {
+export default function OutroScreen({ onMainMenu, onEnd, onDebugNavigateToScreen }) {
+  const debugSystemRef = useRef(null);
+
   useEffect(() => {
     playOutroMusic();
     return () => {
       stopOutroMusic();
     };
   }, []);
+
+  // Initialize debug overlay for OutroScreen
+  useEffect(() => {
+    try {
+      if (!debugSystemRef.current) {
+        debugSystemRef.current = createDebugOverlay(null, 'OutroScreen');
+      }
+      // Set the screen navigation callback
+      if (debugSystemRef.current && debugSystemRef.current.setScreenNavigationCallback && onDebugNavigateToScreen) {
+        debugSystemRef.current.setScreenNavigationCallback(onDebugNavigateToScreen);
+      }
+    } catch (error) {
+      console.warn('Failed to initialize debug overlay for OutroScreen:', error);
+    }
+
+    return () => {
+      if (debugSystemRef.current && debugSystemRef.current.destroy) {
+        debugSystemRef.current.destroy();
+      }
+    };
+  }, [onDebugNavigateToScreen]);
 
   return (
     <div

@@ -1,26 +1,37 @@
 /**
  * PixiErrorHandler.js
  * 
- * Utility to handle PixiJS specific errors globally.
- * Compatible with PixiJS v7+
- * 
- * Prevents uncaught "[object Event]" errors when loading images and textures.
+ * Modern PixiJS v7+ error handling and initialization
+ * Uses current PixiJS APIs without deprecated fallbacks
  */
 
 import * as PIXI from 'pixi.js';
 
 /**
- * Initialize error handlers for PixiJS
+ * Initialize modern PixiJS v7+ settings and error handling
  */
 export function initPixiErrorHandling() {
   if (window.__pixiErrorHandlingInitialized) return;
   
   try {
-    console.log('Initializing PixiJS error handlers...');
+    // Modern PixiJS v7.4+ settings - no deprecated APIs
+    PIXI.settings.PREFER_ENV = PIXI.ENV.WEBGL2;
+    PIXI.settings.ROUND_PIXELS = false;
     
-    // Reduce console noise if available
-    if (PIXI.utils && PIXI.utils.skipHello) {
-      PIXI.utils.skipHello();
+    // Disable hello message using v7.4 compatible API
+    if (PIXI.settings.RENDER_OPTIONS) {
+      PIXI.settings.RENDER_OPTIONS.hello = false;
+    }
+    
+    // Set high precision for shaders using v7.4 compatible API
+    if (PIXI.Program && PIXI.Program.defaultFragmentPrecision !== undefined) {
+      PIXI.Program.defaultFragmentPrecision = PIXI.PRECISION.HIGH;
+    }
+    
+    // Modern texture settings for v7.4
+    if (PIXI.BaseTexture && PIXI.BaseTexture.defaultOptions) {
+      PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.LINEAR;
+      PIXI.BaseTexture.defaultOptions.mipmap = PIXI.MIPMAP_MODES.ON;
     }
     
     // Create a custom error handler for textures
@@ -178,7 +189,28 @@ export function initPixiErrorHandling() {
       }
     });
     
-    console.log('PixiJS error handling initialized');
+    // Suppress PIXI Assets resolver warnings about overwriting keys
+    const originalConsoleWarn = console.warn;
+    console.warn = function(...args) {
+      const message = args.join(' ');
+      
+      // Suppress specific PIXI resolver warnings
+      if (message.includes('[Resolver] already has key:') && message.includes('overwriting')) {
+        // These warnings are expected when hot-reloading or re-initializing
+        return;
+      }
+      
+      // Suppress Assets BaseTexture warnings
+      if (message.includes('A BaseTexture managed by Assets was destroyed') ||
+          message.includes('Use Assets.unload() instead of destroying the BaseTexture')) {
+        return;
+      }
+      
+      // Call original console.warn for other messages
+      originalConsoleWarn.apply(console, args);
+    };
+    
+    // Modern error handling initialized silently
     window.__pixiErrorHandlingInitialized = true;
   } catch (error) {
     console.warn('Failed to initialize PixiJS error handling:', error);

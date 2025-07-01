@@ -310,10 +310,15 @@ export default class Pet {
     }
     
     // Camera viewport bounds check - handle each axis separately
-    debugLog(`Pet: Attempting camera bounds check. Camera reference: ${this.camera ? 'Available' : 'NULL'}`, 'pet');
+    // Only log camera bounds check occasionally to avoid spam
+    const now = Date.now();
+    if (!this._lastCameraBoundsLog || now - this._lastCameraBoundsLog > 5000) {
+      debugLog(`Pet: Camera bounds check (throttled logging)`, 'pet');
+      this._lastCameraBoundsLog = now;
+    }
+    
     const cameraBounds = this.getCameraBounds();
     if (cameraBounds) {
-      debugLog(`Pet: Camera bounds retrieved successfully`, 'pet');
       // Check X axis independently
       if (newX < cameraBounds.minX || newX > cameraBounds.maxX) {
         const oldX = newX;
@@ -473,25 +478,31 @@ export default class Pet {
   // Get current camera viewport bounds in world coordinates
   getCameraBounds() {
     if (!this.camera) {
-      debugLog('Pet: No camera reference available for bounds calculation', 'pet');
-      debugLog('Pet: Check if camera.setCamera() was called properly in MapManager', 'pet');
       return null;
     }
     
-    debugLog(`Pet: Camera reference exists. Position: (${this.camera.position?.x || 'undefined'}, ${this.camera.position?.y || 'undefined'})`, 'pet');
-    debugLog(`Pet: Camera zoom: ${this.camera.zoom || 'undefined'}`, 'pet');
+    // Throttle debug logging to avoid spam
+    const now = Date.now();
+    const shouldLog = !this._lastBoundsLog || now - this._lastBoundsLog > 5000;
+    
+    if (shouldLog) {
+      debugLog(`Pet: Camera reference exists. Position: (${this.camera.position?.x || 'undefined'}, ${this.camera.position?.y || 'undefined'})`, 'pet');
+      debugLog(`Pet: Camera zoom: ${this.camera.zoom || 'undefined'}`, 'pet');
+      debugLog(`Pet: Screen dimensions: ${this.app.screen.width}x${this.app.screen.height}`, 'pet');
+      this._lastBoundsLog = now;
+    }
     
     const screenWidth = this.app.screen.width;
     const screenHeight = this.app.screen.height;
-    
-    debugLog(`Pet: Screen dimensions: ${screenWidth}x${screenHeight}`, 'pet');
     
     // The camera position represents the top-left corner of the viewport in world coordinates
     // But we need to account for zoom - the viewport size in world coordinates is screen size / zoom
     const viewportWidth = screenWidth / this.camera.zoom;
     const viewportHeight = screenHeight / this.camera.zoom;
     
-    debugLog(`Pet: Viewport size in world coordinates: ${viewportWidth.toFixed(1)}x${viewportHeight.toFixed(1)}`, 'pet');
+    if (shouldLog) {
+      debugLog(`Pet: Viewport size in world coordinates: ${viewportWidth.toFixed(1)}x${viewportHeight.toFixed(1)}`, 'pet');
+    }
     
     // Camera position is already the top-left corner in world coordinates
     const viewportLeft = this.camera.position.x;
@@ -510,7 +521,9 @@ export default class Pet {
       maxY: viewportBottom - marginY
     };
     
-    debugLog(`Pet: Calculated viewport bounds: (${bounds.minX.toFixed(1)}, ${bounds.minY.toFixed(1)}) to (${bounds.maxX.toFixed(1)}, ${bounds.maxY.toFixed(1)})`, 'pet');
+    if (shouldLog) {
+      debugLog(`Pet: Calculated viewport bounds: (${bounds.minX.toFixed(1)}, ${bounds.minY.toFixed(1)}) to (${bounds.maxX.toFixed(1)}, ${bounds.maxY.toFixed(1)})`, 'pet');
+    }
     
     return bounds;
   }

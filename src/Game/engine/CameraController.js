@@ -36,8 +36,57 @@ export default class CameraController {
     debugLog('Camera centered on character', 'camera');
   }
     centerOn(x, y) {
+    // Safety check for app and screen
+    if (!this.app || !this.app.screen) {
+      console.warn('Camera centerOn called but app.screen is not available');
+      return;
+    }
+    
+    if (!this.mapContainer) {
+      console.warn('Camera centerOn called but mapContainer is null');
+      return;
+    }
+    
     const screenWidth = this.app.screen.width;
     const screenHeight = this.app.screen.height;
+    
+    // Safety check for screen dimensions
+    if (!screenWidth || !screenHeight) {
+      console.warn('Camera centerOn called but screen dimensions are invalid:', { screenWidth, screenHeight });
+      return;
+    }
+    
+    // Ensure zoom scale is properly applied before calculating positions
+    let scaleApplied = false;
+    try {
+      if (this.mapContainer) {
+        // Try to access scale property safely
+        try {
+          if (this.mapContainer.scale && typeof this.mapContainer.scale.set === 'function') {
+            this.mapContainer.scale.set(this.zoom);
+            scaleApplied = true;
+          }
+        } catch (scaleError) {
+          console.warn('Camera centerOn: Cannot access mapContainer.scale, will skip zoom application:', scaleError.message);
+        }
+        
+        if (!scaleApplied) {
+          // Try alternative scale setting
+          try {
+            this.mapContainer.scale = { x: this.zoom, y: this.zoom };
+            scaleApplied = true;
+          } catch (altScaleError) {
+            console.warn('Camera centerOn: Cannot set scale alternatively, proceeding without zoom application');
+          }
+        }
+      } else {
+        console.warn('Camera centerOn: mapContainer is not available');
+        return;
+      }
+    } catch (error) {
+      console.error('Camera centerOn: Error handling mapContainer scale:', error);
+      // Continue without scale application
+    }
     
     // Account for zoom when calculating camera position
     const scaledMapWidth = this.mapWidth * this.zoom;
@@ -49,27 +98,70 @@ export default class CameraController {
     
     // Update position
     this.position = { x: camX / this.zoom, y: camY / this.zoom };
-    this.mapContainer.x = -camX;
-    this.mapContainer.y = -camY;
+    
+    try {
+      if (this.mapContainer) {
+        this.mapContainer.x = -camX;
+        this.mapContainer.y = -camY;
+        debugLog(`Camera centered on (${x}, ${y}) - container position: (${this.mapContainer.x}, ${this.mapContainer.y}) - zoom: ${this.zoom}`, 'camera');
+      } else {
+        console.warn('Camera centerOn: Cannot update mapContainer position - mapContainer is null');
+      }
+    } catch (error) {
+      console.error('Camera centerOn: Error updating mapContainer position:', error);
+    }
   }
   update() {
     if (!this.target) {
       return;
     }
     
+    // Safety check for app and screen
+    if (!this.app || !this.app.screen) {
+      console.warn('Camera update called but app.screen is not available');
+      return;
+    }
+    
+    if (!this.mapContainer) {
+      console.warn('Camera update called but mapContainer is null');
+      return;
+    }
+    
     const screenWidth = this.app.screen.width;
     const screenHeight = this.app.screen.height;
     
+    // Safety check for screen dimensions
+    if (!screenWidth || !screenHeight) {
+      console.warn('Camera update called but screen dimensions are invalid:', { screenWidth, screenHeight });
+      return;
+    }
+    
     // Calculate target's screen position
-    const targetScreenX = this.target.position.x + this.mapContainer.x;
-    const targetScreenY = this.target.position.y + this.mapContainer.y;
+    let targetScreenX, targetScreenY;
+    try {
+      if (this.mapContainer) {
+        targetScreenX = this.target.position.x + this.mapContainer.x;
+        targetScreenY = this.target.position.y + this.mapContainer.y;
+      } else {
+        console.warn('Camera update: mapContainer is null, cannot calculate target screen position');
+        return;
+      }
+    } catch (error) {
+      console.error('Camera update: Error calculating target screen position:', error);
+      return;
+    }
     
     // Add debug logging once per second to avoid console spam
     const now = Date.now();
-    if (!this._lastDebugTime || now - this._lastDebugTime > 1000) {      debugLog(`Camera update - Target world position: ${this.target.position.x}, ${this.target.position.y}`, 'camera', 3000);
-      debugLog(`Camera update - Target screen position: ${targetScreenX}, ${targetScreenY}`, 'camera', 3000);
-      debugLog(`Screen size: ${screenWidth}, ${screenHeight}`, 'camera', 3000);
-      debugLog(`Map container offset: ${this.mapContainer.x} ${this.mapContainer.y}`, 'camera', 1000);
+    if (!this._lastDebugTime || now - this._lastDebugTime > 5000) { // Increased from 1000ms to 5000ms
+      debugLog(`Camera update - Target world position: ${this.target.position.x}, ${this.target.position.y}`, 'camera');
+      debugLog(`Camera update - Target screen position: ${targetScreenX}, ${targetScreenY}`, 'camera');
+      debugLog(`Screen size: ${screenWidth}, ${screenHeight}`, 'camera');
+      try {
+        debugLog(`Map container offset: ${this.mapContainer.x} ${this.mapContainer.y}`, 'camera');
+      } catch (error) {
+        debugLog(`Map container offset: ERROR - ${error.message}`, 'camera');
+      }
       this._lastDebugTime = now;
     }
     
@@ -79,8 +171,14 @@ export default class CameraController {
     
     // Check if target is too close to screen edges
     let cameraNeedsUpdate = false;
-    let camX = -this.mapContainer.x;
-    let camY = -this.mapContainer.y;
+    let camX, camY;
+    try {
+      camX = -this.mapContainer.x;
+      camY = -this.mapContainer.y;
+    } catch (error) {
+      console.error('Camera update: Error accessing mapContainer position:', error);
+      return;
+    }
     
     // Right edge
     if (targetScreenX > screenWidth - edgeMarginX) {
@@ -107,8 +205,16 @@ export default class CameraController {
     // Update camera position if needed
     if (cameraNeedsUpdate) {
       this.position = { x: camX, y: camY };
-      this.mapContainer.x = -camX;
-      this.mapContainer.y = -camY;
+      try {
+        if (this.mapContainer) {
+          this.mapContainer.x = -camX;
+          this.mapContainer.y = -camY;
+        } else {
+          console.warn('Camera update: Cannot update mapContainer position - mapContainer is null');
+        }
+      } catch (error) {
+        console.error('Camera update: Error updating mapContainer position:', error);
+      }
     }
   }
   

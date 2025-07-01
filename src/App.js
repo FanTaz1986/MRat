@@ -19,6 +19,9 @@ const GameScreen = React.lazy(() => import("./Game/GameScreen"));
 // Create asset loader instance
 const assetLoader = createAssetLoader();
 
+// Global flag to prevent asset loading during React StrictMode double mounting
+let globalAssetLoadingInitiated = false;
+
 function App() {
   const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -26,6 +29,13 @@ function App() {
   
   // Load all assets on mount
   useEffect(() => {
+    // Prevent multiple asset loading calls during React StrictMode
+    if (globalAssetLoadingInitiated) {
+      console.log('Asset loading already initiated globally, skipping');
+      return;
+    }
+    
+    globalAssetLoadingInitiated = true;
     const assetManifest = {
       images: [
         // Map images
@@ -141,12 +151,30 @@ function App() {
       ]
     };
 
-    assetLoader.loadAssets(assetManifest, (progress) => {
-      setLoadingProgress(progress);
-      if (progress === 100) {
+    // Load assets using modern async/await pattern
+    const loadGameAssets = async () => {
+      // Check if assets are already loaded to prevent reloading
+      if (assetLoader.areAssetsLoaded()) {
+        console.log('Assets already loaded, skipping reload');
+        setAssetsLoaded(true);
+        return;
+      }
+      
+      try {
+        await assetLoader.loadAssets(assetManifest, (progress) => {
+          setLoadingProgress(progress);
+        });
+        
+        // Small delay to show 100% progress
+        setTimeout(() => setAssetsLoaded(true), 500);
+      } catch (error) {
+        console.error('Failed to load assets:', error);
+        // Still allow the game to start even if some assets failed
         setTimeout(() => setAssetsLoaded(true), 500);
       }
-    });
+    };
+
+    loadGameAssets();
   }, []);
   
   // Handler for Begin button: play cackle, then start game
@@ -162,11 +190,19 @@ function App() {
       'loading': 'LOADING',
       'game': 'PLAYING',
       'outro': 'OUTRO',
-      'game-over': 'GAME_OVER'
+      'game-over': 'GAME_OVER',
+      // Uppercase variants for compatibility
+      'MAIN-MENU': 'MENU',
+      'INTRO': 'INTRO',
+      'LOADING': 'LOADING',
+      'GAME': 'PLAYING',
+      'OUTRO': 'OUTRO',
+      'GAME-OVER': 'GAME_OVER'
     };
     
     const gameState = screenMap[screenName];
     if (gameState) {
+      // This is debug navigation, keep as regular console for dev purposes
       console.log(`🐛 Debug: Navigating to screen '${screenName}' (state: ${gameState})`);
       setGameState(gameState);
     } else {
@@ -178,18 +214,30 @@ function App() {
   function renderGameScreen() {
     switch (gameState) {
       case 'MENU':
-        return <MainMenu onStart={() => setGameState('INTRO')} />;
+        return (
+          <MainMenu 
+            onStart={() => setGameState('INTRO')}
+            onDebugNavigateToScreen={debugNavigateToScreen}
+          />
+        );
       
       case 'INTRO':
         return (
           <IntroScreen
             onBack={() => setGameState('MENU')}
             onBeginCackle={handleBeginWithCackle}
+            onDebugNavigateToScreen={debugNavigateToScreen}
           />
         );
 
       case 'LOADING':
-        return <LoadingScreen progress={loadingProgress} message="Loading assets..." />;
+        return (
+          <LoadingScreen 
+            progress={loadingProgress} 
+            message="Loading assets..." 
+            onDebugNavigateToScreen={debugNavigateToScreen}
+          />
+        );
       
       case 'PLAYING':
         return (
@@ -206,6 +254,7 @@ function App() {
           <OutroScreen
             onMainMenu={() => setGameState('MENU')}
             onEnd={() => window.close()}
+            onDebugNavigateToScreen={debugNavigateToScreen}
           />
         );
 
@@ -214,17 +263,28 @@ function App() {
           <GameOverScreen
             onMainMenu={() => setGameState('MENU')}
             onRestart={() => setGameState('PLAYING')}
+            onDebugNavigateToScreen={debugNavigateToScreen}
           />
         );
         
       default:
-        return <MainMenu onStart={() => setGameState('INTRO')} />;
+        return (
+          <MainMenu 
+            onStart={() => setGameState('INTRO')}
+            onDebugNavigateToScreen={debugNavigateToScreen}
+          />
+        );
     }
   }
 
   // Show loading screen until assets are loaded
   if (!assetsLoaded) {
-    return <LoadingScreen progress={loadingProgress} />;
+    return (
+      <LoadingScreen 
+        progress={loadingProgress} 
+        onDebugNavigateToScreen={debugNavigateToScreen}
+      />
+    );
   }
 
   return (

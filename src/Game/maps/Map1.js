@@ -181,12 +181,12 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       try {
         const texturePath = process.env.PUBLIC_URL + prop.texturePath;
         debugLog(`Loading prop texture: ${texturePath}`, 'map');
-        console.log(`Loading prop texture: ${texturePath}`);
+        debugLog(`Loading prop texture: ${texturePath}`, 'map');
         
         // Check if texture exists in PIXI cache first
         if (!PIXI.utils.TextureCache[texturePath]) {
           debugLog(`Texture not in cache, preloading: ${texturePath}`, 'map');
-          console.log(`Texture not in cache, preloading: ${texturePath}`);
+          debugLog(`Texture not in cache, preloading: ${texturePath}`, 'map');
         }
         // Create texture with high-quality settings
         const texture = PIXI.Texture.from(texturePath);
@@ -240,7 +240,6 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
         sprite.texture.baseTexture.on('loaded', () => {
           const successMsg = `TEXTURE LOADED SUCCESSFULLY: ${texturePath}`;
           debugLog(successMsg, 'map');
-          console.log(successMsg);
         });
         
         // Add to MapManager's props layer

@@ -129,8 +129,8 @@ export default class PortalManager {
     
     debugLog(`Portal randomly placed at tile (${tileX},${tileY}), ${actualDistance} tiles from center (${centerTileX},${centerTileY})`, 'portal');
     debugLog(`Total valid positions found: ${validPositions.length}`, 'portal');
-    console.log(`🚪 Portal randomly positioned at tile (${tileX},${tileY}) = world coordinates (${worldX.toFixed(1)}, ${worldY.toFixed(1)}) - ${actualDistance} tiles from center`);
-    console.log(`🎯 Character must explore to find the portal! (${validPositions.length} possible locations were available)`);
+    debugLog(`🚪 Portal randomly positioned at tile (${tileX},${tileY}) = world coordinates (${worldX.toFixed(1)}, ${worldY.toFixed(1)}) - ${actualDistance} tiles from center`, 'portal');
+    debugLog(`🎯 Character must explore to find the portal! (${validPositions.length} possible locations were available)`, 'portal');
     
     return {
       x: worldX,
@@ -190,8 +190,8 @@ export default class PortalManager {
     
     debugLog(`Map2: Portal randomly placed at tile (${tileX},${tileY}), ${actualDistance} tiles from center (${centerTileX},${centerTileY})`, 'portal');
     debugLog(`Map2: Total valid positions found: ${validPositions.length}`, 'portal');
-    console.log(`🚪 Map2: Portal randomly positioned at tile (${tileX},${tileY}) = world coordinates (${worldX.toFixed(1)}, ${worldY.toFixed(1)}) - ${actualDistance} tiles from center`);
-    console.log(`🎯 Map2: Character must explore to find the portal! (${validPositions.length} possible locations were available)`);
+    debugLog(`🚪 Map2: Portal randomly positioned at tile (${tileX},${tileY}) = world coordinates (${worldX.toFixed(1)}, ${worldY.toFixed(1)}) - ${actualDistance} tiles from center`, 'portal');
+    debugLog(`🎯 Map2: Character must explore to find the portal! (${validPositions.length} possible locations were available)`, 'portal');
     
     return {
       x: worldX,
@@ -238,15 +238,31 @@ export default class PortalManager {
     if ((characterOnPortal || this.forcePrompt) && !this.isPromptActive) {
       this.isPromptActive = true;
       
-      // Show prompt
-      this.promptCleanupFn = activePortal.showPrompt((targetMap) => {
-        if (this.onTeleportCallback) {
-          this.onTeleportCallback(targetMap);
-        }
-        
-        this.isPromptActive = false;
-        this.promptCleanupFn = null;
-      });
+      // Special handling for MapX portals
+      if (this.mapId === 'mapareax') {
+        // Show escape prompt for MapX
+        this.promptCleanupFn = activePortal.showEscapePrompt(() => {
+          // Trigger outro screen directly via screen navigation callback
+          if (window.debugNavigateToScreen) {
+            window.debugNavigateToScreen('OUTRO');
+          } else {
+            debugLog('Cannot trigger outro: debugNavigateToScreen not available', 'portal');
+          }
+          
+          this.isPromptActive = false;
+          this.promptCleanupFn = null;
+        });
+      } else {
+        // Normal portal prompt for other maps
+        this.promptCleanupFn = activePortal.showPrompt((targetMap) => {
+          if (this.onTeleportCallback) {
+            this.onTeleportCallback(targetMap);
+          }
+          
+          this.isPromptActive = false;
+          this.promptCleanupFn = null;
+        });
+      }
     } 
     else if (!characterOnPortal && !this.forcePrompt && this.isPromptActive) {
       // Clean up prompt when character leaves portal

@@ -237,10 +237,11 @@ export default class Character {
   update(delta) {
     // Debug logging once per 3 seconds to avoid console spam
     const now = Date.now();
-    if (!this._lastUpdateDebugTime || now - this._lastUpdateDebugTime > 3000) {      debugLog(`Character update called, position: ${this.position.x}, ${this.position.y}`, 'character', 5000);
-      debugLog(`Character sprite position: ${this.sprite.x}, ${this.sprite.y}`, 'character', 5000);
-      debugLog(`Character sprite visible: ${this.sprite.visible}`, 'character', 5000);
-      debugLog(`Character sprite alpha: ${this.sprite.alpha}`, 'character', 5000);        // Calculate screen position relative to camera/map container
+    if (!this._lastUpdateDebugTime || now - this._lastUpdateDebugTime > 10000) { // 10 seconds instead of 3
+      debugLog(`Character update called, position: ${this.position.x}, ${this.position.y}`, 'character');
+      debugLog(`Character sprite position: ${this.sprite.x}, ${this.sprite.y}`, 'character');
+      debugLog(`Character sprite visible: ${this.sprite.visible}`, 'character');
+      debugLog(`Character sprite alpha: ${this.sprite.alpha}`, 'character');        // Calculate screen position relative to camera/map container
       // Find the map container by traversing up the parent chain
       let mapContainer = this.sprite.parent;
       while (mapContainer && mapContainer.parent && mapContainer.parent !== this.app.stage) {
@@ -257,15 +258,19 @@ export default class Character {
       const margin = 100; // Render margin outside screen
       const inView = screenX >= -margin && screenX <= this.app.screen.width + margin && 
                      screenY >= -margin && screenY <= this.app.screen.height + margin;
-        debugLog(`Character screen position: ${screenX}, ${screenY}`, 'rendering', 5000);
-      debugLog(`Character in-view: ${inView}`, 'rendering', 5000);
-      debugLog(`Map container offset used: ${mapOffsetX}, ${mapOffsetY}`, 'rendering', 5000);
+      
+      // Only log rendering info occasionally to avoid spam
+      if (now - this._lastUpdateDebugTime > 10000) { // 10 seconds instead of 3
+        debugLog(`Character screen position: ${screenX}, ${screenY}`, 'rendering');
+        debugLog(`Character in-view: ${inView}`, 'rendering');
+        debugLog(`Map container offset used: ${mapOffsetX}, ${mapOffsetY}`, 'rendering');
+      }
       
       // Enhanced rendering analysis
-      if (!inView) {
+      if (!inView && now - this._lastUpdateDebugTime > 10000) {
         const offScreenX = screenX < -margin ? Math.abs(screenX + margin) : (screenX > this.app.screen.width + margin ? screenX - (this.app.screen.width + margin) : 0);
         const offScreenY = screenY < -margin ? Math.abs(screenY + margin) : (screenY > this.app.screen.height + margin ? screenY - (this.app.screen.height + margin) : 0);
-        debugLog(`Character culled - Outside screen bounds by X:${offScreenX.toFixed(1)}, Y:${offScreenY.toFixed(1)}`, 'rendering', 5000);
+        debugLog(`Character culled - Outside screen bounds by X:${offScreenX.toFixed(1)}, Y:${offScreenY.toFixed(1)}`, 'rendering');
       }
       this._lastUpdateDebugTime = now;
     }

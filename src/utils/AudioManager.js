@@ -1,4 +1,5 @@
 import { Howl, Howler } from 'howler';
+import { debugLog } from '../development/utils/Debug';
 
 // Feature detection and setup
 const AUDIO_ENABLED = typeof window !== 'undefined' && typeof window.AudioContext !== 'undefined';
@@ -46,7 +47,7 @@ function initializeAudioSystem() {
 
     // More aggressive approach to unlock audio
     const unlockAudio = () => {
-      console.log('User interaction detected, attempting to unlock audio...');
+      debugLog('User interaction detected, attempting to unlock audio...', 'audio');
       
       // Play the silent sound to unlock audio
       silentSound.play();
@@ -67,7 +68,7 @@ function initializeAudioSystem() {
       
       // Try replaying any sounds that might have failed
       if (sounds['menu_music'] && !sounds['menu_music'].playing()) {
-        console.log('Attempting to replay menu music after unlock');
+        debugLog('Attempting to replay menu music after unlock', 'audio');
         sounds['menu_music'].play();
       }
     };
@@ -80,7 +81,7 @@ function initializeAudioSystem() {
     // Call unlockAudio immediately in case we're already in a user interaction
     setTimeout(unlockAudio, 0);
 
-    console.log('Audio system initialized successfully');
+    debugLog('Audio system initialized successfully', 'audio');
     audioInitialized = true;
   } catch (err) {
     console.warn('Audio initialization failed:', err);
@@ -335,11 +336,11 @@ export function playAmbianceForMap(mapId) {
   const soundPath = ambianceByMap[mapId];
   if (soundPath) {
     try {
-      console.log(`Playing ambiance for ${mapId}: ${soundPath}`);
+      debugLog(`Playing ambiance for ${mapId}: ${soundPath}`, 'audio');
       
       // Double-check if the mapId is valid
       if (!mapId || !ambianceByMap[mapId]) {
-        console.warn(`Invalid mapId (${mapId}) or missing ambiance path`);
+        debugLog(`Invalid mapId (${mapId}) or missing ambiance path`, 'audio');
         return;
       }
       
@@ -348,7 +349,7 @@ export function playAmbianceForMap(mapId) {
       });
       currentAmbianceMapId = mapId;
     } catch (err) {
-      console.error(`Error playing ambiance for ${mapId}:`, err);
+      debugLog(`Error playing ambiance for ${mapId}: ${err}`, 'audio');
       // Continue without ambiance if there's an error
     }
   } else {

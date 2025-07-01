@@ -170,6 +170,59 @@ export default class Portal {
     return cleanup;
   }
   
+  showEscapePrompt(onEscape) {
+    // Create and return DOM element for escape prompt
+    const promptElement = document.createElement('div');
+    promptElement.setAttribute('data-portal-prompt', 'true');
+    promptElement.style.position = 'fixed';
+    promptElement.style.left = '50%';
+    promptElement.style.top = '50%';
+    promptElement.style.transform = 'translate(-50%, -50%)';
+    promptElement.style.width = '400px';
+    promptElement.style.color = '#ff5959';
+    promptElement.style.background = 'rgba(60,0,0,0.97)';
+    promptElement.style.border = '2px solid #ff5959';
+    promptElement.style.borderRadius = '18px';
+    promptElement.style.padding = '24px 0';
+    promptElement.style.textAlign = 'center';
+    promptElement.style.fontSize = '2rem';
+    promptElement.style.zIndex = '200';
+    promptElement.style.fontWeight = 'bold';
+    promptElement.style.boxShadow = '0 0 32px #ff595955';
+    promptElement.style.textShadow = '0 0 24px #ff595988, 0 0 2px #fff';
+    promptElement.style.letterSpacing = '2px';
+    promptElement.style.userSelect = 'none';
+    promptElement.style.pointerEvents = 'none';
+    promptElement.textContent = 'press T to escape';
+      document.body.appendChild(promptElement);
+      // Cleanup function
+    const cleanup = () => {
+      document.removeEventListener('keydown', handleTKey);
+      if (promptElement.parentNode) promptElement.parentNode.removeChild(promptElement);
+    };
+      // T key handler
+    const handleTKey = (e) => {
+      if (e.key.toLowerCase() === 't') {
+        playPortalSound(() => {
+          if (onEscape) {            try {
+              onEscape();
+            } catch (err) {
+              debugLog(`Error in portal escape callback: ${err.message}`, 'portal');
+            }
+          } else {
+            debugLog('onEscape callback is missing!', 'portal');
+          }
+          
+          cleanup();
+        });
+      }
+    };
+      document.addEventListener('keydown', handleTKey);
+    
+    // Return cleanup function
+    return cleanup;
+  }
+
   /**
    * Update the position of the portal
    * @param {number} x - New X position

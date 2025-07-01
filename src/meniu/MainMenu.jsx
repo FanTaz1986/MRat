@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import "./MainMenu.css";
 import {
   playMenuMusic,
@@ -9,16 +9,18 @@ import {
   setSfxVolume,
   initAudio,
 } from "../utils/AudioManager";
+import { createDebugOverlay } from "../development/utils/Debug";
 // Removed unused import: useGameStore
 
 const menuItems = ["Start", "Options", "Credits"];
 
-export default function MainMenu({ onStart }) {
+export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
   const [selected, setSelected] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
   const [musicVolume, setMusicVolumeState] = useState(5);
   const [sfxVolume, setSfxVolumeState] = useState(7);
+  const debugSystemRef = useRef(null);
   const loginBg = process.env.PUBLIC_URL + "/meniu/loginscreen.png";
   const skyBg = process.env.PUBLIC_URL + "/Intro/sky.png";
 
@@ -87,6 +89,31 @@ export default function MainMenu({ onStart }) {
   useEffect(() => {
     setSfxVolume(sfxVolume / 10);
   }, [sfxVolume]);
+
+  // Initialize debug overlay for MainMenu (debounced)
+  useEffect(() => {
+    // Add delay to prevent rapid re-initialization during React StrictMode
+    const timer = setTimeout(() => {
+      try {
+        if (!debugSystemRef.current) {
+          debugSystemRef.current = createDebugOverlay(null, 'MainMenu');
+        }
+        // Set the screen navigation callback
+        if (debugSystemRef.current && debugSystemRef.current.setScreenNavigationCallback && onDebugNavigateToScreen) {
+          debugSystemRef.current.setScreenNavigationCallback(onDebugNavigateToScreen);
+        }
+      } catch (error) {
+        console.warn('Failed to initialize debug overlay for MainMenu:', error);
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+      if (debugSystemRef.current && debugSystemRef.current.destroy) {
+        debugSystemRef.current.destroy();
+      }
+    };
+  }, [onDebugNavigateToScreen]);
 
   const handleMenuClick = (idx) => {
     setSelected(idx);

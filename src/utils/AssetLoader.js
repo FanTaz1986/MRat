@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
-// Removed @pixi/sound import - using Howler.js exclusively now
+// Modern PixiJS v7+ asset loading - no deprecated imports
 import { initImageErrorHandling, createFallbackImage } from './ImageErrorHandler';
+import { debugLog } from '../development/utils/Debug';
 
 // Initialize image error handling
 initImageErrorHandling();
@@ -13,246 +14,188 @@ export const PORTAL_ASSET_KEYS = {
   FRAME_4: 'portal_frame_3'
 };
 
-// Central asset loader with state
+/**
+ * Modern PixiJS v7+ Asset Loader using PIXI.Assets API
+ */
 export function createAssetLoader() {
   let loadedAssets = {};
   let portalFramesLoaded = false;
+  let isLoading = false; // Prevent multiple simultaneous loads
   
   return {
     /**
-     * Load assets defined in a manifest
-     * @param {Object} manifest - Object containing arrays of images, sprites, and audio assets
-     * @param {Function} progressCallback - Function to receive loading progress
-     * @returns {Promise} Promise that resolves with loaded assets
+     * Load assets using modern PIXI.Assets API
      */
-    loadAssets(manifest, progressCallback) {
-      return new Promise((resolve) => {
-        // Count total assets to track progress
+    async loadAssets(manifest, progressCallback) {
+      // Prevent multiple simultaneous loads
+      if (isLoading) {
+        console.warn('Asset loading already in progress, skipping duplicate call');
+        return loadedAssets;
+      }
+      
+      isLoading = true;
+      
+      try {
         const totalAssets = (
           (manifest.images?.length || 0) + 
           (manifest.sprites?.length || 0) + 
           (manifest.audio?.length || 0) +
-          (manifest.portalFrames ? 4 : 0) // Portal frames count
+          (manifest.portalFrames ? 4 : 0)
         );
         
         let loadedCount = 0;
         
-        // Update progress helper
         const updateProgress = () => {
           loadedCount++;
           const progress = Math.floor((loadedCount / totalAssets) * 100);
           if (progressCallback) progressCallback(progress);
-          if (loadedCount === totalAssets) resolve(loadedAssets);
-        };          // Load images with improved error handling and fallback textures
+        };
+        // Load images using modern PIXI.Assets
         if (manifest.images?.length) {
-          manifest.images.forEach(item => {
-            const url = process.env.PUBLIC_URL + item.url;
-            
-            // Create a promise to load the image with error handling
-            const loadWithFallback = async () => {
-              try {
-                // First check if the file exists before loading with PIXI
-                const response = await fetch(url, { method: 'HEAD' }).catch(() => ({ ok: false }));
-                
-                if (!response.ok) {
-                  throw new Error(`File not found: ${url}`);
-                }
-                
-                // Now try to load it with PIXI
-                return await PIXI.Assets.load(url);
-              } catch (error) {
-                console.warn(`Failed to load asset: ${item.name} (${url})`, error);
-                
-                // Create a fallback texture
-                const fallbackImg = createFallbackImage(32, 32, item.name.substring(0, 4));
-                const base64Texture = await PIXI.Assets.load(fallbackImg);
-                
-                console.log(`Created fallback texture for: ${item.name}`);
-                return base64Texture;
+          for (const item of manifest.images) {
+            try {
+              const url = process.env.PUBLIC_URL + item.url;
+              
+              // Check if asset is already loaded to avoid "already has key" warnings
+              let texture;
+              if (PIXI.Assets.cache.has(item.name)) {
+                texture = PIXI.Assets.cache.get(item.name);
+                debugLog(`Asset already cached: ${item.name}`, 'asset');
+              } else {
+                // Add to PIXI.Assets cache first, then load
+                PIXI.Assets.add({ alias: item.name, src: url });
+                texture = await PIXI.Assets.load(item.name);
+                debugLog(`Asset loaded: ${item.name}`, 'asset');
               }
-            };
-            
-            // Run the load with fallback process
-            loadWithFallback()
-              .then(texture => {
-                console.log(`Asset loaded (or fallback created): ${item.name}`);
-                loadedAssets[item.name] = texture;
-                updateProgress();
-              })
-              .catch(finalError => {
-                // This should rarely happen since we have multiple fallbacks
-                console.error(`Critical asset loading failure for ${item.name}:`, finalError);
-                
-                // Create an empty texture as last resort
-                const emptyTexture = PIXI.Texture.EMPTY;
-                loadedAssets[item.name] = emptyTexture;
-                
-                // Continue loading process
-                updateProgress();
-              });
-          });
-        }        // Load sprite sheets with improved validation
-        if (manifest.sprites?.length) {
-          manifest.sprites.forEach(item => {
-            const url = process.env.PUBLIC_URL + item.url;
-            console.log(`Loading spritesheet: ${item.name} from ${url}`);
-            
-            // Skip loading if sprites array is empty (used for progress calc only)
-            if (!item.url || item.url === '') {
-              console.log(`Skipping empty spritesheet entry: ${item.name}`);
+              
+              loadedAssets[item.name] = texture;
               updateProgress();
-              return;
+            } catch (error) {
+              console.warn(`Failed to load ${item.name}:`, error);
+              
+              // Create fallback texture using modern API
+              try {
+                const fallbackImg = createFallbackImage(32, 32, item.name.substring(0, 4));
+                const fallbackTexture = await PIXI.Assets.load(fallbackImg);
+                loadedAssets[item.name] = fallbackTexture;
+                debugLog(`Created fallback texture for: ${item.name}`, 'asset');
+              } catch (fallbackError) {
+                // Use PIXI.Texture.WHITE as ultimate fallback
+                loadedAssets[item.name] = PIXI.Texture.WHITE;
+                console.warn(`Using white texture fallback for: ${item.name}`);
+              }
+              updateProgress();
+            }
+          }
+        }
+        
+        // Handle audio assets (register for on-demand loading)
+        if (manifest.audio?.length) {
+          manifest.audio.forEach(item => {
+            debugLog(`Audio asset registered (will load on demand): ${item.name}`, 'asset');
+            updateProgress();
+          });
+        }
+        
+        // Load sprites using modern PIXI.Assets
+        if (manifest.sprites?.length) {
+          for (const item of manifest.sprites) {
+            if (!item.url || item.url === '') {
+              debugLog(`Skipping empty spritesheet entry: ${item.name}`, 'asset');
+              updateProgress();
+              continue;
             }
             
             try {
-              // We need to handle potential missing sprite sheet files gracefully
-              fetch(url)
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error(`Spritesheet file not found: ${url} (${response.status})`);
-                  }
-                  return response.json();
-                })
-                .then(jsonData => {
-                  if (!jsonData || !jsonData.frames) {
-                    throw new Error(`Invalid spritesheet format: missing 'frames' property`);
-                  }
-                  
-                  if (jsonData.meta && jsonData.meta.image) {
-                    // Also check that the image file exists
-                    const imageUrl = process.env.PUBLIC_URL + 
-                      (jsonData.meta.image.startsWith('/') ? '' : '/') + 
-                      (url.substring(0, url.lastIndexOf('/') + 1)) + 
-                      jsonData.meta.image;
-                    
-                    console.log(`Checking spritesheet image: ${imageUrl}`);
-                    return fetch(imageUrl, { method: 'HEAD' })
-                      .then(imageResponse => {
-                        if (!imageResponse.ok) {
-                          throw new Error(`Spritesheet image not found: ${imageUrl}`);
-                        }
-                        console.log(`Spritesheet image exists: ${imageUrl}`);
-                        return PIXI.Assets.load(url);
-                      });
-                  } else {
-                    console.log(`No image specified in spritesheet, using individual frames`);
-                    // Create a fake spritesheet data
-                    loadedAssets[item.name] = {
-                      frames: jsonData.frames || {},
-                      animations: jsonData.animations || jsonData.meta?.animations || {}
-                    };
-                    return null;
-                  }
-                })
-                .then(spritesheet => {
-                  if (spritesheet) {
-                    console.log(`Successfully loaded spritesheet: ${item.name}`);
-                    loadedAssets[item.name] = spritesheet;
-                  }
-                  updateProgress();
-                })
-                .catch(error => {
-                  console.warn(`Spritesheet error for ${item.name}: ${error.message}`);
-                  console.warn(`URL was: ${url}`);
-                  console.warn('Creating empty placeholder for missing spritesheet');
-                  
-                  // Create an empty placeholder so the game can continue
-                  loadedAssets[item.name] = { 
-                    frames: {}, 
-                    animations: {},
-                    textures: {}
-                  };
-                  
-                  // Continue loading
-                  updateProgress();
-                });
-            } catch (err) {
-              console.error(`Fatal error loading spritesheet ${item.name}:`, err);
-              updateProgress(); // Still update progress
+              const url = process.env.PUBLIC_URL + item.url;
+              
+              // Check if spritesheet is already loaded
+              let spritesheet;
+              if (PIXI.Assets.cache.has(item.name)) {
+                spritesheet = PIXI.Assets.cache.get(item.name);
+                debugLog(`Spritesheet already cached: ${item.name}`, 'asset');
+              } else {
+                PIXI.Assets.add({ alias: item.name, src: url });
+                spritesheet = await PIXI.Assets.load(item.name);
+                debugLog(`Spritesheet loaded: ${item.name}`, 'asset');
+              }
+              
+              loadedAssets[item.name] = spritesheet;
+              updateProgress();
+            } catch (error) {
+              console.warn(`Failed to load spritesheet ${item.name}:`, error);
+              loadedAssets[item.name] = { frames: {}, animations: {}, textures: {} };
+              updateProgress();
             }
-          });
-        }
-          // Load audio - skip registration as Howler loads on demand
-        // Just update progress for each audio asset to maintain loading bar accuracy
-        if (manifest.audio?.length) {
-          manifest.audio.forEach(item => {
-            // We don't actually load audio here - AudioManager handles this on demand
-            console.log(`Audio asset registered (will load on demand): ${item.name}`);
-            // We just need to maintain the progress count
-            updateProgress();
-          });
+          }
         }
         
         // Load portal frames if requested
         if (manifest.portalFrames) {
-          this.loadPortalAssets(() => {
-            portalFramesLoaded = true;
-            // Portal has 4 frames, so update progress for each
+          await this.loadPortalAssets();
+          for (let i = 0; i < 4; i++) {
             updateProgress();
-            updateProgress();
-            updateProgress();
-            updateProgress();
-          });
+          }
         }
         
-        // Handle empty manifest
-        if (totalAssets === 0) {
-          resolve(loadedAssets);
-        }
-      });
+        return loadedAssets;
+      } catch (error) {
+        console.error('Asset loading failed:', error);
+        return loadedAssets;
+      } finally {
+        isLoading = false;
+      }
     },
     
     /**
-     * Load portal-specific assets
-     * @param {Function} onComplete - Callback when loading completes
+     * Load portal assets using modern PIXI.Assets
      */
-    loadPortalAssets(onComplete) {
-      // If portal frames were already loaded, just call the completion handler
-      if (portalFramesLoaded) {
-        onComplete?.();
-        return;
-      }
+    async loadPortalAssets() {
+      if (portalFramesLoaded) return;
       
       const portalFrames = [
         process.env.PUBLIC_URL + "/Portal/portal1.png",
-        process.env.PUBLIC_URL + "/Portal/portal2.png",
+        process.env.PUBLIC_URL + "/Portal/portal2.png", 
         process.env.PUBLIC_URL + "/Portal/portal3.png",
         process.env.PUBLIC_URL + "/Portal/portal4.png"
       ];
       
-      // Create textures array for all frames
       const textures = [];
-      let framesLoaded = 0;
       
-      // Load each frame
-      portalFrames.forEach((frameUrl, index) => {
-        PIXI.Assets.load(frameUrl).then(texture => {
-          // Store in loadedAssets
-          const key = `portal_frame_${index}`;
-          loadedAssets[key] = texture;
-          textures[index] = texture;
+      for (let i = 0; i < portalFrames.length; i++) {
+        try {
+          const alias = `portal_frame_${i}`;
           
-          framesLoaded++;
-          if (framesLoaded === portalFrames.length) {
-            // All frames loaded
-            loadedAssets['portal_frames'] = textures;
-            portalFramesLoaded = true;
-            onComplete?.();
+          // Check if portal frame is already loaded
+          let texture;
+          if (PIXI.Assets.cache.has(alias)) {
+            texture = PIXI.Assets.cache.get(alias);
+          } else {
+            PIXI.Assets.add({ alias, src: portalFrames[i] });
+            texture = await PIXI.Assets.load(alias);
           }
-        }).catch(error => {
-          console.warn(`Failed to load portal frame ${index}:`, error);
-          framesLoaded++;
-          if (framesLoaded === portalFrames.length) {
-            onComplete?.();
-          }
-        });
-      });
+          
+          loadedAssets[alias] = texture;
+          textures[i] = texture;
+        } catch (error) {
+          console.warn(`Failed to load portal frame ${i}:`, error);
+          textures[i] = PIXI.Texture.WHITE;
+        }
+      }
+      
+      loadedAssets['portal_frames'] = textures;
+      portalFramesLoaded = true;
+    },
+    
+    /**
+     * Check if assets have been loaded
+     */
+    areAssetsLoaded() {
+      return Object.keys(loadedAssets).length > 0;
     },
     
     /**
      * Get a loaded asset by name
-     * @param {string} name - Asset name
-     * @returns {*} The loaded asset or undefined
      */
     getAsset(name) {
       return loadedAssets[name];
@@ -260,7 +203,6 @@ export function createAssetLoader() {
     
     /**
      * Check if portal assets are loaded
-     * @returns {boolean} True if loaded
      */
     arePortalAssetsLoaded() {
       return portalFramesLoaded;
@@ -268,10 +210,31 @@ export function createAssetLoader() {
     
     /**
      * Get all portal frame textures
-     * @returns {Array} Array of portal frame textures
      */
     getPortalFrames() {
       return loadedAssets['portal_frames'] || [];
+    },
+    
+    /**
+     * Modern cleanup using PIXI.Assets.unload
+     */
+    async cleanup() {
+      try {
+        // Unload all assets using modern API
+        const aliases = Object.keys(loadedAssets);
+        for (const alias of aliases) {
+          try {
+            await PIXI.Assets.unload(alias);
+          } catch (error) {
+            // Asset might not be in PIXI.Assets cache, ignore
+          }
+        }
+        
+        loadedAssets = {};
+        portalFramesLoaded = false;
+      } catch (error) {
+        console.warn('Error during asset cleanup:', error);
+      }
     }
   };
 }

@@ -113,7 +113,7 @@ export function initImageErrorHandling() {
       }
     }, true);
     
-    console.log('Image error handling initialized successfully');
+    // Image error handling initialized silently
     window.__imageErrorHandlingInitialized = true;
   } catch (err) {
     console.error('Failed to initialize image error handling:', err);

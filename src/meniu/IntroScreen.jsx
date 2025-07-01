@@ -1,8 +1,31 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
+import { createDebugOverlay } from "../development/utils/Debug";
 
 const skyImg = process.env.PUBLIC_URL + "/Intro/sky.png";
 
-export default function IntroScreen({ onBack, onBeginCackle }) {
+export default function IntroScreen({ onBack, onBeginCackle, onDebugNavigateToScreen }) {
+  const debugSystemRef = useRef(null);
+
+  // Initialize debug overlay for IntroScreen
+  useEffect(() => {
+    try {
+      if (!debugSystemRef.current) {
+        debugSystemRef.current = createDebugOverlay(null, 'IntroScreen');
+      }
+      // Set the screen navigation callback
+      if (debugSystemRef.current && debugSystemRef.current.setScreenNavigationCallback && onDebugNavigateToScreen) {
+        debugSystemRef.current.setScreenNavigationCallback(onDebugNavigateToScreen);
+      }
+    } catch (error) {
+      console.warn('Failed to initialize debug overlay for IntroScreen:', error);
+    }
+
+    return () => {
+      if (debugSystemRef.current && debugSystemRef.current.destroy) {
+        debugSystemRef.current.destroy();
+      }
+    };
+  }, [onDebugNavigateToScreen]);
   return (
     <div
       style={{

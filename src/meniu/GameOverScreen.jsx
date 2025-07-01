@@ -1,15 +1,39 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { playOutroMusic, stopOutroMusic } from "../utils/AudioManager";
+import { createDebugOverlay } from "../development/utils/Debug";
 
 const gameOverImg = process.env.PUBLIC_URL + "/Intro/sky.png";
 
-export default function GameOverScreen({ onMainMenu, onRestartLevel }) {
+export default function GameOverScreen({ onMainMenu, onRestartLevel, onDebugNavigateToScreen }) {
+  const debugSystemRef = useRef(null);
+
   useEffect(() => {
     playOutroMusic(); // Using outro music for dramatic effect
     return () => {
       stopOutroMusic();
     };
   }, []);
+
+  // Initialize debug overlay for GameOverScreen
+  useEffect(() => {
+    try {
+      if (!debugSystemRef.current) {
+        debugSystemRef.current = createDebugOverlay(null, 'GameOverScreen');
+      }
+      // Set the screen navigation callback
+      if (debugSystemRef.current && debugSystemRef.current.setScreenNavigationCallback && onDebugNavigateToScreen) {
+        debugSystemRef.current.setScreenNavigationCallback(onDebugNavigateToScreen);
+      }
+    } catch (error) {
+      console.warn('Failed to initialize debug overlay for GameOverScreen:', error);
+    }
+
+    return () => {
+      if (debugSystemRef.current && debugSystemRef.current.destroy) {
+        debugSystemRef.current.destroy();
+      }
+    };
+  }, [onDebugNavigateToScreen]);
 
   return (
     <div

@@ -12,6 +12,35 @@ import { debugLog } from '../../development/utils/Debug';
 
 export default class MapManager {
   constructor(app) {
+    console.log('MapManager constructor called with:', {
+      app: !!app,
+      appType: typeof app,
+      appConstructor: app?.constructor?.name,
+      hasStage: !!app?.stage,
+      stageType: typeof app?.stage,
+      stageConstructor: app?.stage?.constructor?.name
+    });
+    
+    // Safety check: Ensure we receive a valid PIXI app
+    if (!app) {
+      throw new Error('MapManager constructor: PIXI app is required');
+    }
+    
+    if (!app.stage) {
+      console.error('MapManager constructor debug info:', {
+        app: !!app,
+        appType: typeof app,
+        appConstructor: app.constructor?.name,
+        hasStage: !!app.stage,
+        stageType: typeof app.stage,
+        appKeys: Object.keys(app),
+        appProto: Object.getPrototypeOf(app)?.constructor?.name
+      });
+      throw new Error('MapManager constructor: PIXI app must have a stage. App exists but stage is missing.');
+    }
+    
+    console.log('MapManager constructor: Validation passed, creating MapManager...');
+    
     this.app = app;
     this.currentMap = null;
     this.character = null;
@@ -74,6 +103,17 @@ export default class MapManager {
     debugLog(`Loading map: ${mapId}`, 'map');
     if (targetPosition) {
       debugLog(`Teleporting to position: (${targetPosition.x}, ${targetPosition.y})`, 'map');
+    }
+    
+    // Safety check: Ensure PIXI app and stage are valid
+    if (!this.app) {
+      console.error('PIXI app is null in MapManager.loadMap');
+      return;
+    }
+    
+    if (!this.app.stage) {
+      console.error('PIXI app stage is null in MapManager.loadMap');
+      return;
     }
     
     // Clean up old map
@@ -190,7 +230,7 @@ export default class MapManager {
       this.app,
       this.mapContainer,
       mapConfig.mapSize,
-      mapConfig.mapSize,
+      mapConfig.mapHeight || mapConfig.mapSize, // Use mapHeight if available, otherwise use mapSize
       initialZoom
     );
     this.camera.follow(this.character);
@@ -200,8 +240,15 @@ export default class MapManager {
     debugLog('Pet camera reference set after camera creation', 'pet');    // Create portal manager
     this.portalManager = new PortalManager(this.app, mapId, mapConfig.mapSize, mapConfig.mapHeight);
     // Add portals to character layer so they can be properly z-ordered with character
-    this.portalManager.addToScene(this.characterLayer);this.portalManager.setOnTeleport((targetMap) => {
+    this.portalManager.addToScene(this.characterLayer);    this.portalManager.setOnTeleport((targetMap) => {
       debugLog(`TELEPORT TRIGGERED from ${mapId} to ${targetMap}`, 'portal');
+      
+      // Safety check: Ensure PIXI app is still valid before teleporting
+      if (!this.app || !this.app.stage) {
+        console.error('Cannot teleport: PIXI app or stage is null');
+        return;
+      }
+      
       if (targetMap) {
         // Store previous map before loading new one
         const previousMap = this.currentMap;
@@ -256,7 +303,11 @@ export default class MapManager {
     });
     
     // Add portal update to ticker
-    this.app.ticker.add(this.updatePortals);
+    if (this.app && this.app.ticker) {
+      this.app.ticker.add(this.updatePortals);
+    } else {
+      console.warn('Cannot add portal updates to ticker: app or ticker is null');
+    }
     
     // Load map props
     this.loadMapProps(mapId);
@@ -558,42 +609,58 @@ export default class MapManager {
     // Stop ambiance
     stopAmbiance();
     
-      // Clean up map0 instance if it exists
+    // Safety check: Ensure PIXI app is valid before cleanup
+    if (!this.app) {
+      console.warn('PIXI app is null in unloadCurrentMap, skipping cleanup');
+      return;
+    }
+    
+    // Clean up map0 instance if it exists
     if (this.map0Instance) {
-      this.app.ticker.remove(this.updateMap0);
+      if (this.app.ticker) {
+        this.app.ticker.remove(this.updateMap0);
+      }
       this.map0Instance.destroy();
       this.map0Instance = null;
     }
     
     // Clean up map1 instance if it exists
     if (this.map1Instance) {
-      this.app.ticker.remove(this.updateMap1);
+      if (this.app.ticker) {
+        this.app.ticker.remove(this.updateMap1);
+      }
       this.map1Instance.destroy();
       this.map1Instance = null;
     }
     
     // Clean up map2 instance if it exists
     if (this.map2Instance) {
-      this.app.ticker.remove(this.updateMap2);
+      if (this.app.ticker) {
+        this.app.ticker.remove(this.updateMap2);
+      }
       this.map2Instance.destroy();
       this.map2Instance = null;
     }
     
     // Clean up mapX instance if it exists
     if (this.mapXInstance) {
-      this.app.ticker.remove(this.updateMapX);
+      if (this.app.ticker) {
+        this.app.ticker.remove(this.updateMapX);
+      }
       this.mapXInstance.destroy();
       this.mapXInstance = null;
     }
     
     // Clear follow target reference
-    if (this.app.followTarget) {
+    if (this.app && this.app.followTarget) {
       this.app.followTarget = null;
     }
     
     // Clean up portal manager
     if (this.portalManager) {
-      this.app.ticker.remove(this.updatePortals);
+      if (this.app && this.app.ticker) {
+        this.app.ticker.remove(this.updatePortals);
+      }
       this.portalManager.destroy();
       this.portalManager = null;
     }

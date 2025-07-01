@@ -8,21 +8,21 @@ let debugConfig = {
   showStats: true,
   muteDebugLogs: false,
   logCategories: {
-    general: true,
-    portal: true,
-    character: true,
-    camera: true,
-    map: true,
-    audio: true,
-    asset: true,
-    game: true,
-    system: true,
-    rendering: true,
-    collision: true,
-    animation: true,
-    input: true,
-    performance: true,
-    pet: true
+    general: false,
+    portal: false,
+    character: false,
+    camera: false,
+    map: false,
+    audio: false,
+    asset: false,
+    game: false,
+    system: false,
+    rendering: false,
+    collision: false,
+    animation: false,
+    input: false,
+    performance: false,
+    pet: false
   }
 };
 
@@ -206,16 +206,7 @@ function SimpleDebugOverlay({
     }    
     // Character position and tile details
     if (character && character.position) {
-      const charX = Math.floor(character.position.x / tileWidth);
-      const charY = Math.floor(character.position.y / tileHeight);
-      const charTileIndex = charY * gridWidth + charX;
-      debugLog(`--- CHARACTER ANALYSIS ---`, 'system');
-      debugLog(`Character Position: (${character.position.x.toFixed(1)}, ${character.position.y.toFixed(1)})`, 'system');
-      debugLog(`Character Tile: (${charX}, ${charY}) | Tile Index: ${charTileIndex}`, 'system');
-      debugLog(`Character Grid Width Used: ${gridWidth}`, 'system');
-      debugLog(`Tile Size Used: ${tileWidth}x${tileHeight}`, 'system');
-      
-      // Check if character is within map bounds
+      // Check if character is within map bounds (only log warnings)
       if (character.position.x > mapPixelWidth || character.position.y > mapPixelHeight) {
         debugLog(`⚠️ WARNING: Character is outside map bounds! Map size: ${mapPixelWidth}x${mapPixelHeight}`, 'system');
       }
@@ -494,6 +485,35 @@ function SimpleDebugOverlay({
       debugLog(`Teleporting to map: ${mapId}`, 'map');
       mapManager.loadMap(mapId, () => {
         debugLog(`Successfully teleported to ${mapId}`, 'map');
+        
+        // Ensure camera properly centers and applies zoom after map load
+        setTimeout(() => {
+          // Get the latest camera reference from mapManager
+          const currentCamera = mapManager.camera || window.game?.mapManager?.camera;
+          const currentCharacter = mapManager.character || window.game?.characterManager?.character;
+          
+          if (currentCamera && currentCharacter && currentCamera.centerOn) {
+            // Force zoom scale reapplication with safety checks
+            try {
+              if (currentCamera.mapContainer && currentCamera.mapContainer.scale && currentCamera.zoom) {
+                currentCamera.mapContainer.scale.set(currentCamera.zoom);
+                debugLog(`Zoom scale reapplied: ${currentCamera.zoom}`, 'map');
+              } else {
+                debugLog('Cannot reapply zoom scale: mapContainer or scale not available', 'map');
+              }
+            } catch (error) {
+              debugLog(`Error reapplying zoom scale: ${error.message}`, 'map');
+            }
+            
+            // Center camera on character with additional safety checks
+            if (currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
+              currentCamera.centerOn(currentCharacter.position.x, currentCharacter.position.y);
+              debugLog(`Camera re-centered after map teleport to position: (${currentCharacter.position.x}, ${currentCharacter.position.y}) with zoom: ${currentCamera.zoom}`, 'map');
+            } else {
+              debugLog('Cannot center camera: missing mapContainer or character position', 'map');
+            }
+          }
+        }, 200); // Longer delay to ensure everything is properly initialized
       });
     } else {
       debugLog('Cannot teleport: map manager not available', 'map');
@@ -502,16 +522,25 @@ function SimpleDebugOverlay({
   const teleportToPortal = () => {
     if (mapManager && mapManager.portalManager && mapManager.portalManager.portals.length > 0) {
       const portal = mapManager.portalManager.portals[0];
-      if (portal && portal.position && character && character.position) {
-        character.position.x = portal.position.x;
-        character.position.y = portal.position.y;
-          // Center camera on character after teleporting to portal
-        if (camera && camera.centerOn) {
-          setTimeout(() => {
-            camera.centerOn(character.position.x, character.position.y);
-            debugLog(`Camera centered on character at portal: (${character.position.x}, ${character.position.y})`, 'portal');
-          }, 50); // Small delay to ensure position is stable
-        }
+      const currentCharacter = mapManager.character || window.game?.characterManager?.character;
+      
+      if (portal && portal.position && currentCharacter && currentCharacter.position) {
+        currentCharacter.position.x = portal.position.x;
+        currentCharacter.position.y = portal.position.y;
+        
+        // Center camera on character after teleporting to portal
+        setTimeout(() => {
+          // Get the latest camera reference
+          const currentCamera = mapManager.camera || window.game?.mapManager?.camera;
+          
+          // Additional safety checks before calling centerOn
+          if (currentCamera && currentCamera.centerOn && currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
+            currentCamera.centerOn(currentCharacter.position.x, currentCharacter.position.y);
+            debugLog(`Camera centered on character at portal: (${currentCharacter.position.x}, ${currentCharacter.position.y})`, 'portal');
+          } else {
+            debugLog('Cannot center camera: missing camera, mapContainer, or character', 'portal');
+          }
+        }, 150); // Increased delay to ensure map is fully loaded
         
         debugLog('Teleported to portal and centered camera', 'portal');
       } else {
@@ -527,12 +556,18 @@ function SimpleDebugOverlay({
       const spawnPoint = mapManager.getCurrentMapSpawnPoint() || { x: 100, y: 100 };
       character.position.x = spawnPoint.x;
       character.position.y = spawnPoint.y;
-        // Center camera on character after teleporting to spawn
+      
+      // Center camera on character after teleporting to spawn
       if (camera && camera.centerOn) {
         setTimeout(() => {
-          camera.centerOn(character.position.x, character.position.y);
-          debugLog(`Camera centered on character at spawn: (${character.position.x}, ${character.position.y})`, 'character');
-        }, 50); // Small delay to ensure position is stable
+          // Additional safety checks before calling centerOn
+          if (camera && camera.centerOn && camera.mapContainer && character && character.position) {
+            camera.centerOn(character.position.x, character.position.y);
+            debugLog(`Camera centered on character at spawn: (${character.position.x}, ${character.position.y})`, 'character');
+          } else {
+            debugLog('Cannot center camera at spawn: missing camera, mapContainer, or character', 'character');
+          }
+        }, 150); // Increased delay to ensure everything is initialized
       }
       
       debugLog('Teleported to spawn point and centered camera', 'character');
@@ -717,6 +752,29 @@ function SimpleDebugOverlay({
                   key: 'none'
                 }, 'No portals found')
             )
+          ]),
+          
+          // Keyboard shortcuts section
+          React.createElement('div', { key: 'shortcuts' }, [
+            React.createElement('div', {
+              key: 'shortcuts-header',
+              style: { marginTop: '12px' }
+            }, React.createElement('strong', {}, 'Keyboard Shortcuts:')),
+            React.createElement('div', {
+              key: 'shortcuts-content',
+              style: { 
+                marginLeft: '12px', 
+                fontSize: '11px',
+                background: 'rgba(162, 89, 255, 0.1)',
+                padding: '8px',
+                borderRadius: '6px',
+                marginTop: '4px'
+              }
+            }, [
+              React.createElement('div', { key: 'shortcut-o' }, '🔧 [O] - Open/Close Debug Overlay'),
+              React.createElement('div', { key: 'shortcut-p' }, '👁️ [P] - Show/Hide Debug Button'),
+              React.createElement('div', { key: 'shortcut-note', style: { fontSize: '10px', opacity: 0.8, marginTop: '4px' } }, 'Note: Shortcuts work on all screens')
+            ])
           ])
         ])
       ]),      activeTab === 'map' && React.createElement('div', { key: 'map' }, [        React.createElement('h4', {
@@ -750,7 +808,7 @@ function SimpleDebugOverlay({
               transition: 'all 0.2s ease',
               textShadow: '0 0 8px rgba(76, 175, 80, 0.3)'
             }
-          }, '🌀 Teleport to Portal'),
+          }, '🌀 Move to Portal'),
           
           React.createElement('button', {
             key: 'spawn',
@@ -887,15 +945,19 @@ function SimpleDebugOverlay({
           React.createElement('button', {
             key: 'centerCamera',            onClick: () => {
               if (camera && character && character.position) {
-                // Use the camera's centerOn method for proper centering
-                if (camera.centerOn) {
+                // Use the camera's centerOn method for proper centering with safety checks
+                if (camera.centerOn && camera.mapContainer) {
                   camera.centerOn(character.position.x, character.position.y);
                   debugLog(`Camera centered on character at (${character.position.x}, ${character.position.y})`, 'camera');
                 } else {
                   // Fallback to direct position setting
-                  camera.position.x = character.position.x;
-                  camera.position.y = character.position.y;
-                  debugLog('Camera centered on character (fallback method)', 'camera');
+                  if (camera.position) {
+                    camera.position.x = character.position.x;
+                    camera.position.y = character.position.y;
+                    debugLog('Camera centered on character (fallback method)', 'camera');
+                  } else {
+                    debugLog('Cannot center camera: camera methods not available', 'camera');
+                  }
                 }
                 
                 // Ensure camera is following the character
@@ -926,7 +988,7 @@ function SimpleDebugOverlay({
               if (mapManager?.portalManager?.portals?.length > 0) {
                 const portal = mapManager.portalManager.portals[0];
                 if (portal?.position && camera) {
-                  if (camera.centerOn) {
+                  if (camera.centerOn && camera.mapContainer) {
                     camera.centerOn(portal.position.x, portal.position.y);
                     debugLog(`Camera centered on portal at (${portal.position.x}, ${portal.position.y})`, 'camera');
                   } else {
@@ -1686,10 +1748,27 @@ function SimpleDebugOverlay({
   ]);
 }
 
+// Global state to prevent multiple debug overlays
+let globalDebugOverlay = null;
+let debugOverlayCounter = 0;
+let globalKeyboardHandlerActive = false;
+
 /**
  * Create debug overlay system
  */
-export function createDebugOverlay(app) {
+export function createDebugOverlay(app, screenName = 'Unknown') {
+  // Prevent multiple debug overlays from being created simultaneously
+  debugOverlayCounter++;
+  const overlayId = debugOverlayCounter;
+  
+  debugLog(`Creating debug overlay #${overlayId} for screen: ${screenName}`, 'system');
+  
+  // If there's already a global debug overlay, reuse it instead of creating new one
+  if (globalDebugOverlay && !globalDebugOverlay.isDestroyed) {
+    debugLog(`Reusing existing debug overlay for screen: ${screenName}`, 'system');
+    return globalDebugOverlay;
+  }
+  
   let debugContainer = document.getElementById('debug-overlay');
   let root = null;
   let isDestroyed = false;
@@ -1721,21 +1800,31 @@ export function createDebugOverlay(app) {
     renderDebugOverlay();
   }
 
-  // Create debug button
+  // Create debug button (persistent across screens)
   function createDebugButton() {
+    // Don't recreate if it already exists and is properly set up
     const existingButton = document.getElementById('debug-toggle-button');
+    if (existingButton && existingButton.parentNode) {
+      // Just update the click handler to ensure it works with current overlay
+      existingButton.onclick = toggleDebug;
+      return existingButton;
+    }
+    
+    // Remove any orphaned button
     if (existingButton) {
-      existingButton.parentNode.removeChild(existingButton);
-    }    const debugButton = document.createElement('button');
+      existingButton.remove();
+    }
+
+    const debugButton = document.createElement('button');
     debugButton.id = 'debug-toggle-button';
-    debugButton.textContent = 'Debug';
+    debugButton.innerHTML = 'Debug<br><small style="font-size:10px;">O:Open P:Hide</small>';
     debugButton.style.position = 'fixed';
     debugButton.style.top = '20px';
     debugButton.style.right = '20px';
-    debugButton.style.zIndex = '10000';
-    debugButton.style.padding = '12px 20px';
-    debugButton.style.fontSize = '14px';
-    debugButton.style.background = 'rgba(30,0,60,0.9)';
+    debugButton.style.zIndex = '10001'; // Higher than debug overlay
+    debugButton.style.padding = '12px 16px';
+    debugButton.style.fontSize = '13px';
+    debugButton.style.background = 'rgba(30,0,60,0.95)';
     debugButton.style.color = '#a259ff';
     debugButton.style.border = '2px solid #a259ff';
     debugButton.style.borderRadius = '12px';
@@ -1746,6 +1835,8 @@ export function createDebugOverlay(app) {
     debugButton.style.fontWeight = 'bold';
     debugButton.style.letterSpacing = '1px';
     debugButton.style.textShadow = '0 0 8px #a259ff88';
+    debugButton.style.textAlign = 'center';
+    debugButton.style.lineHeight = '1.2';
     
     // Add hover effects
     debugButton.addEventListener('mouseenter', () => {
@@ -1768,11 +1859,63 @@ export function createDebugOverlay(app) {
   // Create the debug button
   createDebugButton();
 
-  // Function to render the debug overlay
+  // Add global keyboard event handling (only once)
+  let debugButtonVisible = true;
+  
+  function handleKeyDown(event) {
+    // Don't interfere with text inputs
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+      return;
+    }
+    
+    // 'O' key to open/close debug overlay
+    if (event.key.toLowerCase() === 'o') {
+      event.preventDefault();
+      toggleDebug();
+      return;
+    }
+    
+    // 'P' key to show/hide debug button
+    if (event.key.toLowerCase() === 'p') {
+      event.preventDefault();
+      const debugButton = document.getElementById('debug-toggle-button');
+      if (debugButton) {
+        debugButtonVisible = !debugButtonVisible;
+        debugButton.style.display = debugButtonVisible ? 'block' : 'none';
+        debugLog(`Debug button ${debugButtonVisible ? 'shown' : 'hidden'} (Press P to toggle)`, 'system');
+      }
+      return;
+    }
+  }
+  
+  // Add the keyboard event listener only if not already active
+  if (!globalKeyboardHandlerActive) {
+    document.addEventListener('keydown', handleKeyDown);
+    globalKeyboardHandlerActive = true;
+  }
+
+  // Throttle rendering to prevent performance issues
+  let renderTimeout = null;
+  let lastRenderTime = 0;
+  const RENDER_THROTTLE_MS = 100; // Limit renders to 10fps max
+
+  // Function to render the debug overlay (throttled)
   function renderDebugOverlay() {
     if (isDestroyed || !debugContainer || !debugContainer.parentNode) {
       return;
     }
+    
+    const now = Date.now();
+    if (now - lastRenderTime < RENDER_THROTTLE_MS) {
+      // Throttle rapid renders
+      if (renderTimeout) clearTimeout(renderTimeout);
+      renderTimeout = setTimeout(() => {
+        renderDebugOverlay();
+      }, RENDER_THROTTLE_MS - (now - lastRenderTime));
+      return;
+    }
+    
+    lastRenderTime = now;
     
     if (root) {
       root.render(
@@ -1796,8 +1939,11 @@ export function createDebugOverlay(app) {
   // Initial render
   renderDebugOverlay();
 
+  // Log instructions for using the debug system
+  debugLog('🎮 Debug System Ready! Controls: [O] Open/Close Debug | [P] Show/Hide Debug Button', 'system');
+
   // Return debug system interface
-  return {
+  const debugSystem = {
     setMapManager: (manager) => {
       mapManager = manager;
       renderDebugOverlay();
@@ -1819,13 +1965,37 @@ export function createDebugOverlay(app) {
     },
     destroy: () => {
       isDestroyed = true;
-      const button = document.getElementById('debug-toggle-button');
-      if (button) button.remove();
+      debugLog(`Destroying debug overlay #${overlayId}`, 'system');
+      
+      // Only remove keyboard event listener if this is the global overlay
+      if (globalDebugOverlay === debugSystem && globalKeyboardHandlerActive) {
+        document.removeEventListener('keydown', handleKeyDown);
+        globalKeyboardHandlerActive = false;
+      }
+      
+      // Only remove button if this is the global overlay being destroyed
+      if (globalDebugOverlay === debugSystem) {
+        const button = document.getElementById('debug-toggle-button');
+        if (button) button.remove();
+      }
+      
       if (debugContainer && debugContainer.parentNode) {
         debugContainer.parentNode.removeChild(debugContainer);
       }
-    }
+      
+      // Clear global reference if this is the global overlay
+      if (globalDebugOverlay === debugSystem) {
+        globalDebugOverlay = null;
+      }
+    },
+    isDestroyed: false,
+    overlayId: overlayId
   };
+  
+  // Store as global overlay
+  globalDebugOverlay = debugSystem;
+  
+  return debugSystem;
 }
 
 /**
