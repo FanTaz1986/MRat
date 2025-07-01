@@ -9,7 +9,7 @@ export default class Pet {
     this.velocity = { x: 0, y: 0 };
     this.direction = 'right'; // default facing right
     this.isMoving = false;
-    this.moveSpeed = 4;
+    this.moveSpeed = 5.2; // Increased by 30% from 4
     this.animationSpeed = 0.15;
     this.bounds = null;
     this.isAttacking = false;
@@ -25,10 +25,11 @@ export default class Pet {
     this.baseScale = 0.7; // Base scale for map0
     this.currentScale = this.baseScale;
     this.isFollowing = false; // Whether pet is following the character
-    this.followSpeed = 4.5; // Slightly faster than move speed when following
+    this.followSpeed = 5.85; // Increased by 30% from 4.5 - slightly faster than move speed when following
     
     // Character reference for following
     this.character = null;
+    this.camera = null; // Reference to camera for viewport bounds
     
     // Distance limits based on character size
     this.baseMaxDistance = 164; // One character height at map0
@@ -265,7 +266,7 @@ export default class Pet {
     if (dx < 0) this.direction = 'left';
     else if (dx > 0) this.direction = 'right';
 
-    // Update position
+    // Update position with proper boundary checking for each axis
     let newX = this.position.x + this.velocity.x;
     let newY = this.position.y + this.velocity.y;
     
@@ -300,10 +301,36 @@ export default class Pet {
       }
     }
     
-    // Also check bounds to prevent pet from going outside map
+    // Check bounds independently for each axis to allow diagonal movement when possible
+    
+    // Map bounds check
     if (this.bounds) {
       newX = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, newX));
       newY = Math.max(this.bounds.minY, Math.min(this.bounds.maxY, newY));
+    }
+    
+    // Camera viewport bounds check - handle each axis separately
+    debugLog(`Pet: Attempting camera bounds check. Camera reference: ${this.camera ? 'Available' : 'NULL'}`, 'pet');
+    const cameraBounds = this.getCameraBounds();
+    if (cameraBounds) {
+      debugLog(`Pet: Camera bounds retrieved successfully`, 'pet');
+      // Check X axis independently
+      if (newX < cameraBounds.minX || newX > cameraBounds.maxX) {
+        const oldX = newX;
+        newX = Math.max(cameraBounds.minX, Math.min(cameraBounds.maxX, newX));
+        debugLog(`Pet X restricted: ${oldX.toFixed(1)} -> ${newX.toFixed(1)} (bounds: ${cameraBounds.minX.toFixed(1)} to ${cameraBounds.maxX.toFixed(1)})`, 'pet');
+        debugLog(`Screen W: ${this.app.screen.width}, Camera X: ${this.camera.position.x.toFixed(1)}, Zoom: ${this.camera.zoom}`, 'pet');
+      }
+      
+      // Check Y axis independently  
+      if (newY < cameraBounds.minY || newY > cameraBounds.maxY) {
+        const oldY = newY;
+        newY = Math.max(cameraBounds.minY, Math.min(cameraBounds.maxY, newY));
+        debugLog(`Pet Y restricted: ${oldY.toFixed(1)} -> ${newY.toFixed(1)} (bounds: ${cameraBounds.minY.toFixed(1)} to ${cameraBounds.maxY.toFixed(1)})`, 'pet');
+        debugLog(`Screen H: ${this.app.screen.height}, Camera Y: ${this.camera.position.y.toFixed(1)}, Zoom: ${this.camera.zoom}`, 'pet');
+      }
+    } else {
+      debugLog(`Pet: Camera bounds could not be retrieved - pet movement will not be restricted to viewport`, 'pet');
     }
     
     this.position.x = newX;
@@ -362,6 +389,17 @@ export default class Pet {
   setCharacter(character) {
     this.character = character;
     debugLog('Pet: Character reference set for following behavior', 'pet');
+  }
+
+  // Set camera reference for viewport bounds checking
+  setCamera(camera) {
+    this.camera = camera;
+    debugLog(`Pet: Camera reference set for viewport bounds. Camera object: ${camera ? 'Available' : 'NULL'}`, 'pet');
+    if (camera) {
+      debugLog(`Pet: Camera position: (${camera.position?.x || 'undefined'}, ${camera.position?.y || 'undefined'}), zoom: ${camera.zoom || 'undefined'}`, 'pet');
+    } else {
+      debugLog('Pet: WARNING - Camera reference is NULL!', 'pet');
+    }
   }
 
   // Get the pet sprite for adding to containers
@@ -432,6 +470,51 @@ export default class Pet {
     debugLog(`Pet bounds set: ${JSON.stringify(bounds)}`, 'pet');
   }
 
+  // Get current camera viewport bounds in world coordinates
+  getCameraBounds() {
+    if (!this.camera) {
+      debugLog('Pet: No camera reference available for bounds calculation', 'pet');
+      debugLog('Pet: Check if camera.setCamera() was called properly in MapManager', 'pet');
+      return null;
+    }
+    
+    debugLog(`Pet: Camera reference exists. Position: (${this.camera.position?.x || 'undefined'}, ${this.camera.position?.y || 'undefined'})`, 'pet');
+    debugLog(`Pet: Camera zoom: ${this.camera.zoom || 'undefined'}`, 'pet');
+    
+    const screenWidth = this.app.screen.width;
+    const screenHeight = this.app.screen.height;
+    
+    debugLog(`Pet: Screen dimensions: ${screenWidth}x${screenHeight}`, 'pet');
+    
+    // The camera position represents the top-left corner of the viewport in world coordinates
+    // But we need to account for zoom - the viewport size in world coordinates is screen size / zoom
+    const viewportWidth = screenWidth / this.camera.zoom;
+    const viewportHeight = screenHeight / this.camera.zoom;
+    
+    debugLog(`Pet: Viewport size in world coordinates: ${viewportWidth.toFixed(1)}x${viewportHeight.toFixed(1)}`, 'pet');
+    
+    // Camera position is already the top-left corner in world coordinates
+    const viewportLeft = this.camera.position.x;
+    const viewportTop = this.camera.position.y;
+    const viewportRight = this.camera.position.x + viewportWidth;
+    const viewportBottom = this.camera.position.y + viewportHeight;
+    
+    // Apply 5% margin from the edges
+    const marginX = viewportWidth * 0.05;
+    const marginY = viewportHeight * 0.05;
+    
+    const bounds = {
+      minX: viewportLeft + marginX,
+      minY: viewportTop + marginY,
+      maxX: viewportRight - marginX,
+      maxY: viewportBottom - marginY
+    };
+    
+    debugLog(`Pet: Calculated viewport bounds: (${bounds.minX.toFixed(1)}, ${bounds.minY.toFixed(1)}) to (${bounds.maxX.toFixed(1)}, ${bounds.maxY.toFixed(1)})`, 'pet');
+    
+    return bounds;
+  }
+
   // Check if pet is too far from character
   isOutOfRange() {
     if (!this.character || !this.character.position) {
@@ -466,6 +549,14 @@ export default class Pet {
       
       this.position.x += normalizedDx * followSpeed * delta;
       this.position.y += normalizedDy * followSpeed * delta;
+      
+      // Ensure pet doesn't go outside camera viewport when following
+      const cameraBounds = this.getCameraBounds();
+      if (cameraBounds) {
+        this.position.x = Math.max(cameraBounds.minX, Math.min(cameraBounds.maxX, this.position.x));
+        this.position.y = Math.max(cameraBounds.minY, Math.min(cameraBounds.maxY, this.position.y));
+      }
+      
       this.sprite.position.set(this.position.x, this.position.y);
       
       // Update direction based on movement

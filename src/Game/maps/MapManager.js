@@ -167,6 +167,7 @@ export default class MapManager {
     };
     this.pet = new Pet(this.app, petStartPosition.x, petStartPosition.y, mapId);
     this.pet.setCharacter(this.character); // Connect pet to character for following behavior
+    // Note: Camera reference will be set after camera is created
     this.pet.setBounds(mapConfig.bounds); // Set map boundaries for pet
     
     // Add pet to character layer with proper z-indexing
@@ -192,7 +193,11 @@ export default class MapManager {
       mapConfig.mapSize,
       initialZoom
     );
-    this.camera.follow(this.character);    // Create portal manager
+    this.camera.follow(this.character);
+    
+    // Now that camera is created, connect it to the pet for viewport bounds
+    this.pet.setCamera(this.camera);
+    debugLog('Pet camera reference set after camera creation', 'pet');    // Create portal manager
     this.portalManager = new PortalManager(this.app, mapId, mapConfig.mapSize, mapConfig.mapHeight);
     // Add portals to character layer so they can be properly z-ordered with character
     this.portalManager.addToScene(this.characterLayer);this.portalManager.setOnTeleport((targetMap) => {
