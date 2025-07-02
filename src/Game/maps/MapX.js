@@ -60,7 +60,7 @@ export default class MapX {
    * Load props for MapX (simple implementation)
    */
   loadProps() {
-    debugLog('Loading props for MapX (cave with 1A.png props)', 'map');
+    debugLog('Loading props for MapX (cave with 1B, 2B, 3B props - 3x variety, size, and quantity)', 'map');
     
     // Add basic obstacles (map edges)
     this.addObstacles();
