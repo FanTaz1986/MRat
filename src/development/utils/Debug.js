@@ -22,7 +22,7 @@ let debugConfig = {
     animation: false,
     input: false,
     performance: false,
-    pet: false
+    pet: false // Debug logging disabled by default
   }
 };
 

@@ -1,6 +1,111 @@
 import * as PIXI from 'pixi.js';
 import { debugLog } from '../../development/utils/Debug';
 
+// Projectile class for pet ranged attacks
+class Projectile {
+  constructor(app, startX, startY, direction, level, petAnimations) {
+    this.app = app;
+    this.position = { x: startX, y: startY };
+    this.direction = direction; // 'left' or 'right'
+    this.level = level;
+    this.speed = level === 1 ? 8 : 16; // Level 1: 2x character speed (8), Level 2: 4x character speed (16)
+    this.isActive = true;
+    
+    // Get screen dimensions for range calculation
+    this.screenWidth = app.screen.width || 1536;
+    this.screenHeight = app.screen.height || 695;
+    
+    // Calculate max range based on level (use world coordinates, not screen)
+    const baseRange = 400; // Base range in world pixels
+    this.maxRange = this.level === 1 ? baseRange * 0.5 : baseRange * 1.5; // Level 1: 200px, Level 2: 600px (2x increase)
+    this.traveledDistance = 0;
+    
+    // Create sprite based on level - use only one sprite and mirror for left direction
+    const textureKey = level === 1 ? 'projectile_1' : 'projectile_3'; // Level 2 uses projectile_3 for purple
+    this.sprite = new PIXI.Sprite(petAnimations[textureKey][0]);
+    this.sprite.anchor.set(0.5);
+    this.sprite.position.set(startX, startY);
+    
+    // Calculate projectile scale - half the size of the pet
+    // Get pet size for current level and calculate half size
+    const petSizes = {
+      1: 164 * 0.5, // Level 1 pet size (map1)
+      2: 164 * 1.0  // Level 2 pet size (map2/mapx)
+    };
+    const petSize = petSizes[level] || petSizes[1];
+    const projectileTargetSize = petSize * 0.5; // Half the pet size
+    
+    // Original projectile dimensions
+    const originalSizes = {
+      1: { width: 2179, height: 560 },
+      2: { width: 2920, height: 647 }
+    };
+    const originalSize = originalSizes[level] || originalSizes[1];
+    
+    // Calculate scale to achieve target size (use the larger dimension for consistent scaling)
+    const maxOriginalDimension = Math.max(originalSize.width, originalSize.height);
+    const projectileScale = projectileTargetSize / maxOriginalDimension;
+    
+    // Add random vertical flip for variation (50% chance)
+    const randomFlip = Math.random() < 0.5;
+    const scaleY = randomFlip ? -projectileScale : projectileScale;
+    
+    // Set direction and velocity
+    if (direction === 'left') {
+      this.sprite.scale.set(-projectileScale, scaleY); // Mirror horizontally for left direction
+      this.velocity = { x: -this.speed, y: 0 };
+    } else {
+      this.sprite.scale.set(projectileScale, scaleY);
+      this.velocity = { x: this.speed, y: 0 };
+    }
+    
+    // High-quality rendering
+    this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+    this.sprite.visible = true;
+    this.sprite.alpha = 1.0;
+    
+    debugLog(`Projectile created: Level ${level}, Direction ${direction}, Range ${this.maxRange}px, Scale: ${projectileScale.toFixed(3)}, Flipped: ${randomFlip}`, 'pet');
+    debugLog(`Projectile sprite size: ${this.sprite.width.toFixed(1)}x${this.sprite.height.toFixed(1)} at position (${startX}, ${startY})`, 'pet');
+    debugLog(`Projectile velocity: (${this.velocity.x}, ${this.velocity.y})`, 'pet');
+  }
+  
+  update(delta) {
+    if (!this.isActive) return false;
+    
+    // Update position
+    this.position.x += this.velocity.x * delta;
+    this.position.y += this.velocity.y * delta;
+    this.sprite.position.set(this.position.x, this.position.y);
+    
+    // Track traveled distance
+    this.traveledDistance += Math.abs(this.velocity.x) * delta;
+    
+    // Debug: Log position every so often
+    if (Math.floor(this.traveledDistance) % 50 === 0) {
+      debugLog(`Projectile at (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)}), traveled: ${this.traveledDistance.toFixed(1)}`, 'pet');
+    }
+    
+    // Check if projectile has traveled max range
+    if (this.traveledDistance >= this.maxRange) {
+      debugLog(`Projectile destroyed - reached max range: ${this.maxRange}px (traveled: ${this.traveledDistance.toFixed(1)}px)`, 'pet');
+      this.destroy();
+      return false;
+    }
+    
+    return true;
+  }
+  
+  destroy() {
+    this.isActive = false;
+    if (this.sprite && this.sprite.parent) {
+      this.sprite.parent.removeChild(this.sprite);
+    }
+    if (this.sprite) {
+      this.sprite.destroy();
+    }
+  }
+}
+
 export default class Pet {
   constructor(app, initialX, initialY, mapId = 'maparea0') {
     this.app = app;
@@ -15,6 +120,19 @@ export default class Pet {
     this.isAttacking = false;
     this.attackDuration = 100; // ms
     this.lastAttackTime = 0;
+    
+    // Projectile system for ranged attacks (level 1 and 2)
+    this.projectiles = [];
+    this.projectileSpeed = 8; // 2x character speed (4*2=8)
+    this.attackIntervals = {
+      0: null, // Level 0 has no ranged attack
+      1: 2000, // Level 1: 2 seconds
+      2: 1000  // Level 2: 1 second
+    };
+    this.lastRangedAttackTime = 0;
+    this.canRangedAttack = true;
+    this.pendingProjectile = null; // Track pending projectile to spawn after attack animation
+    this.projectileSpawned = false; // Flag to ensure projectile spawns only once per attack
     
     // Growth and range system
     this.characterReference = null; // Reference to main character
@@ -133,6 +251,10 @@ export default class Pet {
       ],
       attack_2: [createTexture('/Ziurke/2lvl/3_ziurke_spjauna.png')],
       attack_left_2: [createMirroredTexture('/Ziurke/2lvl/3_ziurke_spjauna.png')],
+      
+      // Projectile textures for ranged attacks - use only one sprite with mirroring for left
+      projectile_1: [createTexture('/Ziurke/atacks/projectile_toxic1.png')],
+      projectile_3: [createTexture('/Ziurke/atacks/projectile_toxic3.png')]
     };
 
     // Set current level based on map
@@ -191,9 +313,7 @@ export default class Pet {
       case ' ':
         e.preventDefault(); // Prevent default spacebar behavior
         if (!this.isAttacking) {
-          this.keys.attack = true;
-          this.isAttacking = true;
-          this.lastAttackTime = Date.now();
+          this.performAttack();
         }
         break;
       default:
@@ -223,7 +343,110 @@ export default class Pet {
     }
   }
 
+  // Handle attack based on pet level
+  performAttack() {
+    const now = Date.now();
+    
+    if (this.currentLevel === 0) {
+      // Level 0: Melee attack only
+      this.keys.attack = true;
+      this.isAttacking = true;
+      this.lastAttackTime = now;
+      debugLog('Pet: Performing melee attack (Level 0)', 'pet');
+    } else if (this.currentLevel === 1 || this.currentLevel === 2) {
+      // Level 1 & 2: Check ranged attack cooldown
+      const attackInterval = this.attackIntervals[this.currentLevel];
+      
+      if (this.canRangedAttack && (now - this.lastRangedAttackTime >= attackInterval)) {
+        this.performRangedAttack();
+        this.lastRangedAttackTime = now;
+        this.canRangedAttack = false;
+        
+        // Reset cooldown after interval
+        setTimeout(() => {
+          this.canRangedAttack = true;
+        }, attackInterval);
+        
+        debugLog(`Pet: Performing ranged attack (Level ${this.currentLevel}, Interval: ${attackInterval}ms)`, 'pet');
+      } else {
+        const remainingCooldown = attackInterval - (now - this.lastRangedAttackTime);
+        debugLog(`Pet: Ranged attack on cooldown (${Math.max(0, remainingCooldown)}ms remaining)`, 'pet');
+      }
+    }
+  }
+
+  // Perform ranged attack (levels 1 and 2)
+  performRangedAttack() {
+    if (!this.sprite || !this.sprite.parent) return;
+    
+    // Set up pending projectile to spawn after attack animation
+    this.pendingProjectile = {
+      level: this.currentLevel,
+      direction: this.direction
+    };
+    
+    // Start attack animation - projectile will spawn when animation is shown
+    this.keys.attack = true;
+    this.isAttacking = true;
+    this.lastAttackTime = Date.now();
+  }
+
+  // Spawn projectile from the front middle of the pet sprite
+  spawnProjectileFromPet() {
+    if (!this.sprite || !this.sprite.parent || !this.pendingProjectile) return;
+    
+    debugLog(`Attempting to spawn projectile - Pet position: (${this.position.x}, ${this.position.y}), Direction: ${this.pendingProjectile.direction}`, 'pet');
+    
+    // Calculate spawn position based on pet's world position and sprite size
+    const petSize = this.getPetSizeForMap(this.mapId);
+    const halfPetWidth = petSize * 0.5;
+    const quarterPetHeight = petSize * 0.25;
+    
+    // Start projectile from bottom-front of the pet sprite (in world coordinates)
+    let spawnX, spawnY;
+    
+    if (this.pendingProjectile.direction === 'left') {
+      // Left direction: spawn from left edge (front) and bottom of pet
+      spawnX = this.position.x - halfPetWidth; // Left edge of pet
+      spawnY = this.position.y + quarterPetHeight; // Bottom area of pet
+    } else {
+      // Right direction: spawn from right edge (front) and bottom of pet
+      spawnX = this.position.x + halfPetWidth; // Right edge of pet
+      spawnY = this.position.y + quarterPetHeight; // Bottom area of pet
+    }
+    
+    debugLog(`Projectile spawn position: (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)}) - Pet world position: (${this.position.x}, ${this.position.y}), Pet size: ${petSize}px`, 'pet');
+    
+    // Create projectile at calculated position
+    const projectile = new Projectile(
+      this.app,
+      spawnX,
+      spawnY,
+      this.pendingProjectile.direction,
+      this.pendingProjectile.level,
+      this.animations
+    );
+    
+    // Add projectile sprite to the same container as pet
+    this.sprite.parent.addChild(projectile.sprite);
+    this.projectiles.push(projectile);
+    
+    debugLog(`Projectile created and added to container. Total projectiles: ${this.projectiles.length}`, 'pet');
+    debugLog(`Projectile sprite visible: ${projectile.sprite.visible}, alpha: ${projectile.sprite.alpha}`, 'pet');
+  }
+
+  // Update all active projectiles
+  updateProjectiles(delta) {
+    // Update projectiles and remove inactive ones
+    this.projectiles = this.projectiles.filter(projectile => {
+      return projectile.update(delta);
+    });
+  }
+
   update = (delta) => {
+    // Update projectiles first
+    this.updateProjectiles(delta);
+    
     // Handle attack animation
     if (this.isAttacking) {
       const now = Date.now();
@@ -240,9 +463,18 @@ export default class Pet {
           this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
           this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
         }
+        
+        // Spawn projectile after attack animation frame is shown (and if we have a pending projectile)
+        if (this.pendingProjectile && !this.projectileSpawned) {
+          this.spawnProjectileFromPet();
+          this.projectileSpawned = true; // Ensure we only spawn once per attack
+        }
+        
         return;
       } else {
         this.isAttacking = false;
+        this.projectileSpawned = false; // Reset for next attack
+        this.pendingProjectile = null; // Clear pending projectile
       }
     }
 
@@ -449,6 +681,18 @@ export default class Pet {
     this.mapId = mapId;
     this.currentLevel = this.getPetLevelForMap(mapId);
     
+    // Clean up existing projectiles when changing maps
+    this.projectiles.forEach(projectile => {
+      projectile.destroy();
+    });
+    this.projectiles = [];
+    
+    // Reset attack cooldowns for new map
+    this.canRangedAttack = true;
+    this.lastRangedAttackTime = 0;
+    this.pendingProjectile = null;
+    this.projectileSpawned = false;
+    
     // Update max distance based on level (100% more each level)
     this.currentMaxDistance = this.baseMaxDistance * (1 + this.currentLevel);
     
@@ -604,6 +848,13 @@ export default class Pet {
     this.app.ticker.remove(this.update, this);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
+    
+    // Clean up all projectiles
+    this.projectiles.forEach(projectile => {
+      projectile.destroy();
+    });
+    this.projectiles = [];
+    
     if (this.sprite && this.sprite.parent) {
       this.sprite.parent.removeChild(this.sprite);
     }
