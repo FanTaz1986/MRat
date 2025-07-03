@@ -1,8 +1,19 @@
 import * as PIXI from 'pixi.js';
 import { debugLog } from '../../development/utils/Debug';
+import BossAttackEffect from './BossAttackEffect';
+import { 
+  playBossRoomMusic, 
+  stopBossRoomMusic,
+  playBossFlySound, 
+  stopBossFlySound,
+  playBossLandSound,
+  playBossMeleeAttack,
+  playBossRangeChargeUp,
+  playBossDeathSound
+} from '../../utils/AudioManager';
 
 export default class Boss {
-  constructor(app, initialX, initialY) {
+  constructor(app, initialX, initialY, container = null) {
     this.app = app;
     this.position = { x: initialX, y: initialY };
     this.direction = 'right'; // Boss faces right by default, can be mirrored
@@ -20,9 +31,9 @@ export default class Boss {
     // Animation frame tracking
     this.frameIndices = { 
       fly: 0, 
-      idle: 0, 
-      atk1: 0, 
-      atk3: 0,
+      land: 0, 
+      melee: 0, 
+      range: 0,
       dead: 0
     };
     
@@ -30,10 +41,22 @@ export default class Boss {
     this.isAttacking = false;
     this.attackCooldown = 2000; // 2 seconds between attacks
     this.lastAttackTime = 0;
-    this.attackType = 'atk1'; // 'atk1' or 'atk3'
+    this.attackType = 'melee'; // 'melee' or 'range'
+    
+    // Attack effects system
+    this.attackEffects = null;
+    this.effectsContainer = container || app.stage;
+    
+    // Audio state
+    this.isFlyingSoundPlaying = false;
+    this.isBossRoomMusicPlaying = false;
     
     this.setupSprite();
+    this.setupAttackEffects();
     this.app.ticker.add(this.update, this);
+    
+    // Start boss room music and fly sound
+    this.startBossRoomAudio();
     
     debugLog(`Boss created at (${initialX}, ${initialY}) with ${this.maxHP} HP`, 'boss');
   }
@@ -57,23 +80,21 @@ export default class Boss {
         createTexture('/Boss/Frames/boss_fly_1.png'),
         createTexture('/Boss/Frames/boss_fly_2.png')
       ],
-      idle: [
-        createTexture('/Boss/Frames/boss_idle_1.png'),
-        createTexture('/Boss/Frames/boss_idle_2.png')
+      land: [
+        createTexture('/Boss/Frames/boss_land_1.png'),
+        createTexture('/Boss/Frames/boss_land_2.png')
       ],
-      atk1: [
-        createTexture('/Boss/Frames/boss_atk_1.png'),
-        createTexture('/Boss/Frames/boss_atk_2.png')
+      melee: [
+        createTexture('/Boss/Frames/boss_atk_melle_1.png'),
+        createTexture('/Boss/Frames/boss_atk_melle_2.png'),
+        createTexture('/Boss/Frames/boss_atk_melle_paw.png')
       ],
-      atk3: [
-        createTexture('/Boss/Frames/boss_atk_3_1.png'),
-        createTexture('/Boss/Frames/boss_atk3_2.png')
+      range: [
+        createTexture('/Boss/Frames/boss_atk_range.png'),
+        createTexture('/Boss/Frames/boss_atk_zap_bolt.png')
       ],
       dead: [
         createTexture('/Boss/Frames/boss_dead.png')
-      ],
-      paw: [
-        createTexture('/Boss/Frames/paw.png')
       ]
     };
     
@@ -99,6 +120,38 @@ export default class Boss {
     
     this.app.stage.addChild(this.sprite);
     debugLog(`Boss sprite initialized in ${this.phase} phase`, 'boss');
+  }
+  
+  // Setup attack effects system
+  setupAttackEffects() {
+    this.attackEffects = new BossAttackEffect(this.app, this.effectsContainer);
+    debugLog('Boss attack effects system initialized', 'boss');
+  }
+  
+  // Start boss room audio
+  startBossRoomAudio() {
+    if (!this.isBossRoomMusicPlaying) {
+      playBossRoomMusic();
+      this.isBossRoomMusicPlaying = true;
+    }
+    
+    if (this.phase === 'fly' && !this.isFlyingSoundPlaying) {
+      playBossFlySound();
+      this.isFlyingSoundPlaying = true;
+    }
+  }
+  
+  // Stop boss room audio
+  stopBossRoomAudio() {
+    if (this.isBossRoomMusicPlaying) {
+      stopBossRoomMusic();
+      this.isBossRoomMusicPlaying = false;
+    }
+    
+    if (this.isFlyingSoundPlaying) {
+      stopBossFlySound();
+      this.isFlyingSoundPlaying = false;
+    }
   }
   
   // Update sprite direction (mirroring)
@@ -143,7 +196,15 @@ export default class Boss {
   transitionToGroundPhase() {
     this.phase = 'ground';
     this.phaseTransitioned = true;
-    this.frameIndices.idle = 0; // Reset idle animation
+    this.frameIndices.land = 0; // Reset land animation
+    
+    // Stop fly sound and play land sound
+    if (this.isFlyingSoundPlaying) {
+      stopBossFlySound();
+      this.isFlyingSoundPlaying = false;
+    }
+    playBossLandSound();
+    
     debugLog('Boss transitioned to ground phase!', 'boss');
     
     // Optional: Add transition effects, sounds, etc.
@@ -155,11 +216,18 @@ export default class Boss {
     this.phase = 'dead';
     this.frameIndices.dead = 0;
     this.isAttacking = false;
+    
+    // Stop all boss audio and play death sound
+    this.stopBossRoomAudio();
+    playBossDeathSound(() => {
+      debugLog('Boss death sound finished', 'boss');
+    });
+    
     debugLog('Boss defeated!', 'boss');
   }
   
   // Start attack sequence
-  startAttack(attackType = 'atk1') {
+  startAttack(attackType = 'melee', targetX = null, targetY = null) {
     if (this.phase === 'dead') return;
     
     const now = Date.now();
@@ -172,11 +240,75 @@ export default class Boss {
     
     debugLog(`Boss started ${attackType} attack`, 'boss');
     
+    // Handle attack-specific effects and audio
+    if (attackType === 'melee') {
+      // Play melee attack sound
+      playBossMeleeAttack();
+      
+      // Create melee visual effect (if target position provided)
+      if (targetX !== null && targetY !== null && this.attackEffects) {
+        // Create a small impact effect at target
+        setTimeout(() => {
+          this.attackEffects.createZapBoltExplosion(targetX, targetY);
+        }, this.frameUpdateInterval); // Delay to sync with animation
+      }
+    } else if (attackType === 'range') {
+      // Play range charge up sound
+      playBossRangeChargeUp();
+      
+      // Create range attack effects
+      setTimeout(() => {
+        this.executeRangeAttack(targetX, targetY);
+      }, this.frameUpdateInterval * 1.5); // Delay for charge up
+    }
+    
     // End attack after animation completes
     setTimeout(() => {
       this.isAttacking = false;
       debugLog(`Boss finished ${attackType} attack`, 'boss');
     }, this.frameUpdateInterval * this.animations[attackType].length);
+  }
+  
+  // Execute range attack with visual effects
+  executeRangeAttack(targetX = null, targetY = null) {
+    if (!this.attackEffects) return;
+    
+    // Default target position if not provided
+    if (targetX === null || targetY === null) {
+      targetX = this.position.x + (this.direction === 'right' ? 200 : -200);
+      targetY = this.position.y;
+    }
+    
+    // Random range attack type
+    const rangeAttacks = ['thunder', 'zapBolt', 'zapCone'];
+    const randomAttack = rangeAttacks[Math.floor(Math.random() * rangeAttacks.length)];
+    
+    switch (randomAttack) {
+      case 'thunder':
+        this.attackEffects.createThunderAttack(targetX, targetY);
+        break;
+      case 'zapBolt':
+        this.attackEffects.createZapBoltAttack(
+          this.position.x, 
+          this.position.y, 
+          targetX, 
+          targetY
+        );
+        break;
+      case 'zapCone':
+        this.attackEffects.createZapConeAttack(
+          this.position.x, 
+          this.position.y, 
+          this.direction
+        );
+        break;
+      default:
+        // Fallback to thunder attack
+        this.attackEffects.createThunderAttack(targetX, targetY);
+        break;
+    }
+    
+    debugLog(`Boss executed ${randomAttack} range attack`, 'boss');
   }
 
   update = (delta) => {
@@ -222,10 +354,10 @@ export default class Boss {
       // Fly animation cycles
       this.frameIndices.fly = (this.frameIndices.fly + 1) % currentAnimation.length;
     } else if (this.phase === 'ground') {
-      currentAnimation = this.animations.idle;
-      frameKey = 'idle';
-      // Idle animation cycles
-      this.frameIndices.idle = (this.frameIndices.idle + 1) % currentAnimation.length;
+      currentAnimation = this.animations.land;
+      frameKey = 'land';
+      // Land animation cycles
+      this.frameIndices.land = (this.frameIndices.land + 1) % currentAnimation.length;
     }
     
     // Update sprite texture
@@ -245,7 +377,7 @@ export default class Boss {
     // Random attack chance
     if (!this.isAttacking && now - this.lastAttackTime > this.attackCooldown) {
       if (Math.random() < 0.01) { // 1% chance per frame to attack
-        const attackTypes = ['atk1', 'atk3'];
+        const attackTypes = ['melee', 'range'];
         const randomAttack = attackTypes[Math.floor(Math.random() * attackTypes.length)];
         this.startAttack(randomAttack);
       }
@@ -263,7 +395,7 @@ export default class Boss {
     // More frequent attacks in ground phase
     if (!this.isAttacking && now - this.lastAttackTime > this.attackCooldown * 0.7) { // 30% faster attacks
       if (Math.random() < 0.015) { // 1.5% chance per frame to attack
-        const attackTypes = ['atk1', 'atk3'];
+        const attackTypes = ['melee', 'range'];
         const randomAttack = attackTypes[Math.floor(Math.random() * attackTypes.length)];
         this.startAttack(randomAttack);
       }
@@ -293,11 +425,23 @@ export default class Boss {
 
   destroy() {
     this.app.ticker.remove(this.update, this);
+    
+    // Stop all boss audio
+    this.stopBossRoomAudio();
+    
+    // Clean up attack effects
+    if (this.attackEffects) {
+      this.attackEffects.destroy();
+    }
+    
+    // Clean up sprite
     if (this.sprite && this.sprite.parent) {
       this.sprite.parent.removeChild(this.sprite);
     }
     if (this.sprite) {
       this.sprite.destroy();
     }
+    
+    debugLog('Boss destroyed and audio cleaned up', 'boss');
   }
 }

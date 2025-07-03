@@ -125,15 +125,41 @@ function App() {
         { name: "pet_attack_2", url: "/Ziurke/2lvl/3_ziurke_spjauna.png" },
         
         // Boss frames
-        { name: "boss_idle_1", url: "/Boss/Frames/boss_idle_1.png" },
-        { name: "boss_idle_2", url: "/Boss/Frames/boss_idle_2.png" },
         { name: "boss_fly_1", url: "/Boss/Frames/boss_fly_1.png" },
         { name: "boss_fly_2", url: "/Boss/Frames/boss_fly_2.png" },
-        { name: "boss_atk_1", url: "/Boss/Frames/boss_atk_1.png" },
-        { name: "boss_atk_2", url: "/Boss/Frames/boss_atk_2.png" },
-        { name: "boss_atk_3_1", url: "/Boss/Frames/boss_atk_3_1.png" },
-        { name: "boss_atk_3_2", url: "/Boss/Frames/boss_atk_3_2.png" },
+        { name: "boss_land_1", url: "/Boss/Frames/boss_land_1.png" },
+        { name: "boss_land_2", url: "/Boss/Frames/boss_land_2.png" },
+        { name: "boss_atk_melle_1", url: "/Boss/Frames/boss_atk_melle_1.png" },
+        { name: "boss_atk_melle_2", url: "/Boss/Frames/boss_atk_melle_2.png" },
+        { name: "boss_atk_melle_paw", url: "/Boss/Frames/boss_atk_melle_paw.png" },
+        { name: "boss_atk_range", url: "/Boss/Frames/boss_atk_range.png" },
+        { name: "boss_atk_zap_bolt", url: "/Boss/Frames/boss_atk_zap_bolt.png" },
         { name: "boss_dead", url: "/Boss/Frames/boss_dead.png" },
+        
+        // Boss attack effects
+        { name: "boss_thunder", url: "/Boss/atacks/thunder.png" },
+        { name: "boss_zap_bolt1", url: "/Boss/atacks/zap_bolt1.png" },
+        { name: "boss_zap_bolts2", url: "/Boss/atacks/zap_bolts2.png" },
+        { name: "boss_zap_bolts3", url: "/Boss/atacks/zap_bolts3.png" },
+        { name: "boss_zap_cone1", url: "/Boss/atacks/zap_cone1.png" },
+        { name: "boss_zap_cone2", url: "/Boss/atacks/zap_cone2.png" },
+        { name: "boss_zap_cone3", url: "/Boss/atacks/zap_cone3.png" },
+        
+        // Portal frames
+        { name: "portal_1", url: "/Portal/portal1.png" },
+        { name: "portal_2", url: "/Portal/portal2.png" },
+        { name: "portal_3", url: "/Portal/portal3.png" },
+        { name: "portal_4", url: "/Portal/portal4.png" },
+        
+        // UI assets
+        { name: "heart_icon", url: "/Extra/HP/hearticon.png" },
+        
+        // Enemy assets
+        { name: "slime", url: "/1MAP/Enemies/slime.png" },
+        { name: "ghost", url: "/2MAP/Enemies/ghost.png" },
+        { name: "rock", url: "/2MAP/Enemies/rock.png" },
+        { name: "sludge", url: "/2MAP/Enemies/sludge.png" },
+        { name: "tree_enemy", url: "/2MAP/Enemies/tree.png" },
       ],
       sprites: [
         // Using a different approach for character frames
@@ -142,11 +168,51 @@ function App() {
         // Audio manifest is kept for progress tracking only
         // All audio is now loaded on demand by AudioManager.js using Howler
         { name: "menuMusic", url: "/meniu/Start_menu_music.mp3" }, // Updated path to match AudioManager
-        { name: "portalSound", url: "/Portal/Portal_enter.mp3" },
+        { name: "menuSelect", url: "/meniu/Sellect.mp3" },
+        { name: "menuStart", url: "/meniu/Start.mp3" },
+        { name: "portalEnter", url: "/Portal/Portal_enter.mp3" },
+        { name: "portalLeave", url: "/Portal/Portal_leave.mp3" },
+        { name: "heroVoiceLine", url: "/Portal/Incredible_2_hero_voice_line.mp3" },
         { name: "evilLaugh", url: "/Intro/Evil_cackle_vocal.mp3" }, // Updated path to match AudioManager 
+        { name: "outroMusic", url: "/Outro/8_Eight_loop.mp3" }, 
+        
+        // Footstep sounds for all maps
+        { name: "footstep_sand1", url: "/0MAP/Sounds/Sand_footstep_1_sfx.mp3" },
+        { name: "footstep_sand2", url: "/0MAP/Sounds/Sand_footstep_2_sfx.mp3" },
+        { name: "footstep_sand3", url: "/0MAP/Sounds/Sand_footstep_3_sfx.mp3" },
         { name: "footstep_grass1", url: "/1MAP/Sounds/Grass_footstep_1_sfx.mp3" },
         { name: "footstep_grass2", url: "/1MAP/Sounds/Grass_footstep_2_sfx.mp3" },
+        { name: "footstep_wet1", url: "/2MAP/Sounds/Wet_footstep_1_sfx.mp3" },
+        { name: "footstep_wet2", url: "/2MAP/Sounds/Wet_footstep_2_sfx.mp3" },
+        { name: "footstep_hard1", url: "/XMAP/Sounds/Hard_surface_footstep_1_sfx.mp3" },
+        { name: "footstep_hard2", url: "/XMAP/Sounds/Hard_surface_footstep_2_sfx.mp3" },
+        { name: "footstep_hard3", url: "/XMAP/Sounds/Hard_surface_footstep_3_sfx.mp3" },
         { name: "bossRoomAmbiance", url: "/XMAP/play_area/boss_room_ambiance_3.mp3" }, // Boss room audio
+        
+        // Map ambiance audio
+        { name: "map0Ambiance", url: "/0MAP/play_area/1_First_loop.mp3" },
+        { name: "map1Ambiance", url: "/1MAP/play_area/Grass_planes_ambiance.mp3" },
+        { name: "map2Ambiance", url: "/2MAP/play_area/Swamp_ambiance.mp3" },
+        
+        // Boss audio files for preloading
+        { name: "bossRoomMusic", url: "/Boss/Audio/boss_room_music_and_ambiance.mp3" },
+        { name: "bossFlySound", url: "/Boss/Audio/Boss_fly_sound.mp3" },
+        { name: "bossLandSound", url: "/Boss/Audio/Boss_land_sound.mp3" },
+        { name: "bossMeleeAttack", url: "/Boss/Audio/boss_atk_melle_paw_scratch.mp3" },
+        { name: "bossRangeCharge1", url: "/Boss/Audio/range_charge_up_1.mp3" },
+        { name: "bossRangeCharge2", url: "/Boss/Audio/range_charge_up_2.mp3" },
+        { name: "bossRangeCharge3", url: "/Boss/Audio/range_charge_up_3.mp3" },
+        { name: "bossThunderExplosion1", url: "/Boss/Audio/range_thunder_explotion_1_.mp3" },
+        { name: "bossThunderExplosion2", url: "/Boss/Audio/range_thunder_explotion_2.mp3" },
+        { name: "bossZapBoltExplosion1", url: "/Boss/Audio/range_zap_bolt_explotion_1.mp3" },
+        { name: "bossZapBoltExplosion2", url: "/Boss/Audio/range_zap_bolt_explotion_2.mp3" },
+        { name: "bossZapCone", url: "/Boss/Audio/range_zap_cone.mp3" },
+        { name: "bossDeathSound", url: "/Boss/Audio/boss_death_sound.mp3" },
+        
+        // Enemy audio files
+        { name: "slimeAttack", url: "/1MAP/Enemies/sound_effect_10_slime_attack.mp3" },
+        { name: "slimeWalk", url: "/1MAP/Enemies/sound_effect_8_slime_walk.mp3" },
+        { name: "slimeDead", url: "/1MAP/Enemies/sound_effect_9_dead_slime.mp3" },
         // Audio list is now only used for loading progress calculation
       ]
     };
@@ -244,6 +310,7 @@ function App() {
           <Suspense fallback={<LoadingScreen progress={100} message="Starting game..." />}>
             <GameScreen 
               onGameEnd={() => setGameState('OUTRO')}
+              onReturnToMenu={() => setGameState('MENU')}
               onDebugNavigateToScreen={debugNavigateToScreen}
             />
           </Suspense>

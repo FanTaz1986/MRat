@@ -1,11 +1,14 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import * as PIXI from "pixi.js";
 import { useGameStore } from "../stores/gameStore";
 import { initializeGameEngine } from "./engine/GameEngine";
 // Import using relative path to fix case sensitivity issues
 import MapManager from './maps/MapManager'; // Use relative path to avoid case sensitivity issues
-import { playAmbianceForMap } from "../utils/AudioManager";
+import { playAmbianceForMap, stopAmbiance, stopFootstepLoop, stopBossRoomMusic, stopBossFlySound } from "../utils/AudioManager";
 import { createDebugOverlay, initializeConsoleCapture, debugLog } from "../development/utils/Debug";
+import PlayerUI from "./ui/PlayerUI";
+import OptionsMenu from "./ui/OptionsMenu";
+import GameOverScreen from "../meniu/GameOverScreen";
 
 // Modern PixiJS v7+ settings - no deprecated APIs
 PIXI.settings.PREFER_ENV = PIXI.ENV.WEBGL2;
@@ -20,7 +23,7 @@ if (PIXI.Program && PIXI.Program.defaultFragmentPrecision !== undefined) {
   PIXI.Program.defaultFragmentPrecision = PIXI.PRECISION.HIGH;
 }
 
-export default function GameScreen({ onGameEnd, onDebugNavigateToScreen }) {
+export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateToScreen }) {
   const gameContainerRef = useRef(null);
   const pixiApp = useRef(null);
   const mapManager = useRef(null);
@@ -28,6 +31,163 @@ export default function GameScreen({ onGameEnd, onDebugNavigateToScreen }) {
   const { currentMap, setCurrentMap } = useGameStore();
   const [appReady, setAppReady] = useState(false);
   const [mapManagerReady, setMapManagerReady] = useState(false);
+  
+  // Player UI state
+  const [playerHealth, setPlayerHealth] = useState(3);
+  const [petAttackCooldown, setPetAttackCooldown] = useState(0);
+  
+  // Options menu state
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [isGamePaused, setIsGamePaused] = useState(false);
+  
+  // Game over state
+  const [showGameOver, setShowGameOver] = useState(false);
+  
+  // Toggle options menu and pause/unpause game
+  const toggleOptionsMenu = useCallback(() => {
+    const newShowState = !showOptionsMenu;
+    setShowOptionsMenu(newShowState);
+    setIsGamePaused(newShowState);
+    
+    // Pause/unpause PIXI ticker (check if app exists and has ticker)
+    if (pixiApp.current && pixiApp.current.ticker) {
+      try {
+        if (newShowState) {
+          if (pixiApp.current.ticker.started) {
+            pixiApp.current.ticker.stop();
+          }
+        } else {
+          if (!pixiApp.current.ticker.started) {
+            pixiApp.current.ticker.start();
+          }
+        }
+      } catch (error) {
+        console.warn('Error toggling PIXI ticker:', error);
+      }
+    }
+  }, [showOptionsMenu]);
+  
+  // Watch for game over condition (all hearts lost)
+  useEffect(() => {
+    if (playerHealth <= 0 && !showGameOver) {
+      // Pause the game
+      setIsGamePaused(true);
+      if (pixiApp.current) {
+        pixiApp.current.ticker.stop();
+      }
+      // Show game over screen after a short delay
+      setTimeout(() => {
+        setShowGameOver(true);
+      }, 1000); // 1 second delay for dramatic effect
+    }
+  }, [playerHealth, showGameOver]);
+  
+  // Handle options menu actions
+  const handleContinue = () => {
+    toggleOptionsMenu();
+  };
+  
+  const handleReturnToMain = () => {
+    // Stop all game audio before returning to main menu
+    try {
+      stopAmbiance();
+      stopFootstepLoop();
+      stopBossRoomMusic();
+      stopBossFlySound();
+    } catch (error) {
+      console.warn('Error stopping game audio:', error);
+    }
+    
+    // First unpause the game
+    setShowOptionsMenu(false);
+    setIsGamePaused(false);
+    if (pixiApp.current && pixiApp.current.ticker) {
+      try {
+        if (!pixiApp.current.ticker.started) {
+          pixiApp.current.ticker.start();
+        }
+      } catch (error) {
+        console.warn('Error starting ticker in handleReturnToMain:', error);
+      }
+    }
+    // Then trigger the navigation to main menu (not outro)
+    if (onReturnToMenu) {
+      onReturnToMenu();
+    } else {
+      onGameEnd(); // Fallback if onReturnToMenu not provided
+    }
+  };
+  
+  const handleExitGame = () => {
+    // Close the application (this depends on the runtime environment)
+    if (window.electron) {
+      window.electron.quit();
+    } else {
+      // In browser, we can only close the tab
+      window.close();
+    }
+  };
+  
+  // Game over callbacks
+  const handleGameOverMainMenu = () => {
+    // Stop all game audio before returning to main menu
+    try {
+      stopAmbiance();
+      stopFootstepLoop();
+      stopBossRoomMusic();
+      stopBossFlySound();
+    } catch (error) {
+      console.warn('Error stopping game audio:', error);
+    }
+    
+    // Reset game state
+    setShowGameOver(false);
+    setPlayerHealth(3); // Reset health
+    setIsGamePaused(false);
+    if (pixiApp.current && pixiApp.current.ticker) {
+      try {
+        if (!pixiApp.current.ticker.started) {
+          pixiApp.current.ticker.start();
+        }
+      } catch (error) {
+        console.warn('Error starting ticker in handleGameOverMainMenu:', error);
+      }
+    }
+    // Navigate to main menu (not outro)
+    if (onReturnToMenu) {
+      onReturnToMenu();
+    } else {
+      onGameEnd(); // Fallback if onReturnToMenu not provided
+    }
+  };
+  
+  const handleRestartLevel = () => {
+    // Reset game state
+    setShowGameOver(false);
+    setPlayerHealth(3); // Reset health to starting value
+    setIsGamePaused(false);
+    if (pixiApp.current && pixiApp.current.ticker) {
+      try {
+        if (!pixiApp.current.ticker.started) {
+          pixiApp.current.ticker.start();
+        }
+      } catch (error) {
+        console.warn('Error starting ticker in handleRestartLevel:', error);
+      }
+    }
+    // Reset character position to map's starting position and reload current map
+    if (mapManager.current) {
+      // Use MapManager's current map instead of game store to ensure accuracy
+      const actualCurrentMap = mapManager.current.currentMap || currentMap;
+      
+      // Get the proper starting position for the current map
+      const startingPosition = mapManager.current.getCurrentMapSpawnPoint();
+      debugLog(`Restarting level ${actualCurrentMap} at starting position: (${startingPosition.x}, ${startingPosition.y})`, 'game');
+      
+      // Load the map with the starting position
+      mapManager.current.loadMap(actualCurrentMap, null, null, startingPosition);
+    }
+  };
   
   // Initialize PixiJS app on component mount
   useEffect(() => {
@@ -104,21 +264,42 @@ export default function GameScreen({ onGameEnd, onDebugNavigateToScreen }) {
   useEffect(() => {
     if (!appReady || !pixiApp.current) return;
     
+    // Prevent re-initialization if MapManager already exists
+    if (mapManager.current) {
+      console.log('MapManager already exists, skipping initialization');
+      return;
+    }
+    
     // Additional safety check: ensure stage is available
     if (!pixiApp.current.stage) {
-      console.error('PIXI app stage is not available, cannot initialize MapManager');
+      console.error('PIXI app stage is not available, cannot initialize game components');
       return;
     }
     
     // Add a small delay to ensure PIXI app is fully initialized
     const initializeWithDelay = async () => {
       try {
-        // Wait a frame to ensure PIXI app is fully ready
-        await new Promise(resolve => requestAnimationFrame(resolve));
+        // Wait multiple frames to ensure PIXI app is fully ready
+        await new Promise(resolve => {
+          let frameCount = 0;
+          const waitFrame = () => {
+            frameCount++;
+            if (frameCount >= 3) { // Wait 3 frames
+              resolve();
+            } else {
+              requestAnimationFrame(waitFrame);
+            }
+          };
+          requestAnimationFrame(waitFrame);
+        });
         
-        // Double-check that stage is still available
-        if (!pixiApp.current || !pixiApp.current.stage) {
-          console.error('PIXI app or stage lost during initialization delay');
+        // Final check that stage is still available and MapManager doesn't exist
+        if (!pixiApp.current || !pixiApp.current.stage || mapManager.current) {
+          if (mapManager.current) {
+            console.log('MapManager was created during delay, skipping initialization');
+          } else {
+            console.error('PIXI app or stage lost during initialization delay');
+          }
           return;
         }
         
@@ -144,7 +325,15 @@ export default function GameScreen({ onGameEnd, onDebugNavigateToScreen }) {
         setMapManagerReady(true);
         
         // Initialize debug system
-        debugSystem.current = createDebugOverlay(pixiApp.current);
+        const handleHealthChange = (change) => {
+          setPlayerHealth(prev => {
+            const newHealth = prev + change;
+            // Clamp between 0 and 5 hearts
+            return Math.max(0, Math.min(5, newHealth));
+          });
+        };
+        
+        debugSystem.current = createDebugOverlay(pixiApp.current, 'GameScreen', handleHealthChange);
         
         debugLog('Game engine initialized', 'game');
         
@@ -201,6 +390,13 @@ const resizeHandler = () => {
     
     return () => {
       window.removeEventListener('resize', resizeHandler);
+      
+      // Clean up UI monitoring intervals
+      if (window.gameIntervals) {
+        window.gameIntervals.forEach(interval => clearInterval(interval));
+        window.gameIntervals = [];
+      }
+      
       if (debugSystem.current && debugSystem.current.destroy) {
         debugSystem.current.destroy();
       }
@@ -219,6 +415,27 @@ const resizeHandler = () => {
       }
     };
   }, [appReady, onDebugNavigateToScreen]);
+  
+  // Separate useEffect for keyboard event listener
+  useEffect(() => {
+    // Add keyboard event listener for ESC key
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        // Only toggle options menu if app is ready and initialized
+        if (appReady && pixiApp.current && pixiApp.current.stage && mapManager.current) {
+          toggleOptionsMenu();
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [appReady, toggleOptionsMenu]);
+  
     // Handle map changes
   useEffect(() => {
     console.log('Map loading useEffect triggered:', {
@@ -261,26 +478,72 @@ const resizeHandler = () => {
           cam.centerOn(char.position.x, char.position.y);
           debugLog(`Camera repositioned to follow character properly`, 'camera');
         }
-      }, 100); // 100ms delay to ensure everything is initialized
+      }, 100); // 100ms delay to ensure everything is initialized        // Expose character and camera globally for debug access
+        if (window.game && mapManager.current) {
+          window.game.characterManager = {
+            character: mapManager.current.character,
+            pet: mapManager.current.pet
+          };
+          window.game.cameras = {
+            main: mapManager.current.camera
+          };
+          
+          debugLog('🎮 Character, pet, and camera exposed globally:', 'game');
+          debugLog({
+            character: !!window.game.characterManager.character,
+            pet: !!window.game.characterManager.pet,
+            camera: !!window.game.cameras.main
+          }, 'game');
+        }
+        
+        // Set up UI monitoring for pet attack cooldown
+        setupUIMonitoring();
+      };
       
-      // Expose character and camera globally for debug access
-      if (window.game && mapManager.current) {
-        window.game.characterManager = {
-          character: mapManager.current.character,
-          pet: mapManager.current.pet
-        };
-        window.game.cameras = {
-          main: mapManager.current.camera
+      const setupUIMonitoring = () => {
+        // Monitor pet attack cooldown for UI updates
+        const monitorPetCooldown = () => {
+          if (mapManager.current && mapManager.current.pet) {
+            const pet = mapManager.current.pet;
+            const now = Date.now();
+            const attackInterval = pet.attackIntervals[pet.currentLevel];
+            
+            // Calculate progress as percentage (0-100)
+            // 0% = just used attack, 100% = ready to attack again
+            let cooldownProgress = 100; // Default to ready
+            
+            if (pet.currentLevel === 0) {
+              // Level 0 (melee only) is always ready
+              cooldownProgress = 100;
+            } else if (attackInterval) {
+              // For levels 1 and 2 with ranged attacks
+              if (pet.canRangedAttack && pet.lastRangedAttackTime === 0) {
+                // Pet hasn't attacked yet and is ready - show 100%
+                cooldownProgress = 100;
+              } else if (pet.canRangedAttack && pet.lastRangedAttackTime > 0) {
+                // Pet has attacked before and cooldown is complete - show 100%
+                cooldownProgress = 100;
+              } else if (!pet.canRangedAttack && pet.lastRangedAttackTime > 0) {
+                // Pet is on cooldown after attack - calculate progress from 0% to 100%
+                const timeSinceLastAttack = now - pet.lastRangedAttackTime;
+                cooldownProgress = Math.min((timeSinceLastAttack / attackInterval) * 100, 100);
+              } else {
+                // Fallback case
+                cooldownProgress = 100;
+              }
+            }
+            
+            setPetAttackCooldown(cooldownProgress);
+          }
         };
         
-        debugLog('🎮 Character, pet, and camera exposed globally:', 'game');
-        debugLog({
-          character: !!window.game.characterManager.character,
-          pet: !!window.game.characterManager.pet,
-          camera: !!window.game.cameras.main
-        }, 'game');
-      }
-    };
+        // Update pet cooldown every 50ms for smooth progress bar
+        const cooldownInterval = setInterval(monitorPetCooldown, 50);
+        
+        // Store interval ID for cleanup
+        if (!window.gameIntervals) window.gameIntervals = [];
+        window.gameIntervals.push(cooldownInterval);
+      };
     
     mapManager.current.loadMap(currentMap, handleMapLoaded);
     
@@ -304,16 +567,42 @@ const resizeHandler = () => {
     }
   }, [appReady, setCurrentMap, onGameEnd]);
   return (
-    <div 
-      ref={gameContainerRef}
-      style={{
-        width: window.innerWidth + 'px',
-        height: window.innerHeight + 'px',
-        overflow: 'hidden',
-        position: 'absolute',
-        left: 0,
-        top: 0
-      }}
-    />
+    <>
+      <div 
+        ref={gameContainerRef}
+        style={{
+          width: window.innerWidth + 'px',
+          height: window.innerHeight + 'px',
+          overflow: 'hidden',
+          position: 'absolute',
+          left: 0,
+          top: 0
+        }}
+      />
+      {appReady && (
+        <>
+          <PlayerUI 
+            playerHealth={playerHealth}
+            maxHealth={5}
+            petAttackCooldown={petAttackCooldown}
+          />
+          <OptionsMenu
+            isVisible={showOptionsMenu}
+            onContinue={handleContinue}
+            onReturnToMain={handleReturnToMain}
+            onExit={handleExitGame}
+            initialMusicVolume={5}
+            initialSfxVolume={7}
+          />
+        </>
+      )}
+      {showGameOver && (
+        <GameOverScreen
+          onMainMenu={handleGameOverMainMenu}
+          onRestartLevel={handleRestartLevel}
+          onDebugNavigateToScreen={onDebugNavigateToScreen}
+        />
+      )}
+    </>
   );
 }

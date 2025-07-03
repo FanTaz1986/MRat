@@ -529,6 +529,93 @@ export function stopOutroMusic() {
   stopSound('outro_music');
 }
 
+// Boss Audio Functions
+export function playBossRoomMusic() {
+  playSound('boss_room_music', '/Boss/Audio/boss_room_music_and_ambiance.mp3', {
+    loop: true,
+    volume: musicVolume * 0.8 // Slightly quieter for atmosphere
+  });
+}
+
+export function stopBossRoomMusic() {
+  stopSound('boss_room_music');
+}
+
+export function playBossFlySound() {
+  playSound('boss_fly', '/Boss/Audio/Boss_fly_sound.mp3', {
+    loop: true,
+    volume: sfxVolume * 0.7
+  });
+}
+
+export function stopBossFlySound() {
+  stopSound('boss_fly');
+}
+
+export function playBossLandSound() {
+  playSound('boss_land', '/Boss/Audio/Boss_land_sound.mp3', {
+    volume: sfxVolume
+  });
+}
+
+export function playBossMeleeAttack() {
+  playSound('boss_melee_paw', '/Boss/Audio/boss_atk_melle_paw_scratch.mp3', {
+    volume: sfxVolume
+  });
+}
+
+export function playBossRangeChargeUp() {
+  // Randomly play one of the 3 charge up sounds
+  const chargeUpSounds = [
+    '/Boss/Audio/range_charge_up_1.mp3',
+    '/Boss/Audio/range_charge_up_2.mp3',
+    '/Boss/Audio/range_charge_up_3.mp3'
+  ];
+  const randomSound = chargeUpSounds[Math.floor(Math.random() * chargeUpSounds.length)];
+  
+  playSound('boss_range_charge', randomSound, {
+    volume: sfxVolume
+  });
+}
+
+export function playBossThunderExplosion() {
+  // Randomly play one of the 2 thunder explosion sounds
+  const thunderSounds = [
+    '/Boss/Audio/range_thunder_explotion_1_.mp3',
+    '/Boss/Audio/range_thunder_explotion_2.mp3'
+  ];
+  const randomSound = thunderSounds[Math.floor(Math.random() * thunderSounds.length)];
+  
+  playSound('boss_thunder', randomSound, {
+    volume: sfxVolume
+  });
+}
+
+export function playBossZapBoltExplosion() {
+  // Randomly play one of the 2 zap bolt explosion sounds
+  const zapSounds = [
+    '/Boss/Audio/range_zap_bolt_explotion_1.mp3',
+    '/Boss/Audio/range_zap_bolt_explotion_2.mp3'
+  ];
+  const randomSound = zapSounds[Math.floor(Math.random() * zapSounds.length)];
+  
+  playSound('boss_zap_bolt', randomSound, {
+    volume: sfxVolume
+  });
+}
+
+export function playBossZapCone() {
+  playSound('boss_zap_cone', '/Boss/Audio/range_zap_cone.mp3', {
+    volume: sfxVolume
+  });
+}
+
+export function playBossDeathSound(onEnd) {
+  playSound('boss_death', '/Boss/Audio/boss_death_sound.mp3', {
+    volume: sfxVolume
+  }, onEnd);
+}
+
 /**
  * Stop all active sounds
  */

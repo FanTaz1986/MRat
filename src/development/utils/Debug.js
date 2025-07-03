@@ -113,7 +113,8 @@ function SimpleDebugOverlay({
   character, 
   camera,
   onClose,
-  onNavigateToScreen
+  onNavigateToScreen,
+  onHealthChange // New prop for health management
 }) {  const [activeTab, setActiveTab] = useState('general');
   const [, forceUpdate] = useState({});
 
@@ -659,7 +660,7 @@ function SimpleDebugOverlay({
         flexWrap: 'wrap', // Allow tabs to wrap if needed
         minHeight: '50px' // Ensure minimum height for tabs
       }
-    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'screens'].map(tab => 
+    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'combat', 'screens'].map(tab => 
       React.createElement('button', {
         key: tab,
         onClick: () => setActiveTab(tab),
@@ -1552,6 +1553,100 @@ function SimpleDebugOverlay({
         ])
       ]),
 
+      activeTab === 'combat' && React.createElement('div', { key: 'combat' }, [
+        React.createElement('h4', {
+          key: 'title',
+          style: { 
+            color: '#a259ff', 
+            margin: '0 0 16px 0',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            textShadow: '0 0 8px #a259ff88'
+          }
+        }, 'Combat Debug Controls'),
+        
+        React.createElement('div', {
+          key: 'healthControls',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'healthTitle',
+            style: { 
+              color: '#ff4444', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #ff444488'
+            }
+          }, '❤️ Player Health Management'),
+          
+          React.createElement('div', {
+            key: 'healthButtonGroup',
+            style: { 
+              display: 'flex',
+              gap: '10px',
+              alignItems: 'center',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '8px',
+              border: '1px solid rgba(162, 89, 255, 0.3)',
+              marginBottom: '12px'
+            }
+          }, [
+            React.createElement('button', {
+              key: 'removeHeart',
+              onClick: () => {
+                if (onHealthChange) {
+                  onHealthChange(-1); // Remove 1 heart
+                }
+              },
+              style: {
+                padding: '8px 16px',
+                background: 'rgba(255, 68, 68, 0.2)',
+                border: '2px solid #ff4444',
+                borderRadius: '8px',
+                color: '#ff4444',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                fontSize: '12px'
+              }
+            }, '💔 Remove Heart'),
+            
+            React.createElement('button', {
+              key: 'addHeart',
+              onClick: () => {
+                if (onHealthChange) {
+                  onHealthChange(1); // Add 1 heart
+                }
+              },
+              style: {
+                padding: '8px 16px',
+                background: 'rgba(76, 175, 80, 0.2)',
+                border: '2px solid #4CAF50',
+                borderRadius: '8px',
+                color: '#4CAF50',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                fontSize: '12px'
+              }
+            }, '💚 Add Heart')
+          ]),
+          
+          React.createElement('div', {
+            key: 'healthInfo',
+            style: { 
+              fontSize: '12px', 
+              color: '#a259ff', 
+              opacity: 0.8,
+              fontStyle: 'italic',
+              textAlign: 'center'
+            }
+          }, 'Health range: 0-5 hearts. Going below 0 or above 5 will have no effect.')
+        ])
+      ]),
+
       activeTab === 'screens' && React.createElement('div', { key: 'screens' }, [
         React.createElement('h4', {
           key: 'title',
@@ -1756,7 +1851,7 @@ let globalKeyboardHandlerActive = false;
 /**
  * Create debug overlay system
  */
-export function createDebugOverlay(app, screenName = 'Unknown') {
+export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCallback = null) {
   // Prevent multiple debug overlays from being created simultaneously
   debugOverlayCounter++;
   const overlayId = debugOverlayCounter;
@@ -1925,6 +2020,7 @@ export function createDebugOverlay(app, screenName = 'Unknown') {
           character,
           camera,
           onClose: toggleDebug,
+          onHealthChange: healthChangeCallback,
           onNavigateToScreen: (screenType) => {
             debugLog(`Debug: Navigating to screen: ${screenType}`, 'system');
             // This callback should be provided by the parent application

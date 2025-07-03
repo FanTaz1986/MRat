@@ -1,0 +1,172 @@
+.player-ui-container {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(30, 0, 60, 0.8);
+  border: 2px solid rgba(162, 89, 255, 0.4);
+  border-radius: 18px;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 16px rgba(162, 89, 255, 0.3), 0 0 4px #000;
+  min-width: 200px;
+}
+
+/* Character and Pet Names */
+.player-ui-name,
+.player-ui-pet-name {
+  color: #a259ff;
+  font-weight: bold;
+  font-size: 1.5rem;
+  text-shadow: 0 0 12px rgba(162, 89, 255, 0.5), 0 0 4px #000;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.player-ui-pet-name {
+  font-size: 1.2rem;
+  margin-top: 8px;
+}
+
+/* Heart Health Display */
+.player-ui-hearts {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.player-ui-heart {
+  width: 32px;
+  height: 32px;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.player-ui-heart:hover {
+  transform: scale(1.1);
+}
+
+.heart-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: filter 0.3s ease;
+}
+
+.player-ui-heart.empty .heart-icon {
+  filter: grayscale(100%) brightness(0.5);
+  opacity: 0.6;
+}
+
+.player-ui-heart.filled .heart-icon {
+  filter: none;
+  opacity: 1;
+}
+
+/* Attack Ready Box */
+.player-ui-attack-box {
+  position: relative;
+  height: 32px;
+  width: 100%;
+  border: 2px solid #a259ff;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  margin-top: 6px;
+  transition: all 0.2s ease;
+}
+
+.player-ui-attack-box.ready {
+  border-color: #4CAF50;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+}
+
+.player-ui-attack-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #a259ff, #c575ff);
+  transition: width 0.05s linear;
+  box-shadow: inset 0 0 8px rgba(162, 89, 255, 0.6);
+  border-radius: 6px 0 0 6px;
+  min-width: 0;
+}
+
+.player-ui-attack-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-weight: bold;
+  font-size: 0.9rem;
+  text-shadow: 0 0 4px #000, 1px 1px 2px #000;
+  letter-spacing: 1px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .player-ui-container {
+    top: 10px;
+    left: 10px;
+    padding: 15px;
+    min-width: 160px;
+  }
+  
+  .player-ui-name,
+  .player-ui-pet-name {
+    font-size: 1.2rem;
+  }
+  
+  .player-ui-pet-name {
+    font-size: 1rem;
+  }
+  
+  .player-ui-attack-label {
+    font-size: 0.9rem;
+  }
+  
+  .player-ui-heart {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-ui-container {
+    top: 5px;
+    left: 5px;
+    padding: 12px;
+    min-width: 140px;
+  }
+  
+  .player-ui-name,
+  .player-ui-pet-name {
+    font-size: 1rem;
+  }
+  
+  .player-ui-pet-name {
+    font-size: 0.9rem;
+  }
+  
+  .player-ui-heart {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .player-ui-attack-box {
+    height: 28px;
+  }
+  
+  .player-ui-attack-text {
+    font-size: 0.8rem;
+  }
+}
