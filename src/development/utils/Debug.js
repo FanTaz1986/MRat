@@ -118,7 +118,14 @@ function SimpleDebugOverlay({
 }) {  const [activeTab, setActiveTab] = useState('general');
   const [, forceUpdate] = useState({});
 
-  if (!showDebug) return null;
+  console.log(`SimpleDebugOverlay render: showDebug = ${showDebug}`);
+  
+  if (!showDebug) {
+    console.log('SimpleDebugOverlay returning null (showDebug is false)');
+    return null;
+  }
+  
+  console.log('SimpleDebugOverlay rendering overlay content');
   
   const triggerUpdate = () => {
     forceUpdate({});
@@ -1891,7 +1898,29 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
 
   // Function to toggle debug
   function toggleDebug() {
+    // If the overlay was destroyed, reset the flag and recreate components
+    if (isDestroyed) {
+      console.log('Toggling debug on destroyed overlay, resetting...');
+      isDestroyed = false;
+    }
+    
     showDebug = !showDebug;
+    debugLog(`Debug overlay toggled: showDebug = ${showDebug}`, 'system');
+    console.log(`Debug overlay state changed to: ${showDebug}`);
+    renderDebugOverlay();
+  }
+  
+  // Function to force show debug (for external use)
+  function forceShowDebug() {
+    // If the overlay was destroyed, reset the flag and recreate components
+    if (isDestroyed) {
+      console.log('Force showing debug on destroyed overlay, resetting...');
+      isDestroyed = false;
+    }
+    
+    showDebug = true;
+    debugLog(`Debug overlay force-shown`, 'system');
+    console.log(`Debug overlay force-shown: showDebug = ${showDebug}`);
     renderDebugOverlay();
   }
 
@@ -1996,8 +2025,51 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
 
   // Function to render the debug overlay (throttled)
   function renderDebugOverlay() {
-    if (isDestroyed || !debugContainer || !debugContainer.parentNode) {
+    if (isDestroyed) {
+      console.log('Render skipped: overlay is destroyed');
       return;
+    }
+    
+    // Check if debug container exists, if not recreate it
+    if (!debugContainer || !debugContainer.parentNode) {
+      console.log('Debug container missing, recreating...');
+      debugContainer = document.getElementById('debug-overlay');
+      
+      if (!debugContainer) {
+        // Create new container
+        debugContainer = document.createElement('div');
+        debugContainer.id = 'debug-overlay';
+        document.body.appendChild(debugContainer);
+        console.log('Created new debug container');
+        
+        // Always create new React root for new container
+        root = createRoot(debugContainer);
+        debugContainer._reactRoot = root;
+        console.log('Created new React root');
+      } else {
+        // Container exists but might need new root
+        if (!debugContainer._reactRoot) {
+          root = createRoot(debugContainer);
+          debugContainer._reactRoot = root;
+          console.log('Created new React root for existing container');
+        } else {
+          root = debugContainer._reactRoot;
+          console.log('Reusing existing React root');
+        }
+      }
+      
+      // Reset destroyed flag since we've recreated the container
+      if (isDestroyed) {
+        isDestroyed = false;
+        console.log('Reset isDestroyed flag after container recreation');
+      }
+    } else {
+      // Container exists and is in DOM, ensure we have the root
+      if (!root || !debugContainer._reactRoot) {
+        root = createRoot(debugContainer);
+        debugContainer._reactRoot = root;
+        console.log('Recreated React root for existing container');
+      }
     }
     
     const now = Date.now();
@@ -2012,7 +2084,9 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
     
     lastRenderTime = now;
     
-    if (root) {
+    console.log(`Rendering debug overlay: showDebug = ${showDebug}, hasRoot = ${!!root}, hasContainer = ${!!debugContainer}`);
+    
+    if (root && debugContainer) {
       root.render(
         React.createElement(SimpleDebugOverlay, {
           showDebug,
@@ -2029,6 +2103,8 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
           }
         })
       );
+    } else {
+      console.log('No React root or container available for rendering');
     }
   }
 
@@ -2058,6 +2134,20 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
     setScreenNavigationCallback: (callback) => {
       window.debugNavigateToScreen = callback;
       debugLog('Screen navigation callback set for debug overlay', 'system');
+    },
+    toggleDebug: () => {
+      toggleDebug();
+    },
+    forceShow: () => {
+      forceShowDebug();
+    },
+    revive: () => {
+      // Method to revive a destroyed debug overlay
+      if (isDestroyed) {
+        console.log('Reviving destroyed debug overlay');
+        isDestroyed = false;
+        renderDebugOverlay();
+      }
     },
     destroy: () => {
       isDestroyed = true;
@@ -2090,6 +2180,9 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
   
   // Store as global overlay
   globalDebugOverlay = debugSystem;
+  
+  // Also expose globally for external access
+  window.globalDebugOverlay = debugSystem;
   
   return debugSystem;
 }

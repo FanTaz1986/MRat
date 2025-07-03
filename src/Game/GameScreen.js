@@ -175,6 +175,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         console.warn('Error starting ticker in handleRestartLevel:', error);
       }
     }
+    
     // Reset character position to map's starting position and reload current map
     if (mapManager.current) {
       // Use MapManager's current map instead of game store to ensure accuracy
@@ -186,6 +187,173 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
       
       // Load the map with the starting position
       mapManager.current.loadMap(actualCurrentMap, null, null, startingPosition);
+      
+      // Ensure debug system is properly reinitialized after restart
+      if (debugSystem.current) {
+        try {
+          // Reconnect to map manager
+          if (debugSystem.current.setMapManager) {
+            debugSystem.current.setMapManager(mapManager.current);
+          }
+          
+          // Update other game entities in debug system
+          if (debugSystem.current.setCharacter && mapManager.current.character) {
+            debugSystem.current.setCharacter(mapManager.current.character);
+          }
+          
+          if (debugSystem.current.setCamera && mapManager.current.camera) {
+            debugSystem.current.setCamera(mapManager.current.camera);
+          }
+          
+          console.log('Debug system reinitialized after restart');
+        } catch (error) {
+          console.warn('Error reinitializing debug system:', error);
+        }
+      } else {
+        // Recreate debug system if it was somehow destroyed
+        console.log('Debug system was missing, recreating...');
+        try {
+          const handleHealthChange = (change) => {
+            setPlayerHealth(prev => {
+              const newHealth = prev + change;
+              return Math.max(0, Math.min(5, newHealth));
+            });
+          };
+          
+          debugSystem.current = createDebugOverlay(pixiApp.current, 'GameScreen-Restart', handleHealthChange);
+          
+          if (debugSystem.current && debugSystem.current.setMapManager) {
+            debugSystem.current.setMapManager(mapManager.current);
+          }
+          
+          console.log('Debug system recreated after restart');
+        } catch (error) {
+          console.error('Failed to recreate debug system:', error);
+        }
+      }
+      
+      // Ensure debug button is visible after restart
+      setTimeout(() => {
+        const debugButton = document.getElementById('debug-toggle-button');
+        if (debugButton) {
+          debugButton.style.display = 'block';
+          debugLog('Debug button restored after level restart', 'system');
+        } else {
+          // Button is missing, try to recreate it
+          debugLog('Debug button missing after restart, attempting to recreate...', 'system');
+          
+          // Force recreate the debug button by calling the internal createDebugButton function
+          // We'll do this by accessing the global debug overlay and triggering button recreation
+          if (window.globalDebugOverlay || debugSystem.current) {
+            try {
+              // Create a new debug button manually since the original might have been removed
+              const newDebugButton = document.createElement('button');
+              newDebugButton.id = 'debug-toggle-button';
+              newDebugButton.innerHTML = 'Debug<br><small style="font-size:10px;">O:Open P:Hide</small>';
+              newDebugButton.style.position = 'fixed';
+              newDebugButton.style.top = '20px';
+              newDebugButton.style.right = '20px';
+              newDebugButton.style.zIndex = '10001';
+              newDebugButton.style.padding = '12px 16px';
+              newDebugButton.style.fontSize = '13px';
+              newDebugButton.style.background = 'rgba(30,0,60,0.95)';
+              newDebugButton.style.color = '#a259ff';
+              newDebugButton.style.border = '2px solid #a259ff';
+              newDebugButton.style.borderRadius = '12px';
+              newDebugButton.style.cursor = 'pointer';
+              newDebugButton.style.boxShadow = '0 0 16px #a259ff55';
+              newDebugButton.style.transition = 'all 0.3s ease';
+              newDebugButton.style.userSelect = 'none';
+              newDebugButton.style.fontWeight = 'bold';
+              newDebugButton.style.letterSpacing = '1px';
+              newDebugButton.style.textShadow = '0 0 8px #a259ff88';
+              newDebugButton.style.textAlign = 'center';
+              newDebugButton.style.lineHeight = '1.2';
+              newDebugButton.style.display = 'block';
+              
+              // Add click handler to toggle debug - use direct method first
+              newDebugButton.addEventListener('click', () => {
+                console.log('Debug button clicked, attempting to toggle debug...');
+                
+                // Method 0: Try reviving first if destroyed
+                if (debugSystem.current && typeof debugSystem.current.revive === 'function') {
+                  debugSystem.current.revive();
+                }
+                
+                // Method 1: Try calling toggleDebug directly on debug system
+                if (debugSystem.current && typeof debugSystem.current.toggleDebug === 'function') {
+                  console.log('Using debugSystem.current.toggleDebug()');
+                  debugSystem.current.toggleDebug();
+                  return;
+                }
+                
+                // Method 1b: Try force show instead
+                if (debugSystem.current && typeof debugSystem.current.forceShow === 'function') {
+                  console.log('Using debugSystem.current.forceShow()');
+                  debugSystem.current.forceShow();
+                  return;
+                }
+                
+                // Method 2: Try global debug overlay
+                if (window.globalDebugOverlay && typeof window.globalDebugOverlay.toggleDebug === 'function') {
+                  console.log('Using window.globalDebugOverlay.toggleDebug()');
+                  window.globalDebugOverlay.toggleDebug();
+                  return;
+                }
+                
+                // Method 2b: Try global force show
+                if (window.globalDebugOverlay && typeof window.globalDebugOverlay.forceShow === 'function') {
+                  console.log('Using window.globalDebugOverlay.forceShow()');
+                  window.globalDebugOverlay.forceShow();
+                  return;
+                }
+                
+                // Method 3: Keyboard event simulation
+                console.log('Using keyboard event simulation');
+                const keyEvent = new KeyboardEvent('keydown', {
+                  key: 'o',
+                  code: 'KeyO',
+                  keyCode: 79,
+                  which: 79,
+                  bubbles: true,
+                  cancelable: true
+                });
+                document.dispatchEvent(keyEvent);
+                
+                // Method 4: Last resort - manual overlay toggle
+                setTimeout(() => {
+                  const debugOverlay = document.getElementById('debug-overlay');
+                  if (debugOverlay) {
+                    const isVisible = debugOverlay.style.display !== 'none' && 
+                                     debugOverlay.style.visibility !== 'hidden';
+                    debugOverlay.style.display = isVisible ? 'none' : 'block';
+                    debugOverlay.style.visibility = isVisible ? 'hidden' : 'visible';
+                    console.log('Manual overlay toggle:', isVisible ? 'hidden' : 'shown');
+                  }
+                }, 100);
+              });
+              
+              // Add hover effects
+              newDebugButton.addEventListener('mouseenter', () => {
+                newDebugButton.style.background = 'rgba(162,89,255,0.15)';
+                newDebugButton.style.color = '#fff';
+                newDebugButton.style.boxShadow = '0 0 24px #a259ff88';
+              });
+              
+              newDebugButton.addEventListener('mouseleave', () => {
+                newDebugButton.style.background = 'rgba(30,0,60,0.95)';
+                newDebugButton.style.color = '#a259ff';
+                newDebugButton.style.boxShadow = '0 0 16px #a259ff55';
+              });
+              
+              document.body.appendChild(newDebugButton);
+              debugLog('Debug button manually recreated after restart', 'system');
+            } catch (error) {
+              console.error('Failed to recreate debug button:', error);
+            }
+          }
+        }
+      }, 100);
     }
   };
   
@@ -397,9 +565,9 @@ const resizeHandler = () => {
         window.gameIntervals = [];
       }
       
-      if (debugSystem.current && debugSystem.current.destroy) {
-        debugSystem.current.destroy();
-      }
+      // Only destroy debug system on actual component unmount, not on re-renders
+      // The debug system is designed to be a global singleton
+      // We'll let it persist across game state changes
       
       // Modern cleanup using PIXI v7+ patterns
       if (pixiApp.current) {
@@ -566,6 +734,132 @@ const resizeHandler = () => {
       };
     }
   }, [appReady, setCurrentMap, onGameEnd]);
+  
+  // Cleanup effect for when component actually unmounts (returning to main menu)
+  useEffect(() => {
+    return () => {
+      // This runs when GameScreen component is actually unmounted
+      console.log('GameScreen component unmounting, cleaning up debug system');
+      if (debugSystem.current && debugSystem.current.destroy) {
+        debugSystem.current.destroy();
+        debugSystem.current = null;
+      }
+    };
+  }, []); // Empty dependency array ensures this only runs on mount/unmount
+  
+  // Add debug logging to track debug system state and auto-fix missing button
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (debugSystem.current) {
+        console.log('Debug system status: exists, overlayId:', debugSystem.current.overlayId);
+      } else {
+        console.log('Debug system status: not found');
+      }
+      
+      const debugButton = document.getElementById('debug-toggle-button');
+      console.log('Debug button status:', debugButton ? 'exists' : 'missing', debugButton?.style?.display);
+      
+      // Auto-fix missing debug button if debug system exists
+      if (debugSystem.current && !debugButton) {
+        console.log('Auto-fixing missing debug button...');
+        try {
+          // Create a new debug button
+          const autoFixButton = document.createElement('button');
+          autoFixButton.id = 'debug-toggle-button';
+          autoFixButton.innerHTML = 'Debug<br><small style="font-size:10px;">O:Open P:Hide</small>';
+          autoFixButton.style.position = 'fixed';
+          autoFixButton.style.top = '20px';
+          autoFixButton.style.right = '20px';
+          autoFixButton.style.zIndex = '10001';
+          autoFixButton.style.padding = '12px 16px';
+          autoFixButton.style.fontSize = '13px';
+          autoFixButton.style.background = 'rgba(30,0,60,0.95)';
+          autoFixButton.style.color = '#a259ff';
+          autoFixButton.style.border = '2px solid #a259ff';
+          autoFixButton.style.borderRadius = '12px';
+          autoFixButton.style.cursor = 'pointer';
+          autoFixButton.style.boxShadow = '0 0 16px #a259ff55';
+          autoFixButton.style.transition = 'all 0.3s ease';
+          autoFixButton.style.userSelect = 'none';
+          autoFixButton.style.fontWeight = 'bold';
+          autoFixButton.style.letterSpacing = '1px';
+          autoFixButton.style.textShadow = '0 0 8px #a259ff88';
+          autoFixButton.style.textAlign = 'center';
+          autoFixButton.style.lineHeight = '1.2';
+          autoFixButton.style.display = 'block';
+          
+          // Add click handler to toggle debug - use direct method first
+          autoFixButton.addEventListener('click', () => {
+            console.log('Auto-fix debug button clicked, attempting to toggle debug...');
+            
+            // Method 0: Try reviving first if destroyed
+            if (debugSystem.current && typeof debugSystem.current.revive === 'function') {
+              debugSystem.current.revive();
+            }
+            
+            // Method 1: Try calling toggleDebug directly on debug system
+            if (debugSystem.current && typeof debugSystem.current.toggleDebug === 'function') {
+              console.log('Using debugSystem.current.toggleDebug()');
+              debugSystem.current.toggleDebug();
+              return;
+            }
+            
+            // Method 2: Try global debug overlay
+            if (window.globalDebugOverlay && typeof window.globalDebugOverlay.toggleDebug === 'function') {
+              console.log('Using window.globalDebugOverlay.toggleDebug()');
+              window.globalDebugOverlay.toggleDebug();
+              return;
+            }
+            
+            // Method 3: Keyboard event simulation
+            console.log('Using keyboard event simulation');
+            const keyEvent = new KeyboardEvent('keydown', {
+              key: 'o',
+              code: 'KeyO',
+              keyCode: 79,
+              which: 79,
+              bubbles: true,
+              cancelable: true
+            });
+            document.dispatchEvent(keyEvent);
+            
+            // Method 4: Last resort - manual overlay toggle
+            setTimeout(() => {
+              const debugOverlay = document.getElementById('debug-overlay');
+              if (debugOverlay) {
+                const isVisible = debugOverlay.style.display !== 'none' && 
+                                 debugOverlay.style.visibility !== 'hidden';
+                debugOverlay.style.display = isVisible ? 'none' : 'block';
+                debugOverlay.style.visibility = isVisible ? 'hidden' : 'visible';
+                console.log('Auto-fix manual overlay toggle:', isVisible ? 'hidden' : 'shown');
+              }
+            }, 100);
+          });
+          
+          // Add hover effects
+          autoFixButton.addEventListener('mouseenter', () => {
+            autoFixButton.style.background = 'rgba(162,89,255,0.15)';
+            autoFixButton.style.color = '#fff';
+            autoFixButton.style.boxShadow = '0 0 24px #a259ff88';
+          });
+          
+          autoFixButton.addEventListener('mouseleave', () => {
+            autoFixButton.style.background = 'rgba(30,0,60,0.95)';
+            autoFixButton.style.color = '#a259ff';
+            autoFixButton.style.boxShadow = '0 0 16px #a259ff55';
+          });
+          
+          document.body.appendChild(autoFixButton);
+          console.log('Debug button auto-fixed');
+        } catch (error) {
+          console.error('Failed to auto-fix debug button:', error);
+        }
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+  
   return (
     <>
       <div 
