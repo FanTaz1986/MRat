@@ -7,6 +7,7 @@ let debugConfig = {
   showConsoleMessages: true,
   showStats: true,
   muteDebugLogs: false,
+  invulnerability: false, // Player invulnerability debug toggle
   logCategories: {
     general: false,
     portal: false,
@@ -113,6 +114,21 @@ export function initializeConsoleCapture() {
  */
 export function restoreConsoleLog() {
   console.log = originalConsoleLog;
+}
+
+/**
+ * Get invulnerability state
+ */
+export function isInvulnerable() {
+  return debugConfig.invulnerability;
+}
+
+/**
+ * Set invulnerability state
+ */
+export function setInvulnerability(enabled) {
+  debugConfig.invulnerability = enabled;
+  debugLog(`Invulnerability ${enabled ? 'enabled' : 'disabled'}`, 'debug');
 }
 
 /**
@@ -1662,6 +1678,77 @@ function SimpleDebugOverlay({
               textAlign: 'center'
             }
           }, 'Health range: 0-5 hearts. Going below 0 or above 5 will have no effect.')
+        ]),
+
+        React.createElement('div', {
+          key: 'invulnerabilityControls',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'invulnTitle',
+            style: { 
+              color: '#44ff44', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #44ff4488'
+            }
+          }, '🛡️ Invulnerability'),
+          
+          React.createElement('div', {
+            key: 'invulnToggleGroup',
+            style: { 
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '8px',
+              border: '1px solid rgba(162, 89, 255, 0.3)',
+              marginBottom: '12px'
+            }
+          }, [
+            React.createElement('input', {
+              key: 'invulnToggle',
+              type: 'checkbox',
+              checked: debugConfig.invulnerability,
+              onChange: (e) => {
+                debugConfig.invulnerability = e.target.checked;
+                debugLog(`Invulnerability ${e.target.checked ? 'enabled' : 'disabled'}`, 'debug');
+                // Force UI update
+                forceUpdate({});
+              },
+              style: {
+                marginRight: '12px',
+                accentColor: '#44ff44',
+                transform: 'scale(1.2)'
+              }
+            }),
+            React.createElement('label', {
+              key: 'invulnLabel',
+              style: { 
+                color: '#44ff44',
+                fontWeight: 'bold',
+                fontSize: '13px',
+                cursor: 'pointer'
+              },
+              onClick: () => {
+                debugConfig.invulnerability = !debugConfig.invulnerability;
+                debugLog(`Invulnerability ${debugConfig.invulnerability ? 'enabled' : 'disabled'}`, 'debug');
+                forceUpdate({});
+              }
+            }, debugConfig.invulnerability ? 'Invulnerability ON' : 'Invulnerability OFF')
+          ]),
+          
+          React.createElement('div', {
+            key: 'invulnInfo',
+            style: { 
+              fontSize: '12px', 
+              color: '#44ff44', 
+              opacity: 0.8,
+              fontStyle: 'italic',
+              textAlign: 'center'
+            }
+          }, 'When enabled, player cannot die and health will not go below 1.')
         ])
       ]),
 

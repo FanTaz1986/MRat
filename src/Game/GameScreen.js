@@ -5,7 +5,7 @@ import { initializeGameEngine } from "./engine/GameEngine";
 // Import using relative path to fix case sensitivity issues
 import MapManager from './maps/MapManager'; // Use relative path to avoid case sensitivity issues
 import { playAmbianceForMap, stopAmbiance, stopFootstepLoop, stopBossRoomMusic, stopBossFlySound } from "../utils/AudioManager";
-import { createDebugOverlay, initializeConsoleCapture, debugLog } from "../development/utils/Debug";
+import { createDebugOverlay, initializeConsoleCapture, debugLog, isInvulnerable } from "../development/utils/Debug";
 import PlayerUI from "./ui/PlayerUI";
 import ObjectiveUI from "./ui/ObjectiveUI";
 import OptionsMenu from "./ui/OptionsMenu";
@@ -70,7 +70,8 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
   
   // Watch for game over condition (all hearts lost)
   useEffect(() => {
-    if (playerHealth <= 0 && !showGameOver) {
+    // Check if player health is 0 or below, but allow invulnerability to prevent game over
+    if (playerHealth <= 0 && !showGameOver && !isInvulnerable()) {
       // Pause the game
       setIsGamePaused(true);
       if (pixiApp.current) {
@@ -217,7 +218,9 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
           const handleHealthChange = (change) => {
             setPlayerHealth(prev => {
               const newHealth = prev + change;
-              return Math.max(0, Math.min(5, newHealth));
+              // If invulnerability is enabled, prevent health from going below 1
+              const minHealth = isInvulnerable() ? 1 : 0;
+              return Math.max(minHealth, Math.min(5, newHealth));
             });
           };
           
@@ -486,8 +489,10 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         const handleHealthChange = (change) => {
           setPlayerHealth(prev => {
             const newHealth = prev + change;
-            // Clamp between 0 and 5 hearts
-            return Math.max(0, Math.min(5, newHealth));
+            // If invulnerability is enabled, prevent health from going below 1
+            const minHealth = isInvulnerable() ? 1 : 0;
+            // Clamp between minHealth and 5 hearts
+            return Math.max(minHealth, Math.min(5, newHealth));
           });
         };
         

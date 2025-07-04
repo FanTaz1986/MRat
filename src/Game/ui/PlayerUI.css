@@ -13,6 +13,15 @@
   backdrop-filter: blur(4px);
   box-shadow: 0 0 16px rgba(162, 89, 255, 0.3), 0 0 4px #000;
   min-width: 200px;
+  
+  /* Prevent text selection and focus */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  pointer-events: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Character and Pet Names */
@@ -24,6 +33,13 @@
   text-shadow: 0 0 12px rgba(162, 89, 255, 0.5), 0 0 4px #000;
   text-align: center;
   letter-spacing: 1px;
+  
+  /* Prevent text selection and focus */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  outline: none;
 }
 
 .player-ui-pet-name {
@@ -75,6 +91,13 @@
   background: rgba(0, 0, 0, 0.4);
   margin-top: 6px;
   transition: all 0.2s ease;
+  
+  /* Prevent text selection and focus */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  outline: none;
 }
 
 .player-ui-attack-box.ready {
@@ -106,6 +129,13 @@
   letter-spacing: 1px;
   z-index: 2;
   pointer-events: none;
+  
+  /* Prevent text selection and focus */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  outline: none;
 }
 
 /* Responsive Design */

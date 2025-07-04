@@ -53,15 +53,48 @@ const ObjectiveUI = ({ currentMap = 'maparea0' }) => {
   debugLog(`ObjectiveUI: Final render - actualCurrentMap: ${actualCurrentMap}, objectiveText: ${JSON.stringify(objectiveText)}`, 'ui');
 
   return (
-    <div className="objective-ui-container">
-      <div className="objective-ui-title">Objective:</div>
-      <div className="objective-ui-content">
+    <div 
+      className="objective-ui-container"
+      tabIndex={-1}
+      onMouseDown={(e) => e.preventDefault()}
+      onSelectStart={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+    >
+      <div 
+        className="objective-ui-title"
+        tabIndex={-1}
+        onMouseDown={(e) => e.preventDefault()}
+        onSelectStart={(e) => e.preventDefault()}
+      >
+        Objective:
+      </div>
+      <div 
+        className="objective-ui-content"
+        tabIndex={-1}
+        onMouseDown={(e) => e.preventDefault()}
+        onSelectStart={(e) => e.preventDefault()}
+      >
         {Array.isArray(objectiveText) ? (
           objectiveText.map((text, index) => (
-            <div key={index} className="objective-ui-item">{text}</div>
+            <div 
+              key={index} 
+              className="objective-ui-item"
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
+              onSelectStart={(e) => e.preventDefault()}
+            >
+              {text}
+            </div>
           ))
         ) : (
-          <div className="objective-ui-item">{objectiveText}</div>
+          <div 
+            className="objective-ui-item"
+            tabIndex={-1}
+            onMouseDown={(e) => e.preventDefault()}
+            onSelectStart={(e) => e.preventDefault()}
+          >
+            {objectiveText}
+          </div>
         )}
       </div>
     </div>
