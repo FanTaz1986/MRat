@@ -501,7 +501,15 @@ export default class MapManager {
     // Create MapX instance
     this.mapXInstance = new MapX(this.app, this.mapConfigs.mapareax.mapSize, layers);
     
-    // Generate props
+    // Set up portal enable callback - connect MapX to PortalManager
+    this.mapXInstance.setPortalEnabledCallback(() => {
+      if (this.portalManager && this.portalManager.enableMapXPortal) {
+        debugLog('MapManager: Boss fight ended, enabling Map X portal', 'map');
+        this.portalManager.enableMapXPortal();
+      }
+    });
+    
+    // Generate props (this will also spawn the boss)
     this.mapXInstance.loadProps();
     
     // Add update to ticker

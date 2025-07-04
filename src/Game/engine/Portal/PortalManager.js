@@ -13,6 +13,8 @@ export default class PortalManager {
     this.isPromptActive = false;
     this.forcePrompt = false;
     this.onTeleportCallback = null;
+    this.pendingPortalConfig = null; // For delayed portal creation (Map X)
+    this.sceneContainer = null; // Store reference to the layer where portals should be added
     
     // Create portals for this map
     this.createPortals();
@@ -30,8 +32,11 @@ export default class PortalManager {
         portalConfig = this.getPortalPosition1();
         break;
       case 'mapareax':
+        // For Map X, don't create portal immediately - boss needs to be defeated first
         portalConfig = this.getPortalPositionX();
-        break;
+        this.pendingPortalConfig = portalConfig; // Store config for later
+        debugLog('MapX: Portal creation delayed until boss fight ends', 'portal');
+        return; // Exit early, don't create portal yet
       case 'maparea2':
         portalConfig = this.getPortalPosition2();
         break;
@@ -47,7 +52,8 @@ export default class PortalManager {
         portalConfig.y,
         portalConfig.w,
         portalConfig.h,
-        portalConfig.targetMap
+        portalConfig.targetMap,
+        this.sceneContainer // Pass the layer so portal stays in world space
       );
       
       // Store tile coordinates if available
@@ -57,6 +63,44 @@ export default class PortalManager {
       }
       
       this.portals.push(portal);
+    }
+  }
+
+  /**
+   * Create portal for Map X after boss fight ends
+   */
+  enableMapXPortal() {
+    if (this.mapId !== 'mapareax' || !this.pendingPortalConfig) {
+      debugLog('MapX: Cannot enable portal - not Map X or no pending config', 'portal');
+      return;
+    }
+
+    try {
+      const portalConfig = this.pendingPortalConfig;
+      
+      const portal = new Portal(
+        this.app,
+        portalConfig.x,
+        portalConfig.y,
+        portalConfig.w,
+        portalConfig.h,
+        portalConfig.targetMap,
+        this.sceneContainer // Pass the layer so portal stays in world space
+      );
+      
+      // Store tile coordinates if available
+      if (portalConfig.tileX !== undefined && portalConfig.tileY !== undefined) {
+        portal.tileX = portalConfig.tileX;
+        portal.tileY = portalConfig.tileY;
+      }
+      
+      this.portals.push(portal);
+      this.pendingPortalConfig = null; // Clear pending config
+      
+      debugLog(`MapX: Portal enabled at (${portalConfig.x}, ${portalConfig.y}) after boss fight`, 'portal');
+      
+    } catch (error) {
+      debugLog(`MapX: Error enabling portal: ${error.message}`, 'portal');
     }
   }
     // Portal position configurations - same logic as your original functions
@@ -206,6 +250,7 @@ export default class PortalManager {
   
   // Add portals to the scene
   addToScene(container) {
+    this.sceneContainer = container; // Store reference for future use
     this.portals.forEach(portal => {
       container.addChild(portal.container);
     });

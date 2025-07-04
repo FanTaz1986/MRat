@@ -47,6 +47,12 @@ export default class Boss {
     this.attackEffects = null;
     this.effectsContainer = container || app.stage;
     
+    // Create boss container for organized layering
+    this.container = new PIXI.Container();
+    this.container.name = 'BossContainer';
+    this.container.zIndex = 2000; // High z-index for boss
+    this.container.position.set(this.position.x, this.position.y); // Position the container
+    
     // Audio state
     this.isFlyingSoundPlaying = false;
     this.isBossRoomMusicPlaying = false;
@@ -111,14 +117,16 @@ export default class Boss {
     this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
     this.sprite.roundPixels = false;
     
-    // Position sprite
-    this.sprite.position.set(this.position.x, this.position.y);
-    this.sprite.zIndex = 2000; // High z-index for boss
+    // Position sprite at (0,0) relative to container (container is positioned)
+    this.sprite.position.set(0, 0);
+    this.sprite.zIndex = 1; // Relative to boss container
     
     // Apply direction (mirroring)
     this.updateDirection();
     
-    this.app.stage.addChild(this.sprite);
+    // Add sprite to boss container, then container to stage
+    this.container.addChild(this.sprite);
+    this.app.stage.addChild(this.container);
     debugLog(`Boss sprite initialized in ${this.phase} phase`, 'boss');
   }
   
@@ -224,6 +232,25 @@ export default class Boss {
     });
     
     debugLog('Boss defeated!', 'boss');
+    
+    // Trigger portal activation when boss dies
+    this.triggerPortalOnDeath();
+  }
+  
+  // Trigger portal activation when boss is defeated
+  triggerPortalOnDeath() {
+    try {
+      // Use global reference to enable portal
+      if (window.gameMapManager && window.gameMapManager.mapXInstance) {
+        debugLog('Boss death triggering portal activation', 'boss');
+        window.gameMapManager.mapXInstance.enablePortal();
+        debugLog('Portal enabled after boss death', 'boss');
+      } else {
+        debugLog('Could not enable portal after boss death - MapX instance not found', 'boss');
+      }
+    } catch (error) {
+      debugLog(`Error enabling portal after boss death: ${error.message}`, 'boss');
+    }
   }
   
   // Start attack sequence
@@ -371,35 +398,17 @@ export default class Boss {
   }
   
   updateFlyPhase() {
-    // Flying phase behavior - boss hovers and occasionally attacks
-    const now = Date.now();
-    
-    // Random attack chance
-    if (!this.isAttacking && now - this.lastAttackTime > this.attackCooldown) {
-      if (Math.random() < 0.01) { // 1% chance per frame to attack
-        const attackTypes = ['melee', 'range'];
-        const randomAttack = attackTypes[Math.floor(Math.random() * attackTypes.length)];
-        this.startAttack(randomAttack);
-      }
-    }
+    // Flying phase behavior - boss hovers (no automatic attacks)
+    // Note: Automatic spell casting disabled - attacks are now manual via BossAI debug controls
     
     // Optional: Add hovering movement pattern
-    // this.position.y += Math.sin(now * 0.001) * 0.5; // Subtle hovering
+    // this.position.y += Math.sin(Date.now() * 0.001) * 0.5; // Subtle hovering
     // this.sprite.position.y = this.position.y;
   }
   
   updateGroundPhase() {
-    // Ground phase behavior - boss is more aggressive
-    const now = Date.now();
-    
-    // More frequent attacks in ground phase
-    if (!this.isAttacking && now - this.lastAttackTime > this.attackCooldown * 0.7) { // 30% faster attacks
-      if (Math.random() < 0.015) { // 1.5% chance per frame to attack
-        const attackTypes = ['melee', 'range'];
-        const randomAttack = attackTypes[Math.floor(Math.random() * attackTypes.length)];
-        this.startAttack(randomAttack);
-      }
-    }
+    // Ground phase behavior - boss is more aggressive (no automatic attacks)
+    // Note: Automatic spell casting disabled - attacks are now manual via BossAI debug controls
   }
   
   // Get boss state for UI/debug
@@ -416,11 +425,16 @@ export default class Boss {
   
   // Move boss (for AI or scripted movement)
   moveTo(x, y) {
+    const oldX = this.position.x;
+    const oldY = this.position.y;
+    
     this.position.x = x;
     this.position.y = y;
-    if (this.sprite) {
-      this.sprite.position.set(x, y);
+    if (this.container) {
+      this.container.position.set(x, y);
     }
+    
+    debugLog(`Boss moved from (${oldX}, ${oldY}) to (${x}, ${y})`, 'boss');
   }
 
   destroy() {
@@ -434,12 +448,12 @@ export default class Boss {
       this.attackEffects.destroy();
     }
     
-    // Clean up sprite
-    if (this.sprite && this.sprite.parent) {
-      this.sprite.parent.removeChild(this.sprite);
+    // Clean up container and sprite
+    if (this.container && this.container.parent) {
+      this.container.parent.removeChild(this.container);
     }
-    if (this.sprite) {
-      this.sprite.destroy();
+    if (this.container) {
+      this.container.destroy(true); // true = destroy children too
     }
     
     debugLog('Boss destroyed and audio cleaned up', 'boss');

@@ -30,15 +30,15 @@ const PlayerUI = ({ playerHealth = 3, maxHealth = 5, petAttackCooldown = 0 }) =>
       className="player-ui-container"
       tabIndex={-1}
       onMouseDown={(e) => e.preventDefault()}
-      onSelectStart={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
+      style={{ userSelect: 'none' }}
     >
       {/* Character Name */}
       <div 
         className="player-ui-name"
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
-        onSelectStart={(e) => e.preventDefault()}
+        style={{ userSelect: 'none' }}
       >
         Erif
       </div>
@@ -48,7 +48,7 @@ const PlayerUI = ({ playerHealth = 3, maxHealth = 5, petAttackCooldown = 0 }) =>
         className="player-ui-hearts"
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
-        onSelectStart={(e) => e.preventDefault()}
+        style={{ userSelect: 'none' }}
       >
         {heartSlots.map((isFilled, index) => (
           <div 
@@ -58,7 +58,7 @@ const PlayerUI = ({ playerHealth = 3, maxHealth = 5, petAttackCooldown = 0 }) =>
             title={`Health ${index + 1}/${maxHealth}`}
             tabIndex={-1}
             onMouseDown={(e) => e.preventDefault()}
-            onSelectStart={(e) => e.preventDefault()}
+            style={{ userSelect: 'none' }}
           >
             <img 
               src="/Extra/HP/hearticon.png" 
@@ -76,7 +76,7 @@ const PlayerUI = ({ playerHealth = 3, maxHealth = 5, petAttackCooldown = 0 }) =>
         className="player-ui-pet-name"
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
-        onSelectStart={(e) => e.preventDefault()}
+        style={{ userSelect: 'none' }}
       >
         Snape
       </div>
@@ -86,7 +86,7 @@ const PlayerUI = ({ playerHealth = 3, maxHealth = 5, petAttackCooldown = 0 }) =>
         className={`player-ui-attack-box ${attackProgress >= 100 ? 'ready' : ''}`}
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
-        onSelectStart={(e) => e.preventDefault()}
+        style={{ userSelect: 'none' }}
       >
         <div 
           className="player-ui-attack-fill"
@@ -96,7 +96,7 @@ const PlayerUI = ({ playerHealth = 3, maxHealth = 5, petAttackCooldown = 0 }) =>
           className="player-ui-attack-text"
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
-          onSelectStart={(e) => e.preventDefault()}
+          style={{ userSelect: 'none' }}
         >
           Attack
         </div>

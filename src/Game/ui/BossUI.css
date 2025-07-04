@@ -1,0 +1,152 @@
+.boss-ui-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: rgba(80, 0, 0, 0.4);
+  border: 2px solid rgba(255, 89, 89, 0.5);
+  border-radius: 18px;
+  padding: 16px 20px;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 20px rgba(255, 89, 89, 0.4), 0 0 6px #000;
+  min-width: 340px;
+  
+  /* Prevent text selection and focus */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  pointer-events: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Boss Name */
+.boss-ui-name {
+  color: #ff5959;
+  font-weight: bold;
+  font-size: 1.8rem;
+  text-shadow: 0 0 16px rgba(255, 89, 89, 0.6), 0 0 4px #000;
+  text-align: center;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+  
+  /* Prevent text selection and focus */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  outline: none;
+}
+
+/* Boss Hearts Container */
+.boss-ui-hearts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Boss Hearts Row */
+.boss-ui-hearts-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Individual Boss Heart */
+.boss-ui-heart {
+  width: 16px;
+  height: 16px;
+  position: relative;
+  pointer-events: none;
+  transition: none;
+}
+
+.boss-heart-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: filter 0.3s ease;
+}
+
+.boss-ui-heart.empty .boss-heart-icon {
+  filter: grayscale(100%) brightness(0.3);
+  opacity: 0.4;
+}
+
+.boss-ui-heart.filled .boss-heart-icon {
+  filter: hue-rotate(0deg) saturate(1.2);
+  opacity: 1;
+}
+
+/* Health Counter */
+.boss-ui-health-counter {
+  color: #ff5959;
+  font-weight: bold;
+  font-size: 1rem;
+  text-shadow: 0 0 8px rgba(255, 89, 89, 0.5), 0 0 2px #000;
+  text-align: center;
+  margin-top: 4px;
+  
+  /* Prevent text selection and focus */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  outline: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .boss-ui-container {
+    min-width: 300px;
+    padding: 12px 16px;
+  }
+  
+  .boss-ui-name {
+    font-size: 1.5rem;
+  }
+  
+  .boss-ui-heart {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .boss-ui-hearts-row {
+    gap: 3px;
+  }
+  
+  .boss-ui-hearts-container {
+    gap: 3px;
+  }
+}
+
+@media (max-width: 480px) {
+  .boss-ui-container {
+    min-width: 280px;
+    padding: 10px 14px;
+  }
+  
+  .boss-ui-name {
+    font-size: 1.3rem;
+  }
+  
+  .boss-ui-heart {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .boss-ui-hearts-row {
+    gap: 2px;
+  }
+  
+  .boss-ui-hearts-container {
+    gap: 2px;
+  }
+}

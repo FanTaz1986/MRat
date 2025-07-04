@@ -7,9 +7,11 @@ import MapManager from './maps/MapManager'; // Use relative path to avoid case s
 import { playAmbianceForMap, stopAmbiance, stopFootstepLoop, stopBossRoomMusic, stopBossFlySound } from "../utils/AudioManager";
 import { createDebugOverlay, initializeConsoleCapture, debugLog, isInvulnerable } from "../development/utils/Debug";
 import PlayerUI from "./ui/PlayerUI";
+import BossUI from "./ui/BossUI";
 import ObjectiveUI from "./ui/ObjectiveUI";
 import OptionsMenu from "./ui/OptionsMenu";
 import GameOverScreen from "../meniu/GameOverScreen";
+import BossAI from "./entities/BossAI";
 
 // Modern PixiJS v7+ settings - no deprecated APIs
 PIXI.settings.PREFER_ENV = PIXI.ENV.WEBGL2;
@@ -29,6 +31,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
   const pixiApp = useRef(null);
   const mapManager = useRef(null);
   const debugSystem = useRef(null);
+  const bossAI = useRef(null);
   const { currentMap, setCurrentMap } = useGameStore();
   const [appReady, setAppReady] = useState(false);
   const [mapManagerReady, setMapManagerReady] = useState(false);
@@ -37,9 +40,14 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
   const [playerHealth, setPlayerHealth] = useState(3);
   const [petAttackCooldown, setPetAttackCooldown] = useState(0);
   
+  // Boss UI state
+  const [bossHealth, setBossHealth] = useState(40);
+  const [maxBossHealth, setMaxBossHealth] = useState(40);
+  const [showBossUI, setShowBossUI] = useState(false);
+  
   // Options menu state
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [isGamePaused, setIsGamePaused] = useState(false);
+  const [isGamePaused, setIsGamePaused] = useState(false); // eslint-disable-line no-unused-vars
   
   // Game over state
   const [showGameOver, setShowGameOver] = useState(false);
@@ -479,6 +487,10 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         mapManager.current = new MapManager(pixiApp.current);
         debugLog('MapManager created successfully', 'system');
         
+        // Initialize Boss AI
+        bossAI.current = new BossAI();
+        debugLog('BossAI initialized', 'boss');
+        
         // Expose mapManager globally for ObjectiveUI
         window.gameMapManager = mapManager.current;
         
@@ -500,6 +512,52 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         
         debugLog('Game engine initialized', 'game');
         
+        // Initialize boss AI debug integration
+        if (bossAI.current && debugSystem.current) {
+          // Add keyboard event listener for boss controls
+          document.addEventListener('keydown', bossAI.current.handleKeyDown);
+          debugLog('BossAI keyboard controls initialized', 'boss');
+          
+          // Set up periodic check to connect boss entity to BossAI
+          const connectBossToAI = () => {
+            // Check if we're on MapX and if the boss is spawned
+            if (mapManager.current && mapManager.current.mapXInstance) {
+              if (mapManager.current.mapXInstance.boss) {
+                const boss = mapManager.current.mapXInstance.boss;
+                if (boss && !bossAI.current.bossEntity) {
+                  bossAI.current.setBossEntity(boss);
+                  debugLog('Boss entity connected to BossAI from MapX', 'boss');
+                } else if (bossAI.current.bossEntity) {
+                  // Boss already connected, no need to keep checking as frequently
+                  return true; // Signal to reduce check frequency
+                }
+              } else {
+                debugLog('MapX instance found but no boss spawned yet', 'boss');
+              }
+            } else {
+              debugLog('MapManager or MapX instance not ready', 'boss');
+            }
+            return false;
+          };
+          
+          // Check immediately and then every 500ms
+          connectBossToAI();
+          const bossConnectionInterval = setInterval(() => {
+            const connected = connectBossToAI();
+            if (connected) {
+              // Boss connected, reduce check frequency
+              clearInterval(bossConnectionInterval);
+              // Check less frequently for disconnections
+              const maintainConnectionInterval = setInterval(connectBossToAI, 2000);
+              window.game.bossConnectionInterval = maintainConnectionInterval;
+            }
+          }, 500);
+          
+          // Store interval for cleanup
+          window.game = window.game || {};
+          window.game.bossConnectionInterval = bossConnectionInterval;
+        }
+        
         // Update debug system when map manager is created
         if (debugSystem.current && debugSystem.current.setMapManager && mapManager.current) {
           debugSystem.current.setMapManager(mapManager.current);
@@ -516,6 +574,9 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         }
         if (mapManager.current) {
           window.game.mapManager = mapManager.current;
+        }
+        if (bossAI.current) {
+          window.game.bossAI = bossAI.current;
         }
         
       } catch (error) {
@@ -725,10 +786,67 @@ const resizeHandler = () => {
       };
     }
   }, [appReady, setCurrentMap, onGameEnd]);
+  
+  // Boss health tracking - check for boss health changes on Map X
+  useEffect(() => {
+    if (!appReady || !mapManagerReady || !mapManager.current) {
+      return;
+    }
+    
+    const updateBossHealth = () => {
+      debugLog(`updateBossHealth: currentMap='${currentMap}', hasMapManager=${!!mapManager.current}, hasMapXInstance=${!!(mapManager.current && mapManager.current.mapXInstance)}, appReady=${appReady}, mapManagerReady=${mapManagerReady}`, 'boss');
+      
+      // Check both React state AND MapManager current map for boss UI visibility
+      const actualCurrentMap = mapManager.current?.currentMap || currentMap;
+      const isOnMapX = actualCurrentMap === 'mapareax';
+      
+      debugLog(`BossUI check: reactState='${currentMap}', actualMap='${actualCurrentMap}', isOnMapX=${isOnMapX}`, 'boss');
+      
+      if (isOnMapX && mapManager.current && mapManager.current.mapXInstance) {
+        const bossInfo = mapManager.current.mapXInstance.getBossInfo();
+        debugLog(`BossUI visibility update: isVisible=${bossInfo.isVisible}, health=${bossInfo.currentHealth}/${bossInfo.maxHealth}`, 'boss');
+        setShowBossUI(bossInfo.isVisible);
+        setBossHealth(bossInfo.currentHealth);
+        setMaxBossHealth(bossInfo.maxHealth);
+      } else {
+        debugLog(`BossUI hidden: reactState='${currentMap}', actualMap='${actualCurrentMap}', isOnMapX=${isOnMapX}, hasMapXInstance=${!!(mapManager.current && mapManager.current.mapXInstance)}`, 'boss');
+        setShowBossUI(false);
+      }
+    };
+    
+    // Update boss health immediately
+    updateBossHealth();
+    
+    // Set up interval to continuously update boss health
+    const bossHealthInterval = setInterval(updateBossHealth, 100);
+    
+    // Store interval ID for cleanup
+    if (!window.gameIntervals) window.gameIntervals = [];
+    window.gameIntervals.push(bossHealthInterval);
+    
+    return () => {
+      clearInterval(bossHealthInterval);
+    };  }, [currentMap, appReady, mapManagerReady]);
+
+  // Debug log current map changes
+  useEffect(() => {
+    debugLog(`GameScreen: currentMap changed to '${currentMap}'`, 'map');
+  }, [currentMap]);
+
   useEffect(() => {
     return () => {
       // This runs when GameScreen component is actually unmounted
-      console.log('GameScreen component unmounting, cleaning up debug system');
+      console.log('GameScreen component unmounting, cleaning up systems');
+      
+      // Cleanup BossAI
+      if (bossAI.current) {
+        document.removeEventListener('keydown', bossAI.current.handleKeyDown);
+        bossAI.current.destroy();
+        bossAI.current = null;
+        debugLog('BossAI cleaned up', 'boss');
+      }
+      
+      // Cleanup debug system
       if (debugSystem.current && debugSystem.current.destroy) {
         debugSystem.current.destroy();
         debugSystem.current = null;
@@ -849,6 +967,63 @@ const resizeHandler = () => {
     return () => clearInterval(interval);
   }, []);
   
+  // Sync BossAI debug mode with debug configuration and boss entity
+  useEffect(() => {
+    if (!bossAI.current || !mapManagerReady) return;
+    
+    // Simple synchronization using global debug config
+    const syncBossAI = () => {
+      if (window.game && window.game.debugConfig) {
+        // Update boss AI debug mode based on debug logging setting
+        if (bossAI.current) {
+          bossAI.current.setDebugMode(window.game.debugConfig.logCategories.boss);
+        }
+        
+        // Connect BossAI to the boss entity if we're on Map X
+        if (currentMap === 'mapareax' && mapManager.current && mapManager.current.mapXInstance) {
+          const bossEntity = mapManager.current.mapXInstance.boss;
+          if (bossEntity && bossAI.current) {
+            bossAI.current.setBossEntity(bossEntity);
+            debugLog('BossAI connected to boss entity', 'boss');
+          }
+        }
+      } else {
+        // Fallback: Try importing debug config
+        import('../development/utils/Debug.js').then(({ debugConfig }) => {
+          if (debugConfig && bossAI.current) {
+            bossAI.current.setDebugMode(debugConfig.logCategories.boss);
+            
+            // Connect BossAI to the boss entity if we're on Map X
+            if (currentMap === 'mapareax' && mapManager.current && mapManager.current.mapXInstance) {
+              const bossEntity = mapManager.current.mapXInstance.boss;
+              if (bossEntity) {
+                bossAI.current.setBossEntity(bossEntity);
+                debugLog('BossAI connected to boss entity (fallback)', 'boss');
+              }
+            }
+          }
+        }).catch(error => {
+          console.warn('Could not sync BossAI with debug config:', error);
+        });
+      }
+    };
+    
+    // Initial sync
+    syncBossAI();
+    
+    // Set up periodic sync to catch debug config changes
+    const syncInterval = setInterval(syncBossAI, 1000);
+    
+    return () => {
+      clearInterval(syncInterval);
+      // Clean up boss connection interval
+      if (window.game && window.game.bossConnectionInterval) {
+        clearInterval(window.game.bossConnectionInterval);
+        delete window.game.bossConnectionInterval;
+      }
+    };
+  }, [currentMap, mapManagerReady]);
+
   return (
     <>
       <div 
@@ -868,6 +1043,11 @@ const resizeHandler = () => {
             playerHealth={playerHealth}
             maxHealth={5}
             petAttackCooldown={petAttackCooldown}
+          />
+          <BossUI 
+            bossHealth={bossHealth}
+            maxBossHealth={maxBossHealth}
+            isVisible={showBossUI}
           />
           <ObjectiveUI 
             currentMap={currentMap}

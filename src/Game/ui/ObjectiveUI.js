@@ -57,14 +57,14 @@ const ObjectiveUI = ({ currentMap = 'maparea0' }) => {
       className="objective-ui-container"
       tabIndex={-1}
       onMouseDown={(e) => e.preventDefault()}
-      onSelectStart={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
+      style={{ userSelect: 'none' }}
     >
       <div 
         className="objective-ui-title"
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
-        onSelectStart={(e) => e.preventDefault()}
+        style={{ userSelect: 'none' }}
       >
         Objective:
       </div>
@@ -72,7 +72,7 @@ const ObjectiveUI = ({ currentMap = 'maparea0' }) => {
         className="objective-ui-content"
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
-        onSelectStart={(e) => e.preventDefault()}
+        style={{ userSelect: 'none' }}
       >
         {Array.isArray(objectiveText) ? (
           objectiveText.map((text, index) => (
@@ -81,7 +81,7 @@ const ObjectiveUI = ({ currentMap = 'maparea0' }) => {
               className="objective-ui-item"
               tabIndex={-1}
               onMouseDown={(e) => e.preventDefault()}
-              onSelectStart={(e) => e.preventDefault()}
+              style={{ userSelect: 'none' }}
             >
               {text}
             </div>
@@ -91,7 +91,7 @@ const ObjectiveUI = ({ currentMap = 'maparea0' }) => {
             className="objective-ui-item"
             tabIndex={-1}
             onMouseDown={(e) => e.preventDefault()}
-            onSelectStart={(e) => e.preventDefault()}
+            style={{ userSelect: 'none' }}
           >
             {objectiveText}
           </div>

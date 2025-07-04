@@ -25,9 +25,13 @@ let debugConfig = {
     performance: false,
     pet: false, // Debug logging disabled by default
     ui: false, // UI component debugging
-    debug: false // Debug system internal logging
+    debug: false, // Debug system internal logging
+    boss: false // Boss fight debugging
   }
 };
+
+// Export debugConfig for external access
+export { debugConfig };
 
 // Debug message buffer for reduced console spam
 let debugMessageBuffer = new Map();
@@ -694,7 +698,7 @@ function SimpleDebugOverlay({
         flexWrap: 'wrap', // Allow tabs to wrap if needed
         minHeight: '50px' // Ensure minimum height for tabs
       }
-    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'combat', 'screens'].map(tab => 
+    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'combat', 'boss', 'screens'].map(tab => 
       React.createElement('button', {
         key: tab,
         onClick: () => setActiveTab(tab),
@@ -1752,6 +1756,285 @@ function SimpleDebugOverlay({
         ])
       ]),
 
+      activeTab === 'boss' && React.createElement('div', { key: 'boss' }, [
+        React.createElement('h4', {
+          key: 'title',
+          style: { 
+            color: '#a259ff', 
+            margin: '0 0 16px 0',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            textShadow: '0 0 8px #a259ff88'
+          }
+        }, 'Boss Debug Controls'),
+        
+        React.createElement('div', {
+          key: 'bossDebugging',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'debugTitle',
+            style: { 
+              color: '#ff4444', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #ff444488'
+            }
+          }, '💀 Boss Debugging'),
+          
+          React.createElement('div', {
+            key: 'debugToggle',
+            style: { 
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '8px',
+              border: '1px solid rgba(162, 89, 255, 0.3)',
+              marginBottom: '12px'
+            }
+          }, [
+            React.createElement('input', {
+              key: 'bossDebugCheckbox',
+              type: 'checkbox',
+              checked: debugConfig.logCategories.boss,
+              onChange: () => toggleLogging('boss'),
+              style: {
+                marginRight: '12px',
+                accentColor: '#ff4444',
+                transform: 'scale(1.2)'
+              }
+            }),
+            React.createElement('label', {
+              key: 'bossDebugLabel',
+              style: { 
+                color: debugConfig.logCategories.boss ? '#ff4444' : '#888',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              },
+              onClick: () => toggleLogging('boss')
+            }, debugConfig.logCategories.boss ? '💀 Boss Debugging: ON' : '💀 Boss Debugging: OFF')
+          ])
+        ]),
+        
+        React.createElement('div', {
+          key: 'bossHealthControls',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'healthTitle',
+            style: { 
+              color: '#4CAF50', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #4CAF5088'
+            }
+          }, '❤️ Boss Health Controls (Always Available)'),
+          
+          React.createElement('div', {
+            key: 'healthButtons',
+            style: { 
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '8px',
+              padding: '12px',
+              background: 'rgba(76, 175, 80, 0.1)',
+              borderRadius: '8px',
+              border: '2px solid rgba(76, 175, 80, 0.3)'
+            }
+          }, [
+            React.createElement('button', {
+              key: 'addHealthAlways',
+              onClick: () => {
+                debugLog('Add boss health triggered (always available)', 'boss');
+                // Add boss health directly
+                if (window.gameMapManager && window.gameMapManager.mapXInstance && window.gameMapManager.mapXInstance.boss) {
+                  const boss = window.gameMapManager.mapXInstance.boss;
+                  if (boss.currentHP !== undefined && boss.maxHP !== undefined) {
+                    const oldHealth = boss.currentHP;
+                    boss.currentHP = Math.min(boss.maxHP, boss.currentHP + 5); // Add 5 HP, cap at max
+                    debugLog(`Boss health increased from ${oldHealth} to ${boss.currentHP}`, 'boss');
+                  } else {
+                    debugLog('Boss health property not found', 'boss');
+                  }
+                } else {
+                  debugLog('Boss entity not found - navigate to Map X and wait for boss spawn', 'boss');
+                }
+              },
+              style: {
+                padding: '12px 8px',
+                background: 'rgba(76, 175, 80, 0.3)',
+                border: '2px solid rgba(76, 175, 80, 0.7)',
+                borderRadius: '8px',
+                color: '#4CAF50',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textAlign: 'center'
+              }
+            }, '💚 ADD BOSS HEALTH\n(+5 HP)'),
+            
+            React.createElement('button', {
+              key: 'removeHealthAlways',
+              onClick: () => {
+                debugLog('Remove boss health triggered (always available)', 'boss');
+                // Remove boss health using proper damage system
+                if (window.gameMapManager && window.gameMapManager.mapXInstance && window.gameMapManager.mapXInstance.boss) {
+                  const boss = window.gameMapManager.mapXInstance.boss;
+                  if (boss.takeDamage && boss.currentHP !== undefined && boss.maxHP !== undefined) {
+                    const oldHealth = boss.currentHP;
+                    // Use takeDamage method instead of directly modifying HP
+                    boss.takeDamage(5); // This will properly trigger death state if HP reaches 0
+                    debugLog(`Boss took 5 damage: ${oldHealth} -> ${boss.currentHP}`, 'boss');
+                  } else {
+                    debugLog('Boss takeDamage method or health properties not found', 'boss');
+                  }
+                } else {
+                  debugLog('Boss entity not found - navigate to Map X and wait for boss spawn', 'boss');
+                }
+              },
+              style: {
+                padding: '12px 8px',
+                background: 'rgba(244, 67, 54, 0.3)',
+                border: '2px solid rgba(244, 67, 54, 0.7)',
+                borderRadius: '8px',
+                color: '#F44336',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textAlign: 'center'
+              }
+            }, '� REMOVE BOSS HEALTH\n(-5 HP)')
+          ])
+        ]),
+        
+        React.createElement('div', {
+          key: 'bossActions',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'actionsTitle',
+            style: { 
+              color: '#ff6b6b', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #ff6b6b88'
+            }
+          }, '⚡ Other Boss Actions'),
+          
+          React.createElement('div', {
+            key: 'actionButtons',
+            style: { 
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gap: '8px',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '8px',
+              border: '1px solid rgba(162, 89, 255, 0.3)'
+            }
+          }, [
+            React.createElement('button', {
+              key: 'forcePortalSwap',
+              onClick: () => {
+                debugLog('Force portal swap triggered', 'boss');
+                // Force portal activation in Map X
+                if (window.gameMapManager && window.gameMapManager.mapXInstance) {
+                  if (window.gameMapManager.mapXInstance.enablePortal) {
+                    debugLog('Calling enablePortal on MapX instance', 'boss');
+                    
+                    // Check if PortalManager has pending config, if not, set it manually
+                    if (window.gameMapManager.portalManager && !window.gameMapManager.portalManager.pendingPortalConfig) {
+                      debugLog('Pending portal config missing, setting it manually', 'boss');
+                      window.gameMapManager.portalManager.pendingPortalConfig = {
+                        x: 200,
+                        y: 200,
+                        w: 256,
+                        h: 256,
+                        targetMap: 'maparea0'
+                      };
+                      debugLog('Pending portal config restored', 'boss');
+                    }
+                    
+                    window.gameMapManager.mapXInstance.enablePortal();
+                    debugLog('Map X portal forced to activate', 'boss');
+                    
+                    // Additional debug info
+                    debugLog(`Portal enabled state: ${window.gameMapManager.mapXInstance.portalEnabled}`, 'boss');
+                    if (window.gameMapManager.portalManager) {
+                      debugLog(`PortalManager exists: ${!!window.gameMapManager.portalManager}`, 'boss');
+                      debugLog(`PortalManager mapId: ${window.gameMapManager.portalManager.mapId}`, 'boss');
+                      debugLog(`Pending portal config: ${!!window.gameMapManager.portalManager.pendingPortalConfig}`, 'boss');
+                      debugLog(`Portal count after force: ${window.gameMapManager.portalManager.portals.length}`, 'boss');
+                    } else {
+                      debugLog('PortalManager not found in MapManager', 'boss');
+                    }
+                  } else {
+                    debugLog('Map X portal enablePortal method not found', 'boss');
+                  }
+                } else {
+                  debugLog('Map X instance not found - navigate to Map X first', 'boss');
+                }
+              },
+              style: {
+                padding: '10px 8px',
+                background: 'rgba(255, 152, 0, 0.2)',
+                border: '2px solid rgba(255, 152, 0, 0.5)',
+                borderRadius: '8px',
+                color: '#FF9800',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                textAlign: 'center'
+              }
+            }, '🌀 FORCE PORTAL SWAP\n(Skip 3min timer)')
+          ])
+        ]),
+        
+        React.createElement('div', {
+          key: 'bossInfo',
+          style: { 
+            fontSize: '12px', 
+            background: 'rgba(255, 255, 255, 0.03)',
+            padding: '12px',
+            borderRadius: '8px',
+            border: '1px solid rgba(162, 89, 255, 0.3)'
+          }
+        }, [
+          React.createElement('div', {
+            key: 'bossInfoTitle',
+            style: { marginBottom: '8px' }
+          }, React.createElement('strong', { style: { color: '#ff4444' } }, 'Boss AI Information:')),
+          
+          React.createElement('div', {
+            key: 'bossAIInfo',
+            style: { fontSize: '11px', marginBottom: '8px', color: '#FFC107' }
+          }, '🤖 Boss controls are now handled by the BossAI component'),
+          
+          React.createElement('div', {
+            key: 'controlsList',
+            style: { fontSize: '10px', color: '#888', lineHeight: '1.3' }
+          }, [
+            React.createElement('div', { key: 'info1' }, '• Boss AI automatically handles all boss logic and controls'),
+            React.createElement('div', { key: 'info2' }, '• Keyboard controls work when boss debugging is enabled'),
+            React.createElement('div', { key: 'info3' }, '• Numpad 4/6/8/5: Move boss left/right/up/down'),
+            React.createElement('div', { key: 'info4' }, '• Z/X/C: Range/bolt/melee attacks'),
+            React.createElement('div', { key: 'info5' }, '• Force Portal: Instantly enables Map X portal (skip 3min timer)'),
+            React.createElement('div', { key: 'info6' }, '• Add Boss Health: Increases boss health by 5 HP (max 40)'),
+            React.createElement('div', { key: 'info7' }, '• Remove Boss Health: Decreases boss health by 5 HP (min 0)'),
+            React.createElement('div', { key: 'info8' }, '• Boss AI can be fine-tuned in BossAI.js component'),
+            React.createElement('div', { key: 'info9' }, '• All boss actions are logged when debugging is enabled')
+          ])
+        ])
+      ]),
+
       activeTab === 'screens' && React.createElement('div', { key: 'screens' }, [
         React.createElement('h4', {
           key: 'title',
@@ -1962,6 +2245,12 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
   const overlayId = debugOverlayCounter;
   
   debugLog(`Creating debug overlay #${overlayId} for screen: ${screenName}`, 'system');
+  
+  // Expose debugConfig globally for external access
+  if (!window.game) {
+    window.game = {};
+  }
+  window.game.debugConfig = debugConfig;
   
   // If there's already a global debug overlay, reuse it instead of creating new one
   if (globalDebugOverlay && !globalDebugOverlay.isDestroyed) {

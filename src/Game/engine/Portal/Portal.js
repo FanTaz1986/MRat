@@ -4,7 +4,7 @@ import { portalFrames, portalAnimationTiming } from './portalFrames';
 import { debugLog } from '../../../development/utils/Debug';
 
 export default class Portal {
-  constructor(app, x, y, width = 256, height = 256, targetMap) {
+  constructor(app, x, y, width = 256, height = 256, targetMap, layer = null) {
     this.app = app;
     this.position = { x, y };
     this.width = width;
@@ -17,6 +17,15 @@ export default class Portal {
     this.container = new PIXI.Container();
     this.container.position.set(x, y);
     this.container.zIndex = 500; // Lower than character (1000) but higher than props
+    
+    // Add portal container to the appropriate layer or stage
+    if (layer) {
+      layer.addChild(this.container);
+      debugLog(`Portal container added to map layer at position (${x}, ${y})`, 'portal');
+    } else {
+      this.app.stage.addChild(this.container);
+      debugLog(`Portal container added to stage at position (${x}, ${y})`, 'portal');
+    }
     
     // Setup animation
     this.setupAnimation();
