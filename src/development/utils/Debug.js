@@ -22,7 +22,9 @@ let debugConfig = {
     animation: false,
     input: false,
     performance: false,
-    pet: false // Debug logging disabled by default
+    pet: false, // Debug logging disabled by default
+    ui: false, // UI component debugging
+    debug: false // Debug system internal logging
   }
 };
 
@@ -66,6 +68,15 @@ export function debugLog(message, category = 'general', frequency = 1000) {
   
   debugMessageBuffer.set(key, now);
   originalConsoleLog(`[${category.toUpperCase()}] ${message}`);
+}
+
+/**
+ * Internal debug logging for the debug system itself
+ */
+function internalDebugLog(message) {
+  if (debugConfig.logCategories.debug) {
+    originalConsoleLog(`[DEBUG-SYSTEM] ${message}`);
+  }
 }
 
 /**
@@ -118,14 +129,14 @@ function SimpleDebugOverlay({
 }) {  const [activeTab, setActiveTab] = useState('general');
   const [, forceUpdate] = useState({});
 
-  console.log(`SimpleDebugOverlay render: showDebug = ${showDebug}`);
+  internalDebugLog(`SimpleDebugOverlay render: showDebug = ${showDebug}`);
   
   if (!showDebug) {
-    console.log('SimpleDebugOverlay returning null (showDebug is false)');
+    internalDebugLog('SimpleDebugOverlay returning null (showDebug is false)');
     return null;
   }
   
-  console.log('SimpleDebugOverlay rendering overlay content');
+  internalDebugLog('SimpleDebugOverlay rendering overlay content');
   
   const triggerUpdate = () => {
     forceUpdate({});
@@ -1906,7 +1917,7 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
     
     showDebug = !showDebug;
     debugLog(`Debug overlay toggled: showDebug = ${showDebug}`, 'system');
-    console.log(`Debug overlay state changed to: ${showDebug}`);
+    internalDebugLog(`Debug overlay state changed to: ${showDebug}`);
     renderDebugOverlay();
   }
   
@@ -2084,7 +2095,7 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
     
     lastRenderTime = now;
     
-    console.log(`Rendering debug overlay: showDebug = ${showDebug}, hasRoot = ${!!root}, hasContainer = ${!!debugContainer}`);
+    internalDebugLog(`Rendering debug overlay: showDebug = ${showDebug}, hasRoot = ${!!root}, hasContainer = ${!!debugContainer}`);
     
     if (root && debugContainer) {
       root.render(

@@ -12,14 +12,7 @@ import { debugLog } from '../../development/utils/Debug';
 
 export default class MapManager {
   constructor(app) {
-    console.log('MapManager constructor called with:', {
-      app: !!app,
-      appType: typeof app,
-      appConstructor: app?.constructor?.name,
-      hasStage: !!app?.stage,
-      stageType: typeof app?.stage,
-      stageConstructor: app?.stage?.constructor?.name
-    });
+    debugLog('MapManager constructor called with: app=' + !!app + ', appType=' + typeof app + ', appConstructor=' + app?.constructor?.name + ', hasStage=' + !!app?.stage + ', stageType=' + typeof app?.stage + ', stageConstructor=' + app?.stage?.constructor?.name, 'system');
     
     // Safety check: Ensure we receive a valid PIXI app
     if (!app) {
@@ -39,7 +32,7 @@ export default class MapManager {
       throw new Error('MapManager constructor: PIXI app must have a stage. App exists but stage is missing.');
     }
     
-    console.log('MapManager constructor: Validation passed, creating MapManager...');
+    debugLog('MapManager constructor: Validation passed, creating MapManager...', 'system');
     
     this.app = app;
     this.currentMap = null;

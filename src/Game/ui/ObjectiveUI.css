@@ -1,0 +1,83 @@
+.objective-ui-container {
+  position: fixed;
+  top: 85px; /* Position below debug button */
+  right: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(30, 0, 60, 0.3);
+  border: 2px solid rgba(162, 89, 255, 0.4);
+  border-radius: 18px;
+  padding: 16px;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 16px rgba(162, 89, 255, 0.3), 0 0 4px #000;
+  min-width: 180px;
+  max-width: 220px;
+}
+
+/* Objective Title */
+.objective-ui-title {
+  color: #a259ff;
+  font-weight: bold;
+  font-size: 1rem;
+  text-shadow: 0 0 8px rgba(162, 89, 255, 0.5), 0 0 4px #000;
+  text-align: center;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+/* Objective Content */
+.objective-ui-content {
+  color: #fff;
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.objective-ui-item {
+  text-shadow: 0 0 4px #000, 1px 1px 2px #000;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.objective-ui-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .objective-ui-container {
+    top: 75px;
+    right: 15px;
+    padding: 12px;
+    min-width: 160px;
+    max-width: 200px;
+  }
+  
+  .objective-ui-title {
+    font-size: 0.9rem;
+  }
+  
+  .objective-ui-content {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .objective-ui-container {
+    top: 65px;
+    right: 10px;
+    padding: 10px;
+    min-width: 140px;
+    max-width: 180px;
+  }
+  
+  .objective-ui-title {
+    font-size: 0.8rem;
+  }
+  
+  .objective-ui-content {
+    font-size: 0.7rem;
+  }
+}

@@ -7,6 +7,7 @@ import MapManager from './maps/MapManager'; // Use relative path to avoid case s
 import { playAmbianceForMap, stopAmbiance, stopFootstepLoop, stopBossRoomMusic, stopBossFlySound } from "../utils/AudioManager";
 import { createDebugOverlay, initializeConsoleCapture, debugLog } from "../development/utils/Debug";
 import PlayerUI from "./ui/PlayerUI";
+import ObjectiveUI from "./ui/ObjectiveUI";
 import OptionsMenu from "./ui/OptionsMenu";
 import GameOverScreen from "../meniu/GameOverScreen";
 
@@ -369,7 +370,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
     // Create modern PIXI Application using v7+ initialization
     const initApp = async () => {
       try {
-        console.log('Creating PIXI Application...');
+        debugLog('Creating PIXI Application...', 'system');
         
         // Modern PIXI app creation with v7+ options
         pixiApp.current = new PIXI.Application({
@@ -383,27 +384,17 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
           hello: false, // Disable hello message
         });
         
-        console.log('PIXI Application created:', {
-          hasApp: !!pixiApp.current,
-          hasStage: !!pixiApp.current.stage,
-          hasRenderer: !!pixiApp.current.renderer,
-          hasView: !!pixiApp.current.view,
-          hasCanvas: !!pixiApp.current.canvas
-        });
+        debugLog('PIXI Application created: hasApp=' + !!pixiApp.current + ', hasStage=' + !!pixiApp.current.stage + ', hasRenderer=' + !!pixiApp.current.renderer + ', hasView=' + !!pixiApp.current.view + ', hasCanvas=' + !!pixiApp.current.canvas, 'system');
         
         // In PixiJS v7.4.3, stage should be immediately available
         // But let's add a small wait to ensure it's fully initialized
         await new Promise(resolve => setTimeout(resolve, 50));
         
-        console.log('After wait, PIXI app state:', {
-          hasApp: !!pixiApp.current,
-          hasStage: !!pixiApp.current.stage,
-          stageChildren: pixiApp.current.stage?.children?.length || 0
-        });
+        debugLog('After wait, PIXI app state: hasApp=' + !!pixiApp.current + ', hasStage=' + !!pixiApp.current.stage + ', stageChildren=' + (pixiApp.current.stage?.children?.length || 0), 'system');
         
         // Double-check that stage is available
         if (!pixiApp.current.stage) {
-          console.error('PIXI stage not available after initialization');
+          debugLog('PIXI stage not available after initialization', 'system');
           throw new Error('PIXI stage initialization failed');
         }
         
@@ -416,7 +407,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         canvas.style.height = containerHeight + 'px';
         canvas.style.display = 'block';
         
-        console.log('PIXI app initialized successfully with stage:', !!pixiApp.current.stage);
+        debugLog('PIXI app initialized successfully with stage: ' + !!pixiApp.current.stage, 'system');
         setAppReady(true);
       } catch (error) {
         console.error('Failed to initialize PIXI app:', error);
@@ -471,7 +462,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
           return;
         }
         
-        console.log('Initializing game engine...');
+        debugLog('Initializing game engine...', 'system');
         
         // Initialize game engine with the PIXI app
         initializeGameEngine(pixiApp.current);
@@ -480,14 +471,13 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         initializeConsoleCapture();
         
         // Create map manager with additional safety checks
-        console.log('Creating MapManager with app:', {
-          hasApp: !!pixiApp.current,
-          hasStage: !!pixiApp.current.stage,
-          stageChildren: pixiApp.current.stage?.children?.length || 0
-        });
+        debugLog('Creating MapManager with app: hasApp=' + !!pixiApp.current + ', hasStage=' + !!pixiApp.current.stage + ', stageChildren=' + (pixiApp.current.stage?.children?.length || 0), 'system');
         
         mapManager.current = new MapManager(pixiApp.current);
-        console.log('MapManager created successfully');
+        debugLog('MapManager created successfully', 'system');
+        
+        // Expose mapManager globally for ObjectiveUI
+        window.gameMapManager = mapManager.current;
         
         // Set MapManager as ready
         setMapManagerReady(true);
@@ -606,19 +596,14 @@ const resizeHandler = () => {
   
     // Handle map changes
   useEffect(() => {
-    console.log('Map loading useEffect triggered:', {
-      appReady,
-      mapManagerReady,
-      hasMapManager: !!mapManager.current,
-      currentMap
-    });
+    debugLog('Map loading useEffect triggered: appReady=' + appReady + ', mapManagerReady=' + mapManagerReady + ', hasMapManager=' + !!mapManager.current + ', currentMap=' + currentMap, 'system');
     
     if (!appReady || !mapManagerReady || !mapManager.current) {
-      console.log('Map loading skipped: appReady =', appReady, ', mapManagerReady =', mapManagerReady, ', mapManager =', !!mapManager.current);
+      debugLog('Map loading skipped: appReady=' + appReady + ', mapManagerReady=' + mapManagerReady + ', mapManager=' + !!mapManager.current, 'system');
       return;
     }
     
-    console.log('Loading map:', currentMap);
+    debugLog('Loading map: ' + currentMap, 'system');
     
     // Load the current map
     const handleMapLoaded = () => {
@@ -709,16 +694,17 @@ const resizeHandler = () => {
         const cooldownInterval = setInterval(monitorPetCooldown, 50);
         
         // Store interval ID for cleanup
-        if (!window.gameIntervals) window.gameIntervals = [];
-        window.gameIntervals.push(cooldownInterval);
+        if (!window.gameIntervals) window.gameIntervals = [];        window.gameIntervals.push(cooldownInterval);
       };
     
     mapManager.current.loadMap(currentMap, handleMapLoaded);
-    
+
     return () => {
       // Clean up previous map resources
     };
-  }, [currentMap, appReady, mapManagerReady]);  // Connect portal teleport handler through map manager
+  }, [currentMap, appReady, mapManagerReady]);
+
+  // Connect portal teleport handler through map manager
   useEffect(() => {
     if (mapManager.current && appReady) {
       mapManager.current.onMapChanged = (newMap, previousMap) => {
@@ -734,8 +720,6 @@ const resizeHandler = () => {
       };
     }
   }, [appReady, setCurrentMap, onGameEnd]);
-  
-  // Cleanup effect for when component actually unmounts (returning to main menu)
   useEffect(() => {
     return () => {
       // This runs when GameScreen component is actually unmounted
@@ -751,17 +735,17 @@ const resizeHandler = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       if (debugSystem.current) {
-        console.log('Debug system status: exists, overlayId:', debugSystem.current.overlayId);
+        debugLog('Debug system status: exists, overlayId: ' + debugSystem.current.overlayId, 'debug');
       } else {
-        console.log('Debug system status: not found');
+        debugLog('Debug system status: not found', 'debug');
       }
       
       const debugButton = document.getElementById('debug-toggle-button');
-      console.log('Debug button status:', debugButton ? 'exists' : 'missing', debugButton?.style?.display);
+      debugLog('Debug button status: ' + (debugButton ? 'exists' : 'missing') + ' ' + debugButton?.style?.display, 'debug');
       
       // Auto-fix missing debug button if debug system exists
       if (debugSystem.current && !debugButton) {
-        console.log('Auto-fixing missing debug button...');
+        debugLog('Auto-fixing missing debug button...', 'debug');
         try {
           // Create a new debug button
           const autoFixButton = document.createElement('button');
@@ -850,9 +834,9 @@ const resizeHandler = () => {
           });
           
           document.body.appendChild(autoFixButton);
-          console.log('Debug button auto-fixed');
+          debugLog('Debug button auto-fixed', 'debug');
         } catch (error) {
-          console.error('Failed to auto-fix debug button:', error);
+          debugLog('Failed to auto-fix debug button: ' + error.message, 'debug');
         }
       }
     }, 5000); // Check every 5 seconds
@@ -879,6 +863,9 @@ const resizeHandler = () => {
             playerHealth={playerHealth}
             maxHealth={5}
             petAttackCooldown={petAttackCooldown}
+          />
+          <ObjectiveUI 
+            currentMap={currentMap}
           />
           <OptionsMenu
             isVisible={showOptionsMenu}
