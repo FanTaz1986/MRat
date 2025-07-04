@@ -21,13 +21,8 @@ const PlayerUI = ({ playerHealth = 3, maxHealth = 5, petAttackCooldown = 0 }) =>
 
   // Demo function to handle heart clicks (for testing)
   const handleHeartClick = (index) => {
-    if (index < currentHealth) {
-      // Clicking a filled heart reduces health
-      setCurrentHealth(Math.max(0, currentHealth - 1));
-    } else if (index === currentHealth && currentHealth < maxHealth) {
-      // Clicking an empty heart next to filled ones increases health
-      setCurrentHealth(Math.min(maxHealth, currentHealth + 1));
-    }
+    // Disabled - hearts should not be clickable in the game
+    return;
   };
 
   return (
