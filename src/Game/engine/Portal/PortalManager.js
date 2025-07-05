@@ -1,6 +1,6 @@
 import Portal from './Portal';
 import { portalFrames } from './portalFrames';
-import { debugLog, debugPortal } from '../../../development/utils/Debug';
+import { debugLog } from '../../../development/utils/Debug';
 
 export default class PortalManager {
   constructor(app, mapId, mapSize, mapHeight) {
@@ -274,7 +274,7 @@ export default class PortalManager {
       if (portal.isCharacterOnPortal(character)) {
         characterOnPortal = true;
         activePortal = portal;
-        debugPortal(portal, character);
+        debugLog(`Character on portal: ${portal.id || 'unknown'} at (${portal.x}, ${portal.y})`, 'portal');
         break;
       }
     }

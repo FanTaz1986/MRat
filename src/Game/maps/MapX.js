@@ -23,8 +23,8 @@ export default class MapX {
     // Portal location (same as in PortalManager)
     this.portalPosition = { x: 200, y: 200 };
     
-    // Boss initial spawn location (center of map for better visibility)
-    this.bossSpawnPosition = { x: 1024, y: 778 }; // Center of MapX
+    // Boss initial spawn location (top-left corner as requested)
+    this.bossSpawnPosition = { x: 300, y: 300 }; // Top-left area of MapX
     
     // MapX is a cave map with specific dimensions (half size)
     this.mapWidth = 2048;   // Cave width (half of 4096)
@@ -389,11 +389,8 @@ export default class MapX {
         this.layers.character
       );
       
-      // Set boss HP to 40
-      this.boss.maxHP = 40;
-      this.boss.currentHP = 40;
-      
-      debugLog(`Boss created at center location (${this.bossSpawnPosition.x}, ${this.bossSpawnPosition.y}) with 40 HP`, 'boss');
+      // Boss already starts with 40 HP from constructor, no need to override
+      debugLog(`Boss created at top-left location (${this.bossSpawnPosition.x}, ${this.bossSpawnPosition.y}) with ${this.boss.maxHP} HP`, 'boss');
       debugLog(`Boss entity created: ${!!this.boss}`, 'boss');
       
     } catch (error) {

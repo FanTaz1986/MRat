@@ -971,10 +971,11 @@ const resizeHandler = () => {
   useEffect(() => {
     if (!bossAI.current || !mapManagerReady) return;
     
-    // Simple synchronization using global debug config
+    // Simple synchronization using global debug config (does NOT auto-enable boss logging)
     const syncBossAI = () => {
       if (window.game && window.game.debugConfig) {
         // Update boss AI debug mode based on debug logging setting
+        // This ONLY reads the setting, it NEVER auto-enables boss logging
         if (bossAI.current) {
           bossAI.current.setDebugMode(window.game.debugConfig.logCategories.boss);
         }
@@ -988,9 +989,10 @@ const resizeHandler = () => {
           }
         }
       } else {
-        // Fallback: Try importing debug config
+        // Fallback: Try importing debug config (does NOT auto-enable boss logging)
         import('../development/utils/Debug.js').then(({ debugConfig }) => {
           if (debugConfig && bossAI.current) {
+            // This ONLY reads the setting, it NEVER auto-enables boss logging
             bossAI.current.setDebugMode(debugConfig.logCategories.boss);
             
             // Connect BossAI to the boss entity if we're on Map X

@@ -26,7 +26,7 @@ let debugConfig = {
     pet: false, // Debug logging disabled by default
     ui: false, // UI component debugging
     debug: false, // Debug system internal logging
-    boss: false // Boss fight debugging
+    boss: false // Boss fight debugging - NEVER auto-enabled
   }
 };
 
@@ -163,15 +163,30 @@ function SimpleDebugOverlay({
   };
 
   const toggleLogging = (category) => {
-    if (category === 'all') {
+    if (category === 'boss') {
+      // Track when user manually enables/disables boss logging
+      const newValue = !debugConfig.logCategories.boss;
+      debugConfig.logCategories.boss = newValue;
+      
+      // Store user preference to allow boss logging
+      sessionStorage.setItem('userEnabledBossLogging', newValue.toString());
+      
+      internalDebugLog(`Boss debug logging ${newValue ? 'manually enabled' : 'manually disabled'} by user`);
+    } else if (category === 'all') {
       const newValue = !Object.values(debugConfig.logCategories).every(v => v);
       Object.keys(debugConfig.logCategories).forEach(key => {
         debugConfig.logCategories[key] = newValue;
       });
+      // Clear boss logging user preference when toggling all
+      if (newValue) {
+        sessionStorage.setItem('userEnabledBossLogging', 'true');
+      }
     } else if (category === 'none') {
       Object.keys(debugConfig.logCategories).forEach(key => {
         debugConfig.logCategories[key] = false;
       });
+      // Clear boss logging user preference when disabling all
+      sessionStorage.removeItem('userEnabledBossLogging');
     } else {
       debugConfig.logCategories[category] = !debugConfig.logCategories[category];
     }    debugLog(`Logging ${category}: ${category === 'none' ? 'all disabled' : (debugConfig.logCategories[category] ? 'enabled' : 'disabled')}`, 'system');
@@ -1816,7 +1831,25 @@ function SimpleDebugOverlay({
               },
               onClick: () => toggleLogging('boss')
             }, debugConfig.logCategories.boss ? '💀 Boss Debugging: ON' : '💀 Boss Debugging: OFF')
-          ])
+          ]),
+          
+          React.createElement('div', {
+            key: 'bossDebugWarning',
+            style: {
+              fontSize: '11px',
+              color: debugConfig.logCategories.boss ? '#4CAF50' : '#ff6b6b',
+              background: debugConfig.logCategories.boss ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 107, 107, 0.1)',
+              border: debugConfig.logCategories.boss ? '1px solid rgba(76, 175, 80, 0.3)' : '1px solid rgba(255, 107, 107, 0.3)',
+              borderRadius: '6px',
+              padding: '8px',
+              marginTop: '8px',
+              textAlign: 'center',
+              fontWeight: 'bold'
+            }
+          }, debugConfig.logCategories.boss ? 
+            '✅ Boss controls enabled! Use Numpad 4/6/8/5 to move, Z/X/C to attack.' : 
+            '⚠️ Boss controls disabled! Check the box above to enable boss controls.'
+          )
         ]),
         
         React.createElement('div', {
@@ -1850,15 +1883,14 @@ function SimpleDebugOverlay({
               key: 'addHealthAlways',
               onClick: () => {
                 debugLog('Add boss health triggered (always available)', 'boss');
-                // Add boss health directly
+                // Add boss health using modifyHealth method to trigger phase transitions
                 if (window.gameMapManager && window.gameMapManager.mapXInstance && window.gameMapManager.mapXInstance.boss) {
                   const boss = window.gameMapManager.mapXInstance.boss;
-                  if (boss.currentHP !== undefined && boss.maxHP !== undefined) {
-                    const oldHealth = boss.currentHP;
-                    boss.currentHP = Math.min(boss.maxHP, boss.currentHP + 5); // Add 5 HP, cap at max
-                    debugLog(`Boss health increased from ${oldHealth} to ${boss.currentHP}`, 'boss');
+                  if (boss.modifyHealth && typeof boss.modifyHealth === 'function') {
+                    boss.modifyHealth(5); // Add 5 HP with phase transition check
+                    debugLog(`Boss health modified using modifyHealth method`, 'boss');
                   } else {
-                    debugLog('Boss health property not found', 'boss');
+                    debugLog('Boss modifyHealth method not found', 'boss');
                   }
                 } else {
                   debugLog('Boss entity not found - navigate to Map X and wait for boss spawn', 'boss');
@@ -1995,6 +2027,115 @@ function SimpleDebugOverlay({
                 textAlign: 'center'
               }
             }, '🌀 FORCE PORTAL SWAP\n(Skip 3min timer)')
+          ])
+        ]),
+        
+        React.createElement('div', {
+          key: 'bossCooldowns',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'cooldownsTitle',
+            style: { 
+              color: '#9C27B0', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #9C27B088'
+            }
+          }, '⏱️ Cooldowns'),
+          
+          React.createElement('div', {
+            key: 'cooldownDisplay',
+            style: { 
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              padding: '12px',
+              background: 'rgba(156, 39, 176, 0.1)',
+              borderRadius: '8px',
+              border: '2px solid rgba(156, 39, 176, 0.3)',
+              fontFamily: "'Courier New', monospace",
+              fontSize: '12px'
+            }
+          }, [
+            React.createElement('div', {
+              key: 'meleeCooldownItem',
+              style: { 
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '4px 8px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                borderRadius: '4px',
+                borderLeft: '3px solid #4CAF50'
+              },
+              className: 'cooldown-item',
+              id: 'meleeCooldownItem'
+            }, [
+              React.createElement('span', {
+                key: 'meleeLabel',
+                style: { color: '#ffffff', fontWeight: 'bold', minWidth: '80px' }
+              }, 'Melee (C):'),
+              React.createElement('span', {
+                key: 'meleeCooldown',
+                style: { color: '#4CAF50', fontWeight: 'bold', textAlign: 'right', minWidth: '60px' },
+                className: 'cooldown-time',
+                id: 'meleeCooldown'
+              }, 'Ready')
+            ]),
+            
+            React.createElement('div', {
+              key: 'zapCooldownItem',
+              style: { 
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '4px 8px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                borderRadius: '4px',
+                borderLeft: '3px solid #4CAF50'
+              },
+              className: 'cooldown-item',
+              id: 'zapCooldownItem'
+            }, [
+              React.createElement('span', {
+                key: 'zapLabel',
+                style: { color: '#ffffff', fontWeight: 'bold', minWidth: '80px' }
+              }, 'Zap (X):'),
+              React.createElement('span', {
+                key: 'zapCooldown',
+                style: { color: '#4CAF50', fontWeight: 'bold', textAlign: 'right', minWidth: '60px' },
+                className: 'cooldown-time',
+                id: 'zapCooldown'
+              }, 'Ready')
+            ]),
+            
+            React.createElement('div', {
+              key: 'rangeCooldownItem',
+              style: { 
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '4px 8px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                borderRadius: '4px',
+                borderLeft: '3px solid #4CAF50'
+              },
+              className: 'cooldown-item',
+              id: 'rangeCooldownItem'
+            }, [
+              React.createElement('span', {
+                key: 'rangeLabel',
+                style: { color: '#ffffff', fontWeight: 'bold', minWidth: '80px' }
+              }, 'Range (Z):'),
+              React.createElement('span', {
+                key: 'rangeCooldown',
+                style: { color: '#4CAF50', fontWeight: 'bold', textAlign: 'right', minWidth: '60px' },
+                className: 'cooldown-time',
+                id: 'rangeCooldown'
+              }, 'Ready')
+            ])
           ])
         ]),
         
@@ -2252,6 +2393,9 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
   }
   window.game.debugConfig = debugConfig;
   
+  // Prevent automatic enabling of boss debug logging
+  preventAutoBossLogging();
+  
   // If there's already a global debug overlay, reuse it instead of creating new one
   if (globalDebugOverlay && !globalDebugOverlay.isDestroyed) {
     debugLog(`Reusing existing debug overlay for screen: ${screenName}`, 'system');
@@ -2291,9 +2435,20 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
       isDestroyed = false;
     }
     
+    // Prevent automatic enabling of boss debug logging when opening debug menu
+    preventAutoBossLogging();
+    
     showDebug = !showDebug;
     debugLog(`Debug overlay toggled: showDebug = ${showDebug}`, 'system');
     internalDebugLog(`Debug overlay state changed to: ${showDebug}`);
+    
+    // Start/stop cooldown update loop based on overlay visibility
+    if (showDebug) {
+      startCooldownUpdateLoop();
+    } else {
+      stopCooldownUpdateLoop();
+    }
+    
     renderDebugOverlay();
   }
   
@@ -2308,6 +2463,10 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
     showDebug = true;
     debugLog(`Debug overlay force-shown`, 'system');
     console.log(`Debug overlay force-shown: showDebug = ${showDebug}`);
+    
+    // Start cooldown update loop when overlay is shown
+    startCooldownUpdateLoop();
+    
     renderDebugOverlay();
   }
 
@@ -2540,6 +2699,9 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
       isDestroyed = true;
       debugLog(`Destroying debug overlay #${overlayId}`, 'system');
       
+      // Stop cooldown update loop when overlay is destroyed
+      stopCooldownUpdateLoop();
+      
       // Only remove keyboard event listener if this is the global overlay
       if (globalDebugOverlay === debugSystem && globalKeyboardHandlerActive) {
         document.removeEventListener('keydown', handleKeyDown);
@@ -2575,28 +2737,108 @@ export function createDebugOverlay(app, screenName = 'Unknown', healthChangeCall
 }
 
 /**
- * Portal debug functionality (simplified)
+ * Prevent automatic enabling of boss debug logging
+ * This function ensures boss debug logging is only enabled manually by user action
  */
-export function debugPortal(portal, character) {
-  if (!portal) {
-    debugLog('Portal is undefined', 'portal');
+function preventAutoBossLogging() {
+  // Ensure boss logging is never auto-enabled
+  if (debugConfig.logCategories.boss === true) {
+    // Only allow boss logging if it was explicitly enabled by user
+    const userEnabledBossLogging = sessionStorage.getItem('userEnabledBossLogging') === 'true';
+    if (!userEnabledBossLogging) {
+      debugConfig.logCategories.boss = false;
+      internalDebugLog('Boss debug logging auto-disabled - requires manual enable');
+    }
+  }
+}
+
+/**
+ * Update cooldown displays in the boss debug tab
+ */
+function updateCooldownDisplays() {
+  // Only update if boss debugging is enabled and boss exists
+  if (!window.gameMapManager?.mapXInstance?.boss) {
     return;
   }
   
-  if (!portal.position) {
-    debugLog('Portal position is undefined', 'portal');
+  const boss = window.gameMapManager.mapXInstance.boss;
+  if (!boss.getCooldownInfo) {
     return;
   }
   
-  debugLog(`Portal: ${portal.targetMap || 'Unknown'} at (${portal.position.x}, ${portal.position.y})`, 'portal');
+  const cooldownInfo = boss.getCooldownInfo();
   
-  if (character && character.position) {
-    const distance = Math.sqrt(
-      Math.pow(character.position.x - portal.position.x, 2) + 
-      Math.pow(character.position.y - portal.position.y, 2)
-    );
-    debugLog(`Distance to portal: ${distance.toFixed(1)}px`, 'portal');
-  } else {
-    debugLog('Character or character position is undefined', 'portal');
+  // Update melee cooldown
+  const meleeElement = document.getElementById('meleeCooldown');
+  const meleeItem = document.getElementById('meleeCooldownItem');
+  if (meleeElement && meleeItem) {
+    if (cooldownInfo.melee.onCooldown) {
+      meleeElement.textContent = `${(cooldownInfo.melee.remaining / 1000).toFixed(1)}s`;
+      meleeElement.style.color = '#f44336';
+      meleeItem.style.borderLeftColor = '#f44336';
+    } else {
+      meleeElement.textContent = 'Ready';
+      meleeElement.style.color = '#4CAF50';
+      meleeItem.style.borderLeftColor = '#4CAF50';
+    }
+  }
+  
+  // Update zap (bolt) cooldown
+  const zapElement = document.getElementById('zapCooldown');
+  const zapItem = document.getElementById('zapCooldownItem');
+  if (zapElement && zapItem) {
+    if (cooldownInfo.bolt.onCooldown) {
+      zapElement.textContent = `${(cooldownInfo.bolt.remaining / 1000).toFixed(1)}s`;
+      zapElement.style.color = '#f44336';
+      zapItem.style.borderLeftColor = '#f44336';
+    } else {
+      zapElement.textContent = 'Ready';
+      zapElement.style.color = '#4CAF50';
+      zapItem.style.borderLeftColor = '#4CAF50';
+    }
+  }
+  
+  // Update range cooldown
+  const rangeElement = document.getElementById('rangeCooldown');
+  const rangeItem = document.getElementById('rangeCooldownItem');
+  if (rangeElement && rangeItem) {
+    if (cooldownInfo.range.onCooldown) {
+      rangeElement.textContent = `${(cooldownInfo.range.remaining / 1000).toFixed(1)}s`;
+      rangeElement.style.color = '#f44336';
+      rangeItem.style.borderLeftColor = '#f44336';
+    } else {
+      rangeElement.textContent = 'Ready';
+      rangeElement.style.color = '#4CAF50';
+      rangeItem.style.borderLeftColor = '#4CAF50';
+    }
+  }
+}
+
+// Global cooldown update interval
+let cooldownUpdateInterval = null;
+
+/**
+ * Start cooldown update loop
+ */
+function startCooldownUpdateLoop() {
+  if (cooldownUpdateInterval) {
+    clearInterval(cooldownUpdateInterval);
+  }
+  
+  cooldownUpdateInterval = setInterval(() => {
+    updateCooldownDisplays();
+  }, 100); // Update every 100ms for smooth countdown
+  
+  debugLog('Boss cooldown update loop started', 'debug');
+}
+
+/**
+ * Stop cooldown update loop
+ */
+function stopCooldownUpdateLoop() {
+  if (cooldownUpdateInterval) {
+    clearInterval(cooldownUpdateInterval);
+    cooldownUpdateInterval = null;
+    debugLog('Boss cooldown update loop stopped', 'debug');
   }
 }
