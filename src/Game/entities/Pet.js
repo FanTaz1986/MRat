@@ -80,6 +80,11 @@ class Projectile {
     // Track traveled distance
     this.traveledDistance += Math.abs(this.velocity.x) * delta;
     
+    // Check for collision with boss (only on Map X) - returns true if collision occurred
+    if (this.checkBossCollision()) {
+      return false; // Projectile was destroyed by collision
+    }
+    
     // Debug: Log position every so often
     if (Math.floor(this.traveledDistance) % 50 === 0) {
       debugLog(`Projectile at (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)}), traveled: ${this.traveledDistance.toFixed(1)}`, 'pet');
@@ -93,6 +98,58 @@ class Projectile {
     }
     
     return true;
+  }
+  
+  // Check collision with boss and deal damage
+  checkBossCollision() {
+    // Only check collision on Map X where boss exists
+    if (window.gameMapManager && 
+        window.gameMapManager.currentMap === 'mapareax' && 
+        window.gameMapManager.mapXInstance && 
+        window.gameMapManager.mapXInstance.boss) {
+      
+      const boss = window.gameMapManager.mapXInstance.boss;
+      
+      // Check if boss is alive and not in dead phase
+      if (boss.phase === 'dead' || boss.currentHP <= 0) {
+        return false;
+      }
+      
+      // Calculate distance between projectile and boss
+      const dx = this.position.x - boss.position.x;
+      const dy = this.position.y - boss.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Boss collision radius (half of boss size, which is 500px wide, so 250px radius)
+      const bossRadius = 250;
+      // Projectile collision radius (small, about 20px)
+      const projectileRadius = 20;
+      const collisionDistance = bossRadius + projectileRadius;
+      
+      // Debug: Log close approaches (when within twice the collision distance)
+      if (distance <= collisionDistance * 2) {
+        debugLog(`🔍 Projectile approaching boss: distance=${distance.toFixed(1)}, threshold=${collisionDistance}, projectile=(${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)}), boss=(${boss.position.x.toFixed(1)}, ${boss.position.y.toFixed(1)})`, 'pet');
+      }
+      
+      // Check if collision occurred
+      if (distance <= collisionDistance) {
+        debugLog(`🎯 Pet projectile HIT boss! Distance: ${distance.toFixed(1)}, Collision threshold: ${collisionDistance}`, 'pet');
+        
+        // Deal 1 HP damage to boss
+        if (boss.takeDamage && typeof boss.takeDamage === 'function') {
+          const oldHP = boss.currentHP;
+          boss.takeDamage(1);
+          debugLog(`💥 Pet projectile dealt 1 damage to boss: ${oldHP} -> ${boss.currentHP} HP (${boss.currentHP}/${boss.maxHP})`, 'pet');
+        } else {
+          debugLog(`❌ Boss takeDamage method not available`, 'pet');
+        }
+        
+        // Destroy the projectile on impact
+        this.destroy();
+        return true;
+      }
+    }
+    return false;
   }
   
   destroy() {
