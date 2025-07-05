@@ -120,10 +120,11 @@ class Projectile {
       const dy = this.position.y - boss.position.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      // Boss collision radius (half of boss size, which is 500px wide, so 250px radius)
-      const bossRadius = 250;
-      // Projectile collision radius (small, about 20px)
-      const projectileRadius = 20;
+      // Smaller collision radius so projectiles can fly deeper into boss before hitting
+      // Boss collision radius (much smaller - center area only)
+      const bossRadius = 80; // Reduced from 250 to 80 - projectiles fly deeper into boss
+      // Projectile collision radius (small, about 15px)
+      const projectileRadius = 15;
       const collisionDistance = bossRadius + projectileRadius;
       
       // Debug: Log close approaches (when within twice the collision distance)
@@ -133,7 +134,7 @@ class Projectile {
       
       // Check if collision occurred
       if (distance <= collisionDistance) {
-        debugLog(`🎯 Pet projectile HIT boss! Distance: ${distance.toFixed(1)}, Collision threshold: ${collisionDistance}`, 'pet');
+        debugLog(`🎯 Pet projectile HIT boss center! Distance: ${distance.toFixed(1)}, Collision threshold: ${collisionDistance}`, 'pet');
         
         // Deal 1 HP damage to boss
         if (boss.takeDamage && typeof boss.takeDamage === 'function') {
