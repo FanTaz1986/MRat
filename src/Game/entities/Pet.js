@@ -230,6 +230,9 @@ export default class Pet {
       attack: false
     };
 
+    // Controller input support
+    this.controllerInput = { dx: 0, dy: 0 };
+    
     this.setupSprite();
     this.setupInputListeners();
     this.app.ticker.add(this.update, this);
@@ -358,15 +361,19 @@ export default class Pet {
     switch (e.key.toLowerCase()) {
       case 'w':
         this.keys.up = true;
+        debugLog('Pet: W key pressed (up)', 'pet');
         break;
       case 's':
         this.keys.down = true;
+        debugLog('Pet: S key pressed (down)', 'pet');
         break;
       case 'a':
         this.keys.left = true;
+        debugLog('Pet: A key pressed (left)', 'pet');
         break;
       case 'd':
         this.keys.right = true;
+        debugLog('Pet: D key pressed (right)', 'pet');
         break;
       case ' ':
         e.preventDefault(); // Prevent default spacebar behavior
@@ -383,15 +390,19 @@ export default class Pet {
     switch (e.key.toLowerCase()) {
       case 'w':
         this.keys.up = false;
+        debugLog('Pet: W key released (up)', 'pet');
         break;
       case 's':
         this.keys.down = false;
+        debugLog('Pet: S key released (down)', 'pet');
         break;
       case 'a':
         this.keys.left = false;
+        debugLog('Pet: A key released (left)', 'pet');
         break;
       case 'd':
         this.keys.right = false;
+        debugLog('Pet: D key released (right)', 'pet');
         break;
       case ' ':
         this.keys.attack = false;
@@ -536,16 +547,37 @@ export default class Pet {
       }
     }
 
-    // Movement
+    // Movement - combine keyboard and controller input
     let dx = 0, dy = 0;
+    
+    // Keyboard input
     if (this.keys.up) dy -= 1;
     if (this.keys.down) dy += 1;
     if (this.keys.left) dx -= 1;
     if (this.keys.right) dx += 1;
-
-    // Normalize diagonal
-    if (dx !== 0 && dy !== 0) {
-      dx *= 0.7071;
+    
+    // Debug keyboard input
+    if (dx !== 0 || dy !== 0) {
+      debugLog(`Pet: Keyboard input - dx: ${dx}, dy: ${dy}, keys: up=${this.keys.up}, down=${this.keys.down}, left=${this.keys.left}, right=${this.keys.right}`, 'pet');
+    }
+    
+    // Controller input (left stick) - additive with keyboard
+    const controllerMovement = this.applyControllerMovement();
+    dx += controllerMovement.dx;
+    dy += controllerMovement.dy;
+    
+    // Debug total movement
+    if (dx !== 0 || dy !== 0) {
+      debugLog(`Pet: Total movement - dx: ${dx.toFixed(3)}, dy: ${dy.toFixed(3)}, controller: dx=${controllerMovement.dx.toFixed(3)}, dy=${controllerMovement.dy.toFixed(3)}`, 'pet');
+    }
+    
+    // Clamp combined input to -1 to 1 range
+    dx = Math.max(-1, Math.min(1, dx));
+    dy = Math.max(-1, Math.min(1, dy));
+    
+    // Normalize diagonal movement only if both inputs are at max
+    if (Math.abs(dx) > 0.7 && Math.abs(dy) > 0.7) {
+      dx *= 0.7071; // Math.sqrt(1/2)
       dy *= 0.7071;
     }
 
@@ -900,6 +932,32 @@ export default class Pet {
         this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       }
     }
+  }
+
+  // Controller movement support - smooth analog input
+  setControllerMovement(dx, dy) {
+    this.controllerInput = { dx, dy };
+  }
+
+  // Apply controller input to movement (in addition to keyboard)
+  applyControllerMovement() {
+    if (this.controllerInput) {
+      const { dx, dy } = this.controllerInput;
+      
+      // Apply deadzone and get normalized movement
+      const deadzone = 0.15;
+      let controllerDx = 0, controllerDy = 0;
+      
+      if (Math.abs(dx) > deadzone) {
+        controllerDx = dx;
+      }
+      if (Math.abs(dy) > deadzone) {
+        controllerDy = dy;
+      }
+      
+      return { dx: controllerDx, dy: controllerDy };
+    }
+    return { dx: 0, dy: 0 };
   }
 
   destroy() {

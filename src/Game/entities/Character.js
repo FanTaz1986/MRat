@@ -1,5 +1,5 @@
 import * as PIXI from 'pixi.js';
-import { debugLog } from '../../development/utils/Debug';
+import { debugLog, isInvulnerable } from '../../development/utils/Debug';
 import { playFootstepLoop, stopFootstepLoop, getFootstepSoundsForMap } from '../../utils/AudioManager';
 
 export default class Character {
@@ -14,6 +14,30 @@ export default class Character {
     this.animationSpeed = 0.15;
     this.bounds = null;
     this.footstepPlaying = false;
+    
+    // Health system
+    this.maxHP = 5; // Character has 5 HP maximum
+    this.currentHP = 3; // Character starts with 3 HP
+    this.health = 3; // For compatibility with different access patterns
+    
+    // Controller/Gamepad support
+    this.gamepadConnected = false;
+    this.gamepadIndex = -1;
+    this.gamepadDeadzone = 0.15; // Deadzone threshold for analog sticks
+    this.gamepadSensitivity = 1.0; // Sensitivity multiplier
+    this.lastGamepadCheck = 0;
+    this.gamepadCheckInterval = 100; // Check every 100ms
+    
+    // Controller button states (for edge detection)
+    this.gamepadButtons = {
+      rightBumper: false,
+      leftBumper: false,
+      lastRightBumper: false,
+      lastLeftBumper: false
+    };
+    
+    // Pet reference for controller-based pet control
+    this.pet = null;
     
     // Animation frames by direction (using the same structure as your original code)
     this.frameIndices = {
@@ -39,6 +63,12 @@ export default class Character {
     };
     
     this.setupInputListeners();
+    
+    // Initialize gamepad support
+    this.initializeGamepadSupport();
+    
+    // Enable controller debugging
+    this.enableControllerDebugging();
     
     // Add to ticker for updates
     this.app.ticker.add(this.update, this);
@@ -241,7 +271,15 @@ export default class Character {
       debugLog(`Character update called, position: ${this.position.x}, ${this.position.y}`, 'character');
       debugLog(`Character sprite position: ${this.sprite.x}, ${this.sprite.y}`, 'character');
       debugLog(`Character sprite visible: ${this.sprite.visible}`, 'character');
-      debugLog(`Character sprite alpha: ${this.sprite.alpha}`, 'character');        // Calculate screen position relative to camera/map container
+      debugLog(`Character sprite alpha: ${this.sprite.alpha}`, 'character');
+      
+      // Controller status debug info
+      if (this.gamepadConnected) {
+        const controllerStatus = this.getControllerStatus();
+        debugLog(`Controller connected: ${controllerStatus.index}, sens: ${controllerStatus.sensitivity}, deadzone: ${controllerStatus.deadzone}`, 'character');
+      } else {
+        debugLog('No controller connected - using keyboard only', 'character');
+      }        // Calculate screen position relative to camera/map container
       // Find the map container by traversing up the parent chain
       let mapContainer = this.sprite.parent;
       while (mapContainer && mapContainer.parent && mapContainer.parent !== this.app.stage) {
@@ -275,17 +313,33 @@ export default class Character {
       this._lastUpdateDebugTime = now;
     }
 
-    // Calculate movement based on keys pressed
+    // Calculate movement based on keys pressed and gamepad input
     let dx = 0;
     let dy = 0;
     
+    // Keyboard input
     if (this.keys.up) dy -= 1;
     if (this.keys.down) dy += 1;
     if (this.keys.left) dx -= 1;
     if (this.keys.right) dx += 1;
     
-    // Normalize diagonal movement
-    if (dx !== 0 && dy !== 0) {
+    // Gamepad input (additive with keyboard) - right stick controls character
+    const gamepadInput = this.updateGamepadInput();
+    dx += gamepadInput.character.dx;
+    dy += gamepadInput.character.dy;
+    
+    // Handle gamepad buttons for pet and teleport
+    this.handleGamepadButtons(gamepadInput.buttons);
+    
+    // Apply gamepad input to pet movement (left stick controls pet)
+    this.applyGamepadToPet(gamepadInput);
+    
+    // Clamp combined input to -1 to 1 range
+    dx = Math.max(-1, Math.min(1, dx));
+    dy = Math.max(-1, Math.min(1, dy));
+    
+    // Normalize diagonal movement only if both inputs are at max
+    if (Math.abs(dx) > 0.7 && Math.abs(dy) > 0.7) {
       dx *= 0.7071; // Math.sqrt(1/2)
       dy *= 0.7071;
     }
@@ -413,6 +467,14 @@ export default class Character {
     this.app.ticker.remove(this.update, this);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
+    
+    // Clean up gamepad event listeners
+    if (this.gamepadConnected) {
+      debugLog('Cleaning up gamepad support', 'character');
+      this.gamepadConnected = false;
+      this.gamepadIndex = -1;
+    }
+    
     this.stopFootstepSound();
     
     if (this.sprite.parent) {
@@ -422,6 +484,70 @@ export default class Character {
     this.sprite.destroy();
   }
   
+  // Health management methods
+  takeDamage(amount) {
+    // Check for invulnerability from debug menu
+    const invulnerable = isInvulnerable();
+    debugLog(`🔍 DAMAGE CHECK: isInvulnerable() = ${invulnerable}, damage amount = ${amount}`, 'character');
+    
+    if (invulnerable) {
+      debugLog(`💜 Character invulnerable - prevented ${amount} damage (HP stays at ${this.currentHP})`, 'character');
+      return this.currentHP; // No damage taken
+    }
+    
+    const oldHP = this.currentHP;
+    this.currentHP = Math.max(0, this.currentHP - amount);
+    this.health = this.currentHP; // Keep both properties in sync
+    
+    debugLog(`Character took ${amount} damage! HP: ${oldHP} -> ${this.currentHP}`, 'character');
+    
+    // Handle death if needed
+    if (this.currentHP <= 0) {
+      this.handleDeath();
+    }
+    
+    return this.currentHP;
+  }
+  
+  modifyHealth(amount) {
+    // Check for invulnerability when taking damage (negative amount)
+    if (amount < 0 && isInvulnerable()) {
+      debugLog(`💜 Character invulnerable - prevented ${Math.abs(amount)} damage via modifyHealth (HP stays at ${this.currentHP})`, 'character');
+      return this.currentHP; // No damage taken
+    }
+    
+    const oldHP = this.currentHP;
+    this.currentHP = Math.max(0, Math.min(this.maxHP, this.currentHP + amount));
+    this.health = this.currentHP; // Keep both properties in sync
+    
+    debugLog(`Character health modified by ${amount}! HP: ${oldHP} -> ${this.currentHP}`, 'character');
+    
+    if (amount < 0 && this.currentHP <= 0) {
+      this.handleDeath();
+    }
+    
+    return this.currentHP;
+  }
+  
+  heal(amount) {
+    return this.modifyHealth(amount);
+  }
+  
+  handleDeath() {
+    debugLog('Character has died!', 'character');
+    // TODO: Implement death logic (game over screen, respawn, etc.)
+    // For now, just log the event
+  }
+  
+  // Get current health status
+  getHealthStatus() {
+    return {
+      current: this.currentHP,
+      max: this.maxHP,
+      percentage: (this.currentHP / this.maxHP) * 100
+    };
+  }
+
   // Create high-quality texture specifically for character art
   createHighQualityTexture(path) {
     const texture = PIXI.Texture.from(process.env.PUBLIC_URL + path);
@@ -474,5 +600,291 @@ export default class Character {
     tempSprite.destroy();
     
     return finalSprite;
+  }
+  
+  initializeGamepadSupport() {
+    debugLog('Initializing gamepad support', 'character');
+    
+    // Check if gamepad API is supported
+    if (!navigator.getGamepads) {
+      debugLog('Gamepad API not supported in this browser', 'character');
+      return;
+    }
+    
+    // Listen for gamepad connection events
+    window.addEventListener('gamepadconnected', (e) => {
+      debugLog(`Gamepad connected: ${e.gamepad.id} at index ${e.gamepad.index}`, 'character');
+      this.gamepadConnected = true;
+      this.gamepadIndex = e.gamepad.index;
+      this.logGamepadInfo(e.gamepad);
+    });
+    
+    window.addEventListener('gamepaddisconnected', (e) => {
+      debugLog(`Gamepad disconnected: ${e.gamepad.id} at index ${e.gamepad.index}`, 'character');
+      if (e.gamepad.index === this.gamepadIndex) {
+        this.gamepadConnected = false;
+        this.gamepadIndex = -1;
+      }
+    });
+    
+    // Check for already connected gamepads
+    this.checkExistingGamepads();
+  }
+  
+  checkExistingGamepads() {
+    const gamepads = navigator.getGamepads();
+    for (let i = 0; i < gamepads.length; i++) {
+      if (gamepads[i]) {
+        debugLog(`Found existing gamepad: ${gamepads[i].id} at index ${i}`, 'character');
+        this.gamepadConnected = true;
+        this.gamepadIndex = i;
+        this.logGamepadInfo(gamepads[i]);
+        break;
+      }
+    }
+  }
+  
+  logGamepadInfo(gamepad) {
+    debugLog(`Gamepad Info - ID: ${gamepad.id}`, 'character');
+    debugLog(`Gamepad Info - Buttons: ${gamepad.buttons.length}, Axes: ${gamepad.axes.length}`, 'character');
+    debugLog(`Gamepad Info - Mapping: ${gamepad.mapping}`, 'character');
+  }
+  
+  updateGamepadInput() {
+    if (!this.gamepadConnected || this.gamepadIndex === -1) {
+      return { 
+        character: { dx: 0, dy: 0 }, 
+        pet: { dx: 0, dy: 0 },
+        buttons: { rightBumper: false, leftBumper: false }
+      };
+    }
+    
+    // Throttle gamepad checks for performance
+    const now = Date.now();
+    if (now - this.lastGamepadCheck < this.gamepadCheckInterval) {
+      return this.lastGamepadInput || { 
+        character: { dx: 0, dy: 0 }, 
+        pet: { dx: 0, dy: 0 },
+        buttons: { rightBumper: false, leftBumper: false }
+      };
+    }
+    this.lastGamepadCheck = now;
+    
+    const gamepads = navigator.getGamepads();
+    const gamepad = gamepads[this.gamepadIndex];
+    
+    if (!gamepad) {
+      debugLog('Gamepad disconnected during update', 'character');
+      this.gamepadConnected = false;
+      this.gamepadIndex = -1;
+      return { 
+        character: { dx: 0, dy: 0 }, 
+        pet: { dx: 0, dy: 0 },
+        buttons: { rightBumper: false, leftBumper: false }
+      };
+    }
+    
+    let characterDx = 0, characterDy = 0;
+    let petDx = 0, petDy = 0;
+    
+    // Right stick controls character (axes 2 and 3)
+    if (gamepad.axes.length >= 4) {
+      const rightStickX = gamepad.axes[2];
+      const rightStickY = gamepad.axes[3];
+      
+      // Apply deadzone for character movement
+      if (Math.abs(rightStickX) > this.gamepadDeadzone) {
+        characterDx = rightStickX * this.gamepadSensitivity;
+      }
+      if (Math.abs(rightStickY) > this.gamepadDeadzone) {
+        characterDy = rightStickY * this.gamepadSensitivity;
+      }
+    }
+    
+    // Left stick controls pet (axes 0 and 1)
+    if (gamepad.axes.length >= 2) {
+      const leftStickX = gamepad.axes[0];
+      const leftStickY = gamepad.axes[1];
+      
+      // Apply deadzone for pet movement
+      if (Math.abs(leftStickX) > this.gamepadDeadzone) {
+        petDx = leftStickX * this.gamepadSensitivity;
+      }
+      if (Math.abs(leftStickY) > this.gamepadDeadzone) {
+        petDy = leftStickY * this.gamepadSensitivity;
+      }
+    }
+    
+    // Read shoulder buttons (standard gamepad mapping)
+    let rightBumper = false;
+    let leftBumper = false;
+    
+    if (gamepad.buttons.length >= 16) {
+      // Right bumper (R1): button 5
+      rightBumper = gamepad.buttons[5] && gamepad.buttons[5].pressed;
+      // Left bumper (L1): button 4  
+      leftBumper = gamepad.buttons[4] && gamepad.buttons[4].pressed;
+    }
+    
+    // Also check D-pad for character movement (backup)
+    if (gamepad.buttons.length >= 16) {
+      // D-pad: up (12), down (13), left (14), right (15)
+      if (gamepad.buttons[12] && gamepad.buttons[12].pressed) characterDy -= 1;
+      if (gamepad.buttons[13] && gamepad.buttons[13].pressed) characterDy += 1;
+      if (gamepad.buttons[14] && gamepad.buttons[14].pressed) characterDx -= 1;
+      if (gamepad.buttons[15] && gamepad.buttons[15].pressed) characterDx += 1;
+    }
+    
+    // Clamp values to -1 to 1 range
+    characterDx = Math.max(-1, Math.min(1, characterDx));
+    characterDy = Math.max(-1, Math.min(1, characterDy));
+    petDx = Math.max(-1, Math.min(1, petDx));
+    petDy = Math.max(-1, Math.min(1, petDy));
+    
+    const result = { 
+      character: { dx: characterDx, dy: characterDy }, 
+      pet: { dx: petDx, dy: petDy },
+      buttons: { rightBumper, leftBumper }
+    };
+    this.lastGamepadInput = result;
+    return result;
+  }
+  
+  // Controller configuration methods
+  setGamepadSensitivity(sensitivity) {
+    this.gamepadSensitivity = Math.max(0.1, Math.min(2.0, sensitivity));
+    debugLog(`Gamepad sensitivity set to ${this.gamepadSensitivity}`, 'character');
+  }
+  
+  setGamepadDeadzone(deadzone) {
+    this.gamepadDeadzone = Math.max(0.0, Math.min(0.9, deadzone));
+    debugLog(`Gamepad deadzone set to ${this.gamepadDeadzone}`, 'character');
+  }
+  
+  getControllerStatus() {
+    return {
+      connected: this.gamepadConnected,
+      index: this.gamepadIndex,
+      sensitivity: this.gamepadSensitivity,
+      deadzone: this.gamepadDeadzone,
+      lastInput: this.lastGamepadInput || { dx: 0, dy: 0 }
+    };
+  }
+  
+  // Debug method to test controller input
+  testControllerInput() {
+    if (!this.gamepadConnected) {
+      debugLog('No controller connected for testing', 'character');
+      return;
+    }
+    
+    const input = this.updateGamepadInput();
+    debugLog(`Controller test - dx: ${input.dx.toFixed(3)}, dy: ${input.dy.toFixed(3)}`, 'character');
+    
+    const gamepads = navigator.getGamepads();
+    const gamepad = gamepads[this.gamepadIndex];
+    if (gamepad) {
+      debugLog(`Raw axes - X: ${gamepad.axes[0]?.toFixed(3)}, Y: ${gamepad.axes[1]?.toFixed(3)}`, 'character');
+      
+      // Log pressed buttons
+      const pressedButtons = [];
+      for (let i = 0; i < gamepad.buttons.length; i++) {
+        if (gamepad.buttons[i].pressed) {
+          pressedButtons.push(i);
+        }
+      }
+      if (pressedButtons.length > 0) {
+        debugLog(`Pressed buttons: ${pressedButtons.join(', ')}`, 'character');
+      }
+    }
+  }
+  
+  // Make controller methods globally accessible for debugging
+  enableControllerDebugging() {
+    if (typeof window !== 'undefined') {
+      window.characterController = {
+        testInput: () => this.testControllerInput(),
+        setSensitivity: (value) => this.setGamepadSensitivity(value),
+        setDeadzone: (value) => this.setGamepadDeadzone(value),
+        getStatus: () => this.getControllerStatus(),
+        info: () => {
+          const status = this.getControllerStatus();
+          console.log('🎮 Controller Status:', status);
+          if (status.connected) {
+            console.log('💡 Try: characterController.testInput() to test input');
+            console.log('💡 Try: characterController.setSensitivity(1.5) to change sensitivity');
+            console.log('💡 Try: characterController.setDeadzone(0.2) to change deadzone');
+          } else {
+            console.log('❌ No controller connected. Connect a gamepad and refresh the page.');
+          }
+        }
+      };
+      
+      debugLog('Controller debugging enabled. Use window.characterController.info() for help', 'character');
+    }
+  }
+  
+  // Handle gamepad buttons for pet attack and teleport
+  handleGamepadButtons(buttons) {
+    // Right bumper: Pet attack (edge detection)
+    if (buttons.rightBumper && !this.gamepadButtons.lastRightBumper) {
+      if (this.pet && this.pet.performAttack) {
+        debugLog('Controller: Right bumper pressed - triggering pet attack', 'character');
+        this.pet.performAttack();
+      } else {
+        debugLog('Controller: Right bumper pressed but pet not available', 'character');
+      }
+    }
+    
+    // Left bumper: Teleport/Portal use (edge detection)
+    if (buttons.leftBumper && !this.gamepadButtons.lastLeftBumper) {
+      debugLog('Controller: Left bumper pressed - attempting teleport/portal use', 'character');
+      this.tryPortalTeleport();
+    }
+    
+    // Update button states for next frame
+    this.gamepadButtons.lastRightBumper = buttons.rightBumper;
+    this.gamepadButtons.lastLeftBumper = buttons.leftBumper;
+  }
+  
+  // Set pet reference for controller integration
+  setPetReference(pet) {
+    this.pet = pet;
+    debugLog('Pet reference set for controller integration', 'character');
+  }
+  
+  // Apply gamepad input to pet movement
+  applyGamepadToPet(gamepadInput) {
+    if (this.pet && gamepadInput.pet) {
+      // Apply left stick input to pet movement (additive with WASD, don't override keyboard)
+      const { dx, dy } = gamepadInput.pet;
+      
+      // Set direct movement for smooth analog control (this will be added to keyboard input)
+      if (this.pet.setControllerMovement) {
+        this.pet.setControllerMovement(dx, dy);
+      }
+    }
+  }
+  
+  // Try to use portal/teleport
+  tryPortalTeleport() {
+    try {
+      // Check if we're near a portal and can teleport
+      if (window.gamePortalManager && window.gamePortalManager.checkPlayerAtPortal) {
+        const portalResult = window.gamePortalManager.checkPlayerAtPortal(this.position.x, this.position.y);
+        if (portalResult.isAtPortal) {
+          debugLog('Controller: Player at portal, initiating teleport', 'character');
+          // Simulate T key press for portal
+          const event = new KeyboardEvent('keydown', { key: 't', keyCode: 84 });
+          document.dispatchEvent(event);
+        } else {
+          debugLog('Controller: Not at portal, cannot teleport', 'character');
+        }
+      } else {
+        debugLog('Controller: Portal manager not available', 'character');
+      }
+    } catch (error) {
+      debugLog(`Controller: Error attempting teleport: ${error.message}`, 'character');
+    }
   }
 }

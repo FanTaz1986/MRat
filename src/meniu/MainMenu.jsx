@@ -12,12 +12,13 @@ import {
 import { createDebugOverlay } from "../development/utils/Debug";
 // Removed unused import: useGameStore
 
-const menuItems = ["Start", "Options", "Credits"];
+const menuItems = ["Start", "Options", "How to Play"];
 
 export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
   const [selected, setSelected] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [musicVolume, setMusicVolumeState] = useState(5);
   const [sfxVolume, setSfxVolumeState] = useState(7);
   const debugSystemRef = useRef(null);
@@ -121,12 +122,15 @@ export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
     if (menuItems[idx] === "Options") {
       setShowOptions(true);
       setShowCredits(false);
-    } else if (menuItems[idx] === "Credits") {
-      setShowCredits(true);
+      setShowHowToPlay(false);
+    } else if (menuItems[idx] === "How to Play") {
+      setShowHowToPlay(true);
       setShowOptions(false);
+      setShowCredits(false);
     } else {
       setShowOptions(false);
       setShowCredits(false);
+      setShowHowToPlay(false);
     }
   };
 
@@ -136,6 +140,18 @@ export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
       stopMenuMusic();
       onStart && onStart();
     }, 400);
+  };
+
+  const handleExitGame = () => {
+    if (window.confirm("Are you sure you want to exit the game?")) {
+      // For web browsers, we can't actually close the window, but we can navigate away
+      // or show a message to the user
+      try {
+        window.close();
+      } catch (e) {
+        alert("Please close the browser tab to exit the game.");
+      }
+    }
   };
 
   return (
@@ -210,6 +226,7 @@ export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
         {showOptions && (
           <div className="main-menu-popup">
             <h2 style={{ color: "#a259ff" }}>Options</h2>
+            
             <label style={{ color: "#a259ff", fontWeight: "bold", display: "block", marginBottom: 16 }}>
               Music Volume: {musicVolume}
               <input
@@ -259,6 +276,93 @@ export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
             </button>
           </div>
         )}
+        {showHowToPlay && (
+          <div className="main-menu-popup" style={{ maxWidth: "600px", maxHeight: "80vh", overflowY: "auto" }}>
+            <h2 style={{ color: "#a259ff", marginBottom: "20px" }}>How to Play</h2>
+            
+            <div style={{ color: "#fff", textAlign: "left", fontSize: "1.1rem", lineHeight: "1.6" }}>
+              <h3 style={{ color: "#a259ff", marginBottom: "12px" }}>⌨️ Keyboard Controls</h3>
+              <div style={{ marginBottom: "20px", paddingLeft: "16px" }}>
+                <div><b>Character Movement:</b> Arrow Keys</div>
+                <div><b>Pet Movement:</b> WASD Keys</div>
+                <div><b>Pet Attack:</b> Spacebar</div>
+                <div><b>Portal/Teleport:</b> T Key (when near portal)</div>
+                <div><b>Debug Menu:</b> F1 Key</div>
+              </div>
+              
+              <h3 style={{ color: "#a259ff", marginBottom: "12px" }}>🎮 Controller Support</h3>
+              <div style={{ marginBottom: "20px", paddingLeft: "16px" }}>
+                <div><b>Character Movement:</b> Right Stick</div>
+                <div><b>Pet Movement:</b> Left Stick</div>
+                <div><b>Pet Attack:</b> Right Bumper (R1/RB)</div>
+                <div><b>Portal/Teleport:</b> Left Bumper (L1/LB)</div>
+                <div><b>Alternative Character Movement:</b> D-Pad</div>
+              </div>
+              
+              <h3 style={{ color: "#a259ff", marginBottom: "12px" }}>🎯 Gameplay</h3>
+              <div style={{ marginBottom: "20px", paddingLeft: "16px" }}>
+                <div><b>Objective:</b> Explore different maps and defeat enemies</div>
+                <div><b>Pet Companion:</b> Your pet follows you and can attack enemies</div>
+                <div><b>Map Travel:</b> Use portals to travel between maps</div>
+                <div><b>Boss Fight:</b> Face the boss in Map X (cave)</div>
+                <div><b>Pet Levels:</b> Your pet grows stronger in different maps</div>
+              </div>
+              
+              <h3 style={{ color: "#a259ff", marginBottom: "12px" }}>⚔️ Combat</h3>
+              <div style={{ marginBottom: "20px", paddingLeft: "16px" }}>
+                <div><b>Pet Attacks:</b> Ranged projectiles that damage enemies</div>
+                <div><b>Boss Fight:</b> Pet projectiles deal 1 HP damage to boss</div>
+                <div><b>Attack Cooldowns:</b> Pet attacks have different cooldowns per level</div>
+                <div><b>Boss Phases:</b> Boss has flying and ground phases with different behaviors</div>
+              </div>
+            </div>
+            
+            <button
+              className="main-menu-btn"
+              style={{ marginTop: "24px" }}
+              onClick={() => setShowHowToPlay(false)}
+            >
+              Back
+            </button>
+          </div>
+        )}
+        
+        {/* Bottom corner buttons */}
+        {/* Exit Game button - bottom left */}
+        <button
+          className="main-menu-btn"
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            left: "20px",
+            padding: "12px 24px",
+            fontSize: "1.2rem",
+            zIndex: 10
+          }}
+          onClick={handleExitGame}
+        >
+          Exit Game
+        </button>
+        
+        {/* Credits button - bottom right */}
+        <button
+          className="main-menu-btn"
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            padding: "12px 24px",
+            fontSize: "1.2rem",
+            zIndex: 10
+          }}
+          onClick={() => {
+            setShowCredits(true);
+            setShowOptions(false);
+            setShowHowToPlay(false);
+          }}
+        >
+          Credits
+        </button>
       </div>
     </div>
   );

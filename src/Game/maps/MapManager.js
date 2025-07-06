@@ -203,6 +203,10 @@ export default class MapManager {
     // Note: Camera reference will be set after camera is created
     this.pet.setBounds(mapConfig.bounds); // Set map boundaries for pet
     
+    // Connect character and pet for controller integration
+    this.character.setPetReference(this.pet);
+    debugLog('Character and pet connected for controller integration', 'character');
+    
     // Add pet to character layer with proper z-indexing
     this.characterLayer.addChild(this.pet.getSprite());
     
@@ -356,9 +360,6 @@ export default class MapManager {
     
     // This will generate and load all props
     this.map0Instance.loadProps();
-    
-    // Show controls overlay for Map0
-    this.showControlsOverlay();
     
     // Use the Map0's custom bounds
     const map0Bounds = this.map0Instance.getBounds();
@@ -751,48 +752,5 @@ export default class MapManager {
     this.unloadCurrentMap();
     this.mapConfigs = null;
     this.onMapChanged = null;
-  }
-  
-  showControlsOverlay() {
-    // Create overlay element
-    const overlayElement = document.createElement('div');
-    overlayElement.setAttribute('data-controls-overlay', 'true');
-    overlayElement.style.position = 'fixed';
-    overlayElement.style.left = '50%';
-    overlayElement.style.top = '50%';
-    overlayElement.style.transform = 'translate(-50%, -50%)';
-    overlayElement.style.width = '500px';
-    overlayElement.style.color = '#a259ff';
-    overlayElement.style.background = 'rgba(30,0,60,0.97)';
-    overlayElement.style.border = '2px solid #a259ff';
-    overlayElement.style.borderRadius = '18px';
-    overlayElement.style.padding = '24px';
-    overlayElement.style.textAlign = 'center';
-    overlayElement.style.fontSize = '1.5rem';
-    overlayElement.style.zIndex = '200';
-    overlayElement.style.fontWeight = 'bold';
-    overlayElement.style.boxShadow = '0 0 32px #a259ff55';
-    overlayElement.style.textShadow = '0 0 24px #a259ff88, 0 0 2px #fff';
-    overlayElement.style.letterSpacing = '1px';
-    overlayElement.style.userSelect = 'none';
-    overlayElement.style.pointerEvents = 'none';
-    
-    overlayElement.innerHTML = `
-      <div style="font-size: 2rem; margin-bottom: 20px; color: #fff;">Game Controls</div>
-      <div style="margin-bottom: 15px;">Move Girl: ← ↑ ↓ → Arrow Keys</div>
-      <div style="margin-bottom: 15px;">Move Rat: W A S D Keys</div>
-      <div style="margin-bottom: 15px;">Rat Attack: Spacebar</div>
-      <div style="margin-bottom: 15px;">Teleport: T Key</div>
-      <div style="font-size: 1rem; margin-top: 20px; opacity: 0.8;">This message will disappear in 5 seconds</div>
-    `;
-    
-    document.body.appendChild(overlayElement);
-    
-    // Remove overlay after 5 seconds
-    setTimeout(() => {
-      if (overlayElement.parentNode) {
-        overlayElement.parentNode.removeChild(overlayElement);
-      }
-    }, 5000);
   }
 }

@@ -8,6 +8,7 @@ let debugConfig = {
   showStats: true,
   muteDebugLogs: false,
   invulnerability: false, // Player invulnerability debug toggle
+  bossControlEnabled: false, // Boss control toggle (separate from logging)
   logCategories: {
     general: false,
     portal: false,
@@ -26,7 +27,9 @@ let debugConfig = {
     pet: false, // Debug logging disabled by default
     ui: false, // UI component debugging
     debug: false, // Debug system internal logging
-    boss: false // Boss fight debugging - NEVER auto-enabled
+    boss: false, // Boss fight debugging - NEVER auto-enabled
+    bossattack: false, // Boss attack animation debugging - separate toggle
+    optionsSubmenu: false // Options submenu debugging (Audio, How to Play buttons)
   }
 };
 
@@ -1784,11 +1787,11 @@ function SimpleDebugOverlay({
         }, 'Boss Debug Controls'),
         
         React.createElement('div', {
-          key: 'bossDebugging',
+          key: 'bossControls',
           style: { marginBottom: '16px' }
         }, [
           React.createElement('h5', {
-            key: 'debugTitle',
+            key: 'controlTitle',
             style: { 
               color: '#ff4444', 
               margin: '0 0 12px 0',
@@ -1796,10 +1799,10 @@ function SimpleDebugOverlay({
               fontWeight: 'bold',
               textShadow: '0 0 8px #ff444488'
             }
-          }, '💀 Boss Debugging'),
+          }, '🎮 Boss Control'),
           
           React.createElement('div', {
-            key: 'debugToggle',
+            key: 'controlToggle',
             style: { 
               display: 'flex',
               alignItems: 'center',
@@ -1811,10 +1814,14 @@ function SimpleDebugOverlay({
             }
           }, [
             React.createElement('input', {
-              key: 'bossDebugCheckbox',
+              key: 'bossControlCheckbox',
               type: 'checkbox',
-              checked: debugConfig.logCategories.boss,
-              onChange: () => toggleLogging('boss'),
+              checked: debugConfig.bossControlEnabled,
+              onChange: () => {
+                debugConfig.bossControlEnabled = !debugConfig.bossControlEnabled;
+                debugLog(`Boss control ${debugConfig.bossControlEnabled ? 'enabled' : 'disabled'}`, 'debug');
+                forceUpdate({});
+              },
               style: {
                 marginRight: '12px',
                 accentColor: '#ff4444',
@@ -1822,24 +1829,97 @@ function SimpleDebugOverlay({
               }
             }),
             React.createElement('label', {
+              key: 'bossControlLabel',
+              style: { 
+                color: debugConfig.bossControlEnabled ? '#ff4444' : '#888',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              },
+              onClick: () => {
+                debugConfig.bossControlEnabled = !debugConfig.bossControlEnabled;
+                debugLog(`Boss control ${debugConfig.bossControlEnabled ? 'enabled' : 'disabled'}`, 'debug');
+                forceUpdate({});
+              }
+            }, debugConfig.bossControlEnabled ? '🎮 Boss Control: ON' : '🎮 Boss Control: OFF')
+          ]),
+          
+          React.createElement('div', {
+            key: 'bossControlInfo',
+            style: {
+              fontSize: '11px',
+              color: debugConfig.bossControlEnabled ? '#4CAF50' : '#ff6b6b',
+              background: debugConfig.bossControlEnabled ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 107, 107, 0.1)',
+              border: debugConfig.bossControlEnabled ? '1px solid rgba(76, 175, 80, 0.3)' : '1px solid rgba(255, 107, 107, 0.3)',
+              borderRadius: '6px',
+              padding: '8px',
+              marginTop: '8px',
+              textAlign: 'center',
+              fontWeight: 'bold'
+            }
+          }, debugConfig.bossControlEnabled ? 
+            '✅ Boss controls enabled! Use Numpad 4/6/8/5 to move, Z/X/C to attack.' : 
+            '⚠️ Boss controls disabled! Check the box above to enable boss controls.'
+          )
+        ]),
+        
+        React.createElement('div', {
+          key: 'bossLogging',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'debugTitle',
+            style: { 
+              color: '#ffaa00', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #ffaa0088'
+            }
+          }, '� Boss Debug Logging'),
+          
+          React.createElement('div', {
+            key: 'debugToggle',
+            style: { 
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 170, 0, 0.3)',
+              marginBottom: '12px'
+            }
+          }, [
+            React.createElement('input', {
+              key: 'bossDebugCheckbox',
+              type: 'checkbox',
+              checked: debugConfig.logCategories.boss,
+              onChange: () => toggleLogging('boss'),
+              style: {
+                marginRight: '12px',
+                accentColor: '#ffaa00',
+                transform: 'scale(1.2)'
+              }
+            }),
+            React.createElement('label', {
               key: 'bossDebugLabel',
               style: { 
-                color: debugConfig.logCategories.boss ? '#ff4444' : '#888',
+                color: debugConfig.logCategories.boss ? '#ffaa00' : '#888',
                 fontSize: '14px',
                 fontWeight: 'bold',
                 cursor: 'pointer'
               },
               onClick: () => toggleLogging('boss')
-            }, debugConfig.logCategories.boss ? '💀 Boss Debugging: ON' : '💀 Boss Debugging: OFF')
+            }, debugConfig.logCategories.boss ? '� Boss Logging: ON' : '� Boss Logging: OFF')
           ]),
           
           React.createElement('div', {
             key: 'bossDebugWarning',
             style: {
               fontSize: '11px',
-              color: debugConfig.logCategories.boss ? '#4CAF50' : '#ff6b6b',
-              background: debugConfig.logCategories.boss ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 107, 107, 0.1)',
-              border: debugConfig.logCategories.boss ? '1px solid rgba(76, 175, 80, 0.3)' : '1px solid rgba(255, 107, 107, 0.3)',
+              color: debugConfig.logCategories.boss ? '#ffaa00' : '#888',
+              background: debugConfig.logCategories.boss ? 'rgba(255, 170, 0, 0.1)' : 'rgba(136, 136, 136, 0.1)',
+              border: debugConfig.logCategories.boss ? '1px solid rgba(255, 170, 0, 0.3)' : '1px solid rgba(136, 136, 136, 0.3)',
               borderRadius: '6px',
               padding: '8px',
               marginTop: '8px',
@@ -1847,8 +1927,8 @@ function SimpleDebugOverlay({
               fontWeight: 'bold'
             }
           }, debugConfig.logCategories.boss ? 
-            '✅ Boss controls enabled! Use Numpad 4/6/8/5 to move, Z/X/C to attack.' : 
-            '⚠️ Boss controls disabled! Check the box above to enable boss controls.'
+            '✅ Boss debug logging enabled! Check console for detailed boss events.' : 
+            '⚠️ Boss debug logging disabled! Enable to see detailed boss debug info.'
           )
         ]),
         

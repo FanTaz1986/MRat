@@ -24,6 +24,14 @@ class BossAI {
     this.attackCooldown = 1000; // milliseconds
     this.lastAttackTime = 0;
     
+    // Rate limiting for individual attack types to prevent keyboard spam
+    this.lastAttackTimeByType = {
+      range: 0,
+      bolt: 0,
+      melee: 0
+    };
+    this.attackTypeRateLimit = 300; // 300ms cooldown between same attack type presses
+    
     debugLog('BossAI initialized', 'boss');
   }
 
@@ -53,16 +61,21 @@ class BossAI {
 
   /**
    * Check debug configuration and execute boss controls if enabled
-   * This function NEVER auto-enables boss logging - it only checks if logging is already enabled
+   * This function checks the separate bossControlEnabled flag
    */
   async checkDebugConfigAndExecute(event) {
+    debugLog(`🎹 BossAI handleKeyDown called: key=${event.key}, code=${event.code}`, 'bossattack');
+    
     try {
       // Method 1: Try dynamic import
       const debugModule = await import('../../development/utils/Debug.js');
-      if (debugModule.debugConfig && debugModule.debugConfig.logCategories && debugModule.debugConfig.logCategories.boss) {
-        // Boss debugging is manually enabled - allow controls
+      if (debugModule.debugConfig && debugModule.debugConfig.bossControlEnabled) {
+        // Boss control is enabled - allow controls
+        debugLog('✅ Boss control enabled via dynamic import', 'bossattack');
         this.executeBossControls(event);
         return;
+      } else {
+        debugLog('❌ Boss control disabled via dynamic import', 'bossattack');
       }
     } catch (error) {
       // Dynamic import failed, try other methods
@@ -70,21 +83,23 @@ class BossAI {
     }
 
     // Method 2: Check global window object
-    if (window.game && window.game.debugConfig && window.game.debugConfig.logCategories && window.game.debugConfig.logCategories.boss) {
-      // Boss debugging is manually enabled - allow controls
+    if (window.game && window.game.debugConfig && window.game.debugConfig.bossControlEnabled) {
+      // Boss control is enabled - allow controls
+      debugLog('✅ Boss control enabled via window.game', 'bossattack');
       this.executeBossControls(event);
       return;
     }
 
     // Method 3: Check if debug system exists globally
-    if (window.globalDebugOverlay && window.globalDebugOverlay.debugConfig && window.globalDebugOverlay.debugConfig.logCategories && window.globalDebugOverlay.debugConfig.logCategories.boss) {
-      // Boss debugging is manually enabled - allow controls
+    if (window.globalDebugOverlay && window.globalDebugOverlay.debugConfig && window.globalDebugOverlay.debugConfig.bossControlEnabled) {
+      // Boss control is enabled - allow controls
+      debugLog('✅ Boss control enabled via globalDebugOverlay', 'bossattack');
       this.executeBossControls(event);
       return;
     }
 
-    // Boss debugging is disabled - do nothing (no auto-enabling)
-    // User must manually check the "Boss Debugging" checkbox in the debug menu
+    // Boss control is disabled - do nothing
+    // User must manually check the "Boss Control" checkbox in the debug menu
   }
 
   /**
@@ -120,14 +135,17 @@ class BossAI {
     switch (key.toLowerCase()) {
       case 'z':
         event.preventDefault();
+        debugLog('🎹 Z key pressed - attempting range attack', 'bossattack');
         this.performAttack('range');
         break;
       case 'x':
         event.preventDefault();
+        debugLog('🎹 X key pressed - attempting bolt attack', 'bossattack');
         this.performAttack('bolt');
         break;
       case 'c':
         event.preventDefault();
+        debugLog('🎹 C key pressed - attempting melee attack', 'bossattack');
         this.performAttack('melee');
         break;
       default:
@@ -203,19 +221,32 @@ class BossAI {
    * Perform the specified attack type
    */
   performAttack(attackType) {
-    debugLog(`Boss ${attackType.toUpperCase()} ATTACK command`, 'boss');
+    const now = Date.now();
+    
+    // Check rate limiting for this specific attack type
+    if (now - this.lastAttackTimeByType[attackType] < this.attackTypeRateLimit) {
+      const remaining = this.attackTypeRateLimit - (now - this.lastAttackTimeByType[attackType]);
+      debugLog(`🚫 ${attackType.toUpperCase()} attack rate limited - ${remaining}ms remaining`, 'bossattack');
+      return;
+    }
+    
+    debugLog(`🎯 Boss ${attackType.toUpperCase()} ATTACK command - processing`, 'bossattack');
     
     if (!this.bossEntity) {
-      debugLog('No boss entity available for attack', 'boss');
+      debugLog('❌ No boss entity available for attack', 'bossattack');
       return;
     }
 
     // Check if this specific attack is on cooldown
     if (this.bossEntity.isAttackOnCooldown && this.bossEntity.isAttackOnCooldown(attackType)) {
       const remaining = this.bossEntity.getRemainingCooldown(attackType);
-      debugLog(`Boss ${attackType} attack on cooldown for ${(remaining/1000).toFixed(1)}s more`, 'boss');
+      debugLog(`🕐 Boss ${attackType} attack on cooldown for ${(remaining/1000).toFixed(1)}s more`, 'bossattack');
       return;
     }
+
+    // Update rate limiting timestamp
+    this.lastAttackTimeByType[attackType] = now;
+    debugLog(`✅ ${attackType.toUpperCase()} attack proceeding - rate limit updated`, 'bossattack');
 
     // Perform attack based on type
     switch (attackType) {

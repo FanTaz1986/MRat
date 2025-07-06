@@ -491,8 +491,12 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         bossAI.current = new BossAI();
         debugLog('BossAI initialized', 'boss');
         
-        // Expose mapManager globally for ObjectiveUI
+        // Expose mapManager globally for ObjectiveUI and boss system
         window.gameMapManager = mapManager.current;
+        // Also expose character for boss attacks
+        if (mapManager.current.character) {
+          window.gameMapManager.character = mapManager.current.character;
+        }
         
         // Set MapManager as ready
         setMapManagerReady(true);
@@ -720,6 +724,29 @@ const resizeHandler = () => {
       };
       
       const setupUIMonitoring = () => {
+        // Monitor character health for UI updates
+        const monitorCharacterHealth = () => {
+          if (mapManager.current && mapManager.current.character) {
+            const character = mapManager.current.character;
+            if (character.currentHP !== undefined) {
+              // Update UI health to match character's actual health
+              setPlayerHealth(prev => {
+                const actualHealth = character.currentHP;
+                if (prev !== actualHealth) {
+                  debugLog(`🏥 UI health sync: ${prev} -> ${actualHealth}`, 'character');
+                  debugLog(`🎯 Character object health props: currentHP=${character.currentHP}, health=${character.health}, maxHP=${character.maxHP}`, 'character');
+                  return actualHealth;
+                }
+                return prev;
+              });
+            } else {
+              debugLog('⚠️ Character currentHP property is undefined', 'character');
+            }
+          } else {
+            debugLog('⚠️ Character not found in mapManager for health monitoring', 'character');
+          }
+        };
+        
         // Monitor pet attack cooldown for UI updates
         const monitorPetCooldown = () => {
           if (mapManager.current && mapManager.current.pet) {
@@ -759,8 +786,13 @@ const resizeHandler = () => {
         // Update pet cooldown every 50ms for smooth progress bar
         const cooldownInterval = setInterval(monitorPetCooldown, 50);
         
-        // Store interval ID for cleanup
-        if (!window.gameIntervals) window.gameIntervals = [];        window.gameIntervals.push(cooldownInterval);
+        // Update character health every 100ms to sync with UI
+        const healthInterval = setInterval(monitorCharacterHealth, 100);
+        
+        // Store interval IDs for cleanup
+        if (!window.gameIntervals) window.gameIntervals = [];
+        window.gameIntervals.push(cooldownInterval);
+        window.gameIntervals.push(healthInterval);
       };
     
     mapManager.current.loadMap(currentMap, handleMapLoaded);
@@ -974,10 +1006,9 @@ const resizeHandler = () => {
     // Simple synchronization using global debug config (does NOT auto-enable boss logging)
     const syncBossAI = () => {
       if (window.game && window.game.debugConfig) {
-        // Update boss AI debug mode based on debug logging setting
-        // This ONLY reads the setting, it NEVER auto-enables boss logging
+        // Update boss AI debug mode based on boss control setting (separate from logging)
         if (bossAI.current) {
-          bossAI.current.setDebugMode(window.game.debugConfig.logCategories.boss);
+          bossAI.current.setDebugMode(window.game.debugConfig.bossControlEnabled);
         }
         
         // Connect BossAI to the boss entity if we're on Map X
@@ -992,8 +1023,8 @@ const resizeHandler = () => {
         // Fallback: Try importing debug config (does NOT auto-enable boss logging)
         import('../development/utils/Debug.js').then(({ debugConfig }) => {
           if (debugConfig && bossAI.current) {
-            // This ONLY reads the setting, it NEVER auto-enables boss logging
-            bossAI.current.setDebugMode(debugConfig.logCategories.boss);
+            // Use boss control flag instead of logging flag
+            bossAI.current.setDebugMode(debugConfig.bossControlEnabled);
             
             // Connect BossAI to the boss entity if we're on Map X
             if (currentMap === 'mapareax' && mapManager.current && mapManager.current.mapXInstance) {
