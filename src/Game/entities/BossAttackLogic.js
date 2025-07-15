@@ -637,6 +637,32 @@ export default class BossAttackLogic {
     // Store character position for later use (thunder strikes will execute after range animation)
     this.boss.storedCharacterPosition = characterPosition;
     
+    // Initialize thunder debug tracking data
+    if (!window.thunderDebugData) {
+      window.thunderDebugData = {};
+    }
+    
+    // Store attack start data for debug tracking
+    const currentPhase = this.boss.actualPhase || this.boss.phase;
+    const distanceFromBoss = Math.sqrt(
+      Math.pow(characterPosition.x - this.boss.position.x, 2) + 
+      Math.pow(characterPosition.y - this.boss.position.y, 2)
+    );
+    
+    window.thunderDebugData.lastAttackTime = Date.now();
+    window.thunderDebugData.attackStartData = {
+      bossX: this.boss.position.x,
+      bossY: this.boss.position.y,
+      characterX: characterPosition.x,
+      characterY: characterPosition.y,
+      distance: distanceFromBoss,
+      phase: currentPhase
+    };
+    window.thunderDebugData.strikePositions = [];
+    window.thunderDebugData.characterHitData = null;
+    
+    debugLog(`⚡ Thunder debug data initialized - Boss: (${this.boss.position.x.toFixed(1)}, ${this.boss.position.y.toFixed(1)}), Character: (${characterPosition.x.toFixed(1)}, ${characterPosition.y.toFixed(1)})`, logCategory);
+    
     // Enhanced attack timing and sequence management
     debugLog(`⚡ Thunder attack sequence timing - Current time: ${Date.now()}`, logCategory);
     debugLog(`⚡ Thunder attack sequence - Active timeouts: ${this.attackSequenceTimeouts.length}`, logCategory);
@@ -1066,6 +1092,17 @@ export default class BossAttackLogic {
     
     debugLog(`⚡ Thunder strike locations: ${attackLocations.length} total`, logCategory);
     
+    // Update thunder debug data with strike positions
+    if (window.thunderDebugData && window.thunderDebugData.strikePositions) {
+      window.thunderDebugData.strikePositions = attackLocations.map(location => ({
+        x: location.x,
+        y: location.y,
+        type: location.type
+      }));
+      
+      debugLog(`⚡ Thunder debug data updated with ${attackLocations.length} strike positions`, logCategory);
+    }
+    
     // Enhanced container hierarchy check
     if (this.boss.sprite && this.boss.sprite.parent) {
       debugLog(`⚡ Thunder strikes will be added to container: ${this.boss.sprite.parent.constructor.name}`, logCategory);
@@ -1137,8 +1174,8 @@ export default class BossAttackLogic {
     const thunderSprite = new PIXI.Sprite(initialTexture);
     debugLog(`⚡ Thunder sprite ${index + 1} created successfully with frame ${initialFrameIndex}`, logCategory);
     
-    thunderSprite.anchor.set(0.5, 1.0); // Bottom center anchor (top-down strike)
-    debugLog(`⚡ Thunder sprite ${index + 1} anchor set to bottom center (0.5, 1.0)`, logCategory);
+    thunderSprite.anchor.set(0.5, 0.5); // Center anchor for better visibility on character
+    debugLog(`⚡ Thunder sprite ${index + 1} anchor set to center (0.5, 0.5)`, logCategory);
     
     // Enhanced scaling with detailed logging
     thunderSprite.scale.set(scaleX, scaleY);
@@ -1169,10 +1206,14 @@ export default class BossAttackLogic {
       try {
         const childrenBefore = this.boss.sprite.parent.children.length;
         this.boss.sprite.parent.addChild(thunderSprite);
-        thunderSprite.zIndex = 900; // Below UI but above most game elements
+        thunderSprite.zIndex = 1100; // Above character (1000) but below UI (2000+)
+        
+        // Force container to sort children by zIndex (important for proper layering)
+        this.boss.sprite.parent.sortChildren();
         
         debugLog(`⚡ Thunder sprite ${index + 1} added successfully - zIndex: ${thunderSprite.zIndex}`, logCategory);
         debugLog(`⚡ Container children: ${childrenBefore} → ${this.boss.sprite.parent.children.length}`, logCategory);
+        debugLog(`⚡ Container sortChildren() called to ensure proper z-index ordering`, logCategory);
         
         // Enhanced damage detection - check if character is actually at the thunder strike position
         const currentCharacterPosition = this.getCurrentCharacterPosition();
@@ -1204,6 +1245,33 @@ export default class BossAttackLogic {
             }
           } else {
             debugLog(`⚡ Thunder strike ${index + 1} missed character - distance: ${distance.toFixed(1)}px > ${hitRadius}px`, logCategory);
+          }
+          
+          // Update thunder debug data with hit information
+          if (window.thunderDebugData && window.thunderDebugData.strikePositions && window.thunderDebugData.strikePositions[index]) {
+            window.thunderDebugData.strikePositions[index].hitCharacter = isCharacterHit;
+            window.thunderDebugData.strikePositions[index].distance = distance;
+            window.thunderDebugData.strikePositions[index].hitRadius = hitRadius;
+            
+            // Update character hit data
+            if (isCharacterHit) {
+              if (!window.thunderDebugData.characterHitData) {
+                const startData = window.thunderDebugData.attackStartData;
+                const distanceMoved = Math.sqrt(
+                  Math.pow(currentCharacterPosition.x - startData.characterX, 2) + 
+                  Math.pow(currentCharacterPosition.y - startData.characterY, 2)
+                );
+                
+                window.thunderDebugData.characterHitData = {
+                  x: currentCharacterPosition.x,
+                  y: currentCharacterPosition.y,
+                  distanceMoved: distanceMoved,
+                  strikesHit: 1
+                };
+              } else {
+                window.thunderDebugData.characterHitData.strikesHit++;
+              }
+            }
           }
         } else {
           debugLog(`⚡ Thunder strike ${index + 1} created but no character position available for hit detection`, logCategory);
