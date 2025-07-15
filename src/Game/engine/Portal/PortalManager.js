@@ -118,7 +118,6 @@ export default class PortalManager {
     const topLeftY = 200;   // Near top-left corner
     
     debugLog(`MapX portal positioned at top-left: (${topLeftX}, ${topLeftY})`, 'portal');
-    console.log(`🚪 MapX portal positioned at top-left: (${topLeftX}, ${topLeftY})`);
     
     return {
       x: topLeftX,

@@ -28,7 +28,9 @@ let debugConfig = {
     ui: false, // UI component debugging
     debug: false, // Debug system internal logging
     boss: false, // Boss fight debugging - NEVER auto-enabled
-    bossattack: false, // Boss attack animation debugging - separate toggle
+    bossattackz: false, // Boss Z attack (range) debugging - separate toggle
+    bossattackx: false, // Boss X attack (bolt) debugging - separate toggle
+    bossattackc: false, // Boss C attack (melee) debugging - separate toggle
     optionsSubmenu: false // Options submenu debugging (Audio, How to Play buttons)
   }
 };
@@ -632,6 +634,63 @@ function SimpleDebugOverlay({
       debugLog('Cannot teleport: character position or map manager not available', 'character');
     }
   };
+  const teleportToBoss = () => {
+    if (mapManager && mapManager.loadMap) {
+      debugLog('Teleporting to boss map (Map X)', 'map');
+      
+      // First teleport to Map X (boss map) - using callback pattern like other teleport functions
+      mapManager.loadMap('mapareax', () => {
+        debugLog('Map X loaded successfully for boss teleport', 'map');
+        
+        // Set a delay to ensure the map is fully loaded
+        setTimeout(() => {
+          const currentCharacter = mapManager.character || window.game?.characterManager?.character;
+          const bossSpawnPosition = { x: 300, y: 300 }; // Same position as boss spawn
+          const characterPosition = { x: 250, y: 250 }; // Position character slightly away from boss
+          
+          if (currentCharacter && currentCharacter.position) {
+            currentCharacter.position.x = characterPosition.x;
+            currentCharacter.position.y = characterPosition.y;
+            debugLog(`Character teleported to boss area at (${characterPosition.x}, ${characterPosition.y})`, 'map');
+          } else {
+            debugLog('Character not found for boss teleport positioning', 'map');
+          }
+          
+          // Get the latest camera reference from mapManager
+          const currentCamera = mapManager.camera || window.game?.mapManager?.camera;
+          
+          if (currentCamera && currentCharacter && currentCamera.centerOn) {
+            // Force zoom scale reapplication with safety checks
+            try {
+              if (currentCamera.mapContainer && currentCamera.mapContainer.scale && currentCamera.zoom) {
+                currentCamera.mapContainer.scale.set(currentCamera.zoom);
+                debugLog(`Zoom scale reapplied: ${currentCamera.zoom}`, 'map');
+              } else {
+                debugLog('Cannot reapply zoom scale: mapContainer or scale not available', 'map');
+              }
+            } catch (error) {
+              debugLog(`Error reapplying zoom scale: ${error.message}`, 'map');
+            }
+            
+            // Center camera on character with additional safety checks
+            if (currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
+              currentCamera.centerOn(currentCharacter.position.x, currentCharacter.position.y);
+              debugLog(`Camera re-centered after boss teleport to position: (${currentCharacter.position.x}, ${currentCharacter.position.y}) with zoom: ${currentCamera.zoom}`, 'map');
+            } else {
+              debugLog('Cannot center camera: missing mapContainer or character position', 'map');
+            }
+          } else {
+            debugLog('Camera or character not available for centering after boss teleport', 'map');
+          }
+          
+          debugLog(`Boss teleport complete - Character at (${characterPosition.x}, ${characterPosition.y}), Boss should be at (${bossSpawnPosition.x}, ${bossSpawnPosition.y})`, 'map');
+        }, 200); // Delay to ensure everything is properly initialized
+      });
+    } else {
+      debugLog('Cannot teleport to boss: map manager not available', 'map');
+    }
+  };
+
   return React.createElement('div', {
     style: {
       position: 'fixed',
@@ -1076,6 +1135,44 @@ function SimpleDebugOverlay({
           }, '🌀 Center Camera on Portal')
         ]),
         
+        React.createElement('h4', {
+          key: 'enemy-title',
+          style: { 
+            color: '#f44336', 
+            margin: '16px 0 8px 0',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            textShadow: '0 0 8px #f4433688'
+          }
+        }, 'Teleport to Enemy'),
+        
+        React.createElement('div', {
+          key: 'enemyButtons',
+          style: { 
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: '8px',
+            marginBottom: '16px'
+          }
+        }, [
+          React.createElement('button', {
+            key: 'teleportToBoss',
+            onClick: teleportToBoss,
+            style: {
+              padding: '12px 16px',
+              background: 'rgba(244, 67, 54, 0.2)',
+              border: '2px solid rgba(244, 67, 54, 0.5)',
+              borderRadius: '12px',
+              color: '#F44336',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              textShadow: '0 0 8px rgba(244, 67, 54, 0.3)'
+            }
+          }, '💀 Teleport to Boss')
+        ]),
+        
         React.createElement('div', {
           key: 'note',
           style: { 
@@ -1509,6 +1606,7 @@ function SimpleDebugOverlay({
                 // Get tile info
                 let tileWidth = 32, tileHeight = 32;
                 if (mapManager?.currentMapInstance?.tileWidth) {
+
                   tileWidth = mapManager.currentMapInstance.tileWidth;
                   tileHeight = mapManager.currentMapInstance.tileHeight;
                 }
@@ -2253,6 +2351,356 @@ function SimpleDebugOverlay({
             React.createElement('div', { key: 'info8' }, '• Boss AI can be fine-tuned in BossAI.js component'),
             React.createElement('div', { key: 'info9' }, '• All boss actions are logged when debugging is enabled')
           ])
+        ])
+      ]),
+
+      // New Attack Debugging Section
+      activeTab === 'tools' && React.createElement('div', { key: 'attackDebug' }, [
+        React.createElement('h4', {
+          key: 'title',
+          style: { 
+            color: '#ff6b6b', 
+            margin: '0 0 16px 0',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            textShadow: '0 0 8px #ff6b6b88'
+          }
+        }, '⚡ Boss Attack Debug Logging'),
+        
+        React.createElement('div', {
+          key: 'attackInfo',
+          style: { 
+            fontSize: '12px', 
+            color: '#ff6b6b', 
+            opacity: 0.8,
+            marginBottom: '16px',
+            padding: '8px',
+            background: 'rgba(255, 107, 107, 0.1)',
+            borderRadius: '6px'
+          }
+        }, 'Enable detailed logging for specific boss attack types. These logs provide comprehensive information about attack sequences, timing, hit detection, and visual effects.'),
+
+        // Range Attack (Z) Debug Section
+        React.createElement('div', {
+          key: 'rangeAttackDebug',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'rangeTitle',
+            style: { 
+              color: '#ffaa00', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #ffaa0088'
+            }
+          }, '⚡ Range Attack (Z) - Thunder Strikes'),
+          
+          React.createElement('div', {
+            key: 'rangeToggle',
+            style: { 
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              background: 'rgba(255, 170, 0, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 170, 0, 0.3)',
+              marginBottom: '12px'
+            }
+          }, [
+            React.createElement('input', {
+              key: 'rangeAttackCheckbox',
+              type: 'checkbox',
+              checked: debugConfig.logCategories.bossattackz,
+              onChange: () => toggleLogging('bossattackz'),
+              style: {
+                marginRight: '12px',
+                accentColor: '#ffaa00',
+                transform: 'scale(1.2)'
+              }
+            }),
+            React.createElement('label', {
+              key: 'rangeAttackLabel',
+              style: { 
+                color: debugConfig.logCategories.bossattackz ? '#ffaa00' : '#888',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              },
+              onClick: () => toggleLogging('bossattackz')
+            }, debugConfig.logCategories.bossattackz ? '⚡ Thunder Attack Logging: ON' : '⚡ Thunder Attack Logging: OFF')
+          ]),
+          
+          React.createElement('div', {
+            key: 'rangeFeatures',
+            style: {
+              fontSize: '11px',
+              color: '#ffaa00',
+              marginBottom: '8px',
+              lineHeight: '1.4'
+            }
+          }, [
+            React.createElement('div', { key: 'feature1' }, '• 1 second cooldown (reduced from 10s/5s)'),
+            React.createElement('div', { key: 'feature2' }, '• Thunder strikes: 1 at character start position + 3 random'),
+            React.createElement('div', { key: 'feature3' }, '• 50px hit radius for fair collision detection'),
+            React.createElement('div', { key: 'feature4' }, '• Character can dodge by moving during 1s warning'),
+            React.createElement('div', { key: 'feature5' }, '• Thunder size: 0.75x character height (2x smaller)'),
+            React.createElement('div', { key: 'feature6' }, '• Frame switching animation with random mirroring')
+          ]),
+          
+          React.createElement('div', {
+            key: 'rangeTestButton',
+            style: { marginBottom: '8px' }
+          }, React.createElement('button', {
+            onClick: () => {
+              debugLog('Testing thunder strike system - triggering range attack', 'bossattackz');
+              // Test the new thunder strike system
+              if (window.gameMapManager && window.gameMapManager.mapXInstance && window.gameMapManager.mapXInstance.boss) {
+                const boss = window.gameMapManager.mapXInstance.boss;
+                if (boss.attackLogic && boss.attackLogic.startAttack) {
+                  boss.attackLogic.startAttack('range');
+                  debugLog('Thunder strike test initiated - check console for detailed logs', 'bossattackz');
+                } else {
+                  debugLog('Boss attack logic not found', 'bossattackz');
+                }
+              } else {
+                debugLog('Boss not found - teleport to Map X first', 'bossattackz');
+              }
+            },
+            style: {
+              width: '100%',
+              padding: '8px',
+              background: 'rgba(255, 170, 0, 0.2)',
+              border: '1px solid rgba(255, 170, 0, 0.5)',
+              borderRadius: '4px',
+              color: '#ffaa00',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold'
+            }
+          }, '⚡ TEST THUNDER STRIKES')
+          ),
+          
+          React.createElement('div', {
+            key: 'rangeDebugInfo',
+            style: {
+              fontSize: '11px',
+              color: debugConfig.logCategories.bossattackz ? '#ffaa00' : '#888',
+              background: debugConfig.logCategories.bossattackz ? 'rgba(255, 170, 0, 0.1)' : 'rgba(136, 136, 136, 0.1)',
+              border: debugConfig.logCategories.bossattackz ? '1px solid rgba(255, 170, 0, 0.3)' : '1px solid rgba(136, 136, 136, 0.3)',
+              borderRadius: '6px',
+              padding: '8px',
+              textAlign: 'center',
+              fontWeight: 'bold'
+            }
+          }, debugConfig.logCategories.bossattackz ? 
+            '✅ Thunder strike logging enabled! Shows timing, positioning, hit detection, and animation details.' : 
+            '⚠️ Thunder strike logging disabled! Enable to see detailed thunder attack information.'
+          )
+        ]),
+
+        // Bolt Attack (X) Debug Section
+        React.createElement('div', {
+          key: 'boltAttackDebug',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'boltTitle',
+            style: { 
+              color: '#4CAF50', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #4CAF5088'
+            }
+          }, '⚡ Bolt Attack (X) - Zap Cone'),
+          
+          React.createElement('div', {
+            key: 'boltToggle',
+            style: { 
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              background: 'rgba(76, 175, 80, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(76, 175, 80, 0.3)',
+              marginBottom: '12px'
+            }
+          }, [
+            React.createElement('input', {
+              key: 'boltAttackCheckbox',
+              type: 'checkbox',
+              checked: debugConfig.logCategories.bossattackx,
+              onChange: () => toggleLogging('bossattackx'),
+              style: {
+                marginRight: '12px',
+                accentColor: '#4CAF50',
+                transform: 'scale(1.2)'
+              }
+            }),
+            React.createElement('label', {
+              key: 'boltAttackLabel',
+              style: { 
+                color: debugConfig.logCategories.bossattackx ? '#4CAF50' : '#888',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              },
+              onClick: () => toggleLogging('bossattackx')
+            }, debugConfig.logCategories.bossattackx ? '⚡ Zap Cone Logging: ON' : '⚡ Zap Cone Logging: OFF')
+          ]),
+          
+          React.createElement('div', {
+            key: 'boltTestButton',
+            style: { marginBottom: '8px' }
+          }, React.createElement('button', {
+            onClick: () => {
+              debugLog('Testing zap cone system - triggering bolt attack', 'bossattackx');
+              // Test the zap cone system
+              if (window.gameMapManager && window.gameMapManager.mapXInstance && window.gameMapManager.mapXInstance.boss) {
+                const boss = window.gameMapManager.mapXInstance.boss;
+                if (boss.attackLogic && boss.attackLogic.startAttack) {
+                  boss.attackLogic.startAttack('bolt');
+                  debugLog('Zap cone test initiated - check console for detailed logs', 'bossattackx');
+                } else {
+                  debugLog('Boss attack logic not found', 'bossattackx');
+                }
+              } else {
+                debugLog('Boss not found - teleport to Map X first', 'bossattackx');
+              }
+            },
+            style: {
+              width: '100%',
+              padding: '8px',
+              background: 'rgba(76, 175, 80, 0.2)',
+              border: '1px solid rgba(76, 175, 80, 0.5)',
+              borderRadius: '4px',
+              color: '#4CAF50',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold'
+            }
+          }, '⚡ TEST ZAP CONE')
+          ),
+          
+          React.createElement('div', {
+            key: 'boltDebugInfo',
+            style: {
+              fontSize: '11px',
+              color: debugConfig.logCategories.bossattackx ? '#4CAF50' : '#888',
+              background: debugConfig.logCategories.bossattackx ? 'rgba(76, 175, 80, 0.1)' : 'rgba(136, 136, 136, 0.1)',
+              border: debugConfig.logCategories.bossattackx ? '1px solid rgba(76, 175, 80, 0.3)' : '1px solid rgba(136, 136, 136, 0.3)',
+              borderRadius: '6px',
+              padding: '8px',
+              textAlign: 'center',
+              fontWeight: 'bold'
+            }
+          }, debugConfig.logCategories.bossattackx ? 
+            '✅ Zap cone logging enabled! Shows cone geometry, collision detection, and visual effects.' : 
+            '⚠️ Zap cone logging disabled! Enable to see detailed bolt attack information.'
+          )
+        ]),
+
+        // Melee Attack (C) Debug Section
+        React.createElement('div', {
+          key: 'meleeAttackDebug',
+          style: { marginBottom: '16px' }
+        }, [
+          React.createElement('h5', {
+            key: 'meleeTitle',
+            style: { 
+              color: '#f44336', 
+              margin: '0 0 12px 0',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textShadow: '0 0 8px #f4433688'
+            }
+          }, '👊 Melee Attack (C) - Paw Swipe'),
+          
+          React.createElement('div', {
+            key: 'meleeToggle',
+            style: { 
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              background: 'rgba(244, 67, 54, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(244, 67, 54, 0.3)',
+              marginBottom: '12px'
+            }
+          }, [
+            React.createElement('input', {
+              key: 'meleeAttackCheckbox',
+              type: 'checkbox',
+              checked: debugConfig.logCategories.bossattackc,
+              onChange: () => toggleLogging('bossattackc'),
+              style: {
+                marginRight: '12px',
+                accentColor: '#f44336',
+                transform: 'scale(1.2)'
+              }
+            }),
+            React.createElement('label', {
+              key: 'meleeAttackLabel',
+              style: { 
+                color: debugConfig.logCategories.bossattackc ? '#f44336' : '#888',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              },
+              onClick: () => toggleLogging('bossattackc')
+            }, debugConfig.logCategories.bossattackc ? '👊 Paw Swipe Logging: ON' : '👊 Paw Swipe Logging: OFF')
+          ]),
+          
+          React.createElement('div', {
+            key: 'meleeTestButton',
+            style: { marginBottom: '8px' }
+          }, React.createElement('button', {
+            onClick: () => {
+              debugLog('Testing paw swipe system - triggering melee attack', 'bossattackc');
+              // Test the paw swipe system
+              if (window.gameMapManager && window.gameMapManager.mapXInstance && window.gameMapManager.mapXInstance.boss) {
+                const boss = window.gameMapManager.mapXInstance.boss;
+                if (boss.attackLogic && boss.attackLogic.startAttack) {
+                  boss.attackLogic.startAttack('melee');
+                  debugLog('Paw swipe test initiated - check console for detailed logs', 'bossattackc');
+                } else {
+                  debugLog('Boss attack logic not found', 'bossattackc');
+                }
+              } else {
+                debugLog('Boss not found - teleport to Map X first', 'bossattackc');
+              }
+            },
+            style: {
+              width: '100%',
+              padding: '8px',
+              background: 'rgba(244, 67, 54, 0.2)',
+              border: '1px solid rgba(244, 67, 54, 0.5)',
+              borderRadius: '4px',
+              color: '#f44336',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold'
+            }
+          }, '👊 TEST PAW SWIPE')
+          ),
+          
+          React.createElement('div', {
+            key: 'meleeDebugInfo',
+            style: {
+              fontSize: '11px',
+              color: debugConfig.logCategories.bossattackc ? '#f44336' : '#888',
+              background: debugConfig.logCategories.bossattackc ? 'rgba(244, 67, 54, 0.1)' : 'rgba(136, 136, 136, 0.1)',
+              border: debugConfig.logCategories.bossattackc ? '1px solid rgba(244, 67, 54, 0.3)' : '1px solid rgba(136, 136, 136, 0.3)',
+              borderRadius: '6px',
+              padding: '8px',
+              textAlign: 'center',
+              fontWeight: 'bold'
+            }
+          }, debugConfig.logCategories.bossattackc ? 
+            '✅ Paw swipe logging enabled! Shows swipe area, timing, and damage calculations.' : 
+            '⚠️ Paw swipe logging disabled! Enable to see detailed melee attack information.'
+          )
         ])
       ]),
 

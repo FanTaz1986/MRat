@@ -135,17 +135,17 @@ class BossAI {
     switch (key.toLowerCase()) {
       case 'z':
         event.preventDefault();
-        debugLog('🎹 Z key pressed - attempting range attack', 'bossattack');
+        debugLog('🎹 Z key pressed - attempting range attack', 'bossattackz');
         this.performAttack('range');
         break;
       case 'x':
         event.preventDefault();
-        debugLog('🎹 X key pressed - attempting bolt attack', 'bossattack');
+        debugLog('🎹 X key pressed - attempting bolt attack', 'bossattackx');
         this.performAttack('bolt');
         break;
       case 'c':
         event.preventDefault();
-        debugLog('🎹 C key pressed - attempting melee attack', 'bossattack');
+        debugLog('🎹 C key pressed - attempting melee attack', 'bossattackc');
         this.performAttack('melee');
         break;
       default:
@@ -223,30 +223,42 @@ class BossAI {
   performAttack(attackType) {
     const now = Date.now();
     
+    // Get the appropriate logging category based on attack type
+    const getLogCategory = (type) => {
+      switch (type) {
+        case 'range': return 'bossattackz';
+        case 'bolt': return 'bossattackx';
+        case 'melee': return 'bossattackc';
+        default: return 'boss';
+      }
+    };
+    
+    const logCategory = getLogCategory(attackType);
+    
     // Check rate limiting for this specific attack type
     if (now - this.lastAttackTimeByType[attackType] < this.attackTypeRateLimit) {
       const remaining = this.attackTypeRateLimit - (now - this.lastAttackTimeByType[attackType]);
-      debugLog(`🚫 ${attackType.toUpperCase()} attack rate limited - ${remaining}ms remaining`, 'bossattack');
+      debugLog(`🚫 ${attackType.toUpperCase()} attack rate limited - ${remaining}ms remaining`, logCategory);
       return;
     }
     
-    debugLog(`🎯 Boss ${attackType.toUpperCase()} ATTACK command - processing`, 'bossattack');
+    debugLog(`🎯 Boss ${attackType.toUpperCase()} ATTACK command - processing`, logCategory);
     
     if (!this.bossEntity) {
-      debugLog('❌ No boss entity available for attack', 'bossattack');
+      debugLog('❌ No boss entity available for attack', logCategory);
       return;
     }
 
     // Check if this specific attack is on cooldown
     if (this.bossEntity.isAttackOnCooldown && this.bossEntity.isAttackOnCooldown(attackType)) {
       const remaining = this.bossEntity.getRemainingCooldown(attackType);
-      debugLog(`🕐 Boss ${attackType} attack on cooldown for ${(remaining/1000).toFixed(1)}s more`, 'bossattack');
+      debugLog(`🕐 Boss ${attackType} attack on cooldown for ${(remaining/1000).toFixed(1)}s more`, logCategory);
       return;
     }
 
     // Update rate limiting timestamp
     this.lastAttackTimeByType[attackType] = now;
-    debugLog(`✅ ${attackType.toUpperCase()} attack proceeding - rate limit updated`, 'bossattack');
+    debugLog(`✅ ${attackType.toUpperCase()} attack proceeding - rate limit updated`, logCategory);
 
     // Perform attack based on type
     switch (attackType) {
@@ -269,17 +281,20 @@ class BossAI {
    * Perform a range attack
    */
   performRangeAttack() {
-    debugLog('Boss executing range attack - area damage in front', 'boss');
+    debugLog('🎯 Boss executing range attack - area damage in front', 'bossattackz');
     
     if (this.bossEntity && this.bossEntity.startAttack) {
       // Get target position (in front of boss)
       const targetX = this.bossEntity.position.x + (this.bossEntity.direction === 'right' ? 200 : -200);
       const targetY = this.bossEntity.position.y;
       
+      debugLog(`🎯 Range attack target position: (${targetX}, ${targetY}), boss direction: ${this.bossEntity.direction}`, 'bossattackz');
+      debugLog(`🎯 Range attack boss position: (${this.bossEntity.position.x}, ${this.bossEntity.position.y})`, 'bossattackz');
+      
       this.bossEntity.startAttack('range', targetX, targetY);
-      debugLog(`Boss range attack started, targeting (${targetX}, ${targetY})`, 'boss');
+      debugLog(`✅ Boss range attack started successfully, targeting (${targetX}, ${targetY})`, 'bossattackz');
     } else {
-      debugLog('Boss entity or startAttack method not available', 'boss');
+      debugLog('❌ Boss entity or startAttack method not available for range attack', 'bossattackz');
     }
   }
 
@@ -287,18 +302,21 @@ class BossAI {
    * Perform a bolt attack
    */
   performBoltAttack() {
-    debugLog('Boss executing bolt attack - lightning projectile with animation sequence', 'boss');
+    debugLog('⚡ Boss executing bolt attack - lightning projectile with animation sequence', 'bossattackx');
     
     if (this.bossEntity && this.bossEntity.startAttack) {
       // Get target position (in front of boss)
       const targetX = this.bossEntity.position.x + (this.bossEntity.direction === 'right' ? 150 : -150);
       const targetY = this.bossEntity.position.y;
       
+      debugLog(`⚡ Bolt attack target position: (${targetX}, ${targetY}), boss direction: ${this.bossEntity.direction}`, 'bossattackx');
+      debugLog(`⚡ Bolt attack boss position: (${this.bossEntity.position.x}, ${this.bossEntity.position.y})`, 'bossattackx');
+      
       // Call startAttack with 'bolt' type to trigger the special sequence
       this.bossEntity.startAttack('bolt', targetX, targetY);
-      debugLog(`Boss bolt attack sequence started, targeting (${targetX}, ${targetY})`, 'boss');
+      debugLog(`✅ Boss bolt attack sequence started successfully, targeting (${targetX}, ${targetY})`, 'bossattackx');
     } else {
-      debugLog('Boss entity or startAttack method not available', 'boss');
+      debugLog('❌ Boss entity or startAttack method not available for bolt attack', 'bossattackx');
     }
   }
 
@@ -306,17 +324,20 @@ class BossAI {
    * Perform a melee attack
    */
   performMeleeAttack() {
-    debugLog('Boss executing melee attack - close combat damage', 'boss');
+    debugLog('👊 Boss executing melee attack - close combat damage', 'bossattackc');
     
     if (this.bossEntity && this.bossEntity.startAttack) {
       // Get target position (close to boss)
       const targetX = this.bossEntity.position.x + (this.bossEntity.direction === 'right' ? 100 : -100);
       const targetY = this.bossEntity.position.y;
       
+      debugLog(`👊 Melee attack target position: (${targetX}, ${targetY}), boss direction: ${this.bossEntity.direction}`, 'bossattackc');
+      debugLog(`👊 Melee attack boss position: (${this.bossEntity.position.x}, ${this.bossEntity.position.y})`, 'bossattackc');
+      
       this.bossEntity.startAttack('melee', targetX, targetY);
-      debugLog(`Boss melee attack started, targeting (${targetX}, ${targetY})`, 'boss');
+      debugLog(`✅ Boss melee attack started successfully, targeting (${targetX}, ${targetY})`, 'bossattackc');
     } else {
-      debugLog('Boss entity or startAttack method not available', 'boss');
+      debugLog('❌ Boss entity or startAttack method not available for melee attack', 'bossattackc');
     }
   }
 

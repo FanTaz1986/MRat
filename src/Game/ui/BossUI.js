@@ -8,12 +8,7 @@ const BossUI = ({ bossHealth = 40, maxBossHealth = 40, isVisible = false }) => {
     setCurrentHealth(bossHealth);
   }, [bossHealth]);
 
-  // Add debug logging to track prop changes (only when needed)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`BossUI props: health=${bossHealth}/${maxBossHealth}, visible=${isVisible}`);
-    }
-  }, [bossHealth, maxBossHealth, isVisible]);
+
 
   // Don't render if not visible
   if (!isVisible) {
