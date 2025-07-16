@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createDebugOverlay } from "../development/utils/Debug";
 
 const skyImg = process.env.PUBLIC_URL + "/Intro/sky.png";
 
 export default function IntroScreen({ onBack, onBeginCackle, onDebugNavigateToScreen }) {
   const debugSystemRef = useRef(null);
+  const [isFlashing, setIsFlashing] = useState(false);
 
   // Initialize debug overlay for IntroScreen
   useEffect(() => {
@@ -26,6 +27,15 @@ export default function IntroScreen({ onBack, onBeginCackle, onDebugNavigateToSc
       }
     };
   }, [onDebugNavigateToScreen]);
+
+  // Start flashing the Begin button after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsFlashing(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <div
       style={{
@@ -42,6 +52,29 @@ export default function IntroScreen({ onBack, onBeginCackle, onDebugNavigateToSc
         alignItems: "center",
       }}
     >
+      {/* Add keyframe animation styles */}
+      <style>
+        {`
+          @keyframes flash {
+            0% {
+              box-shadow: 0 0 5px #a259ff, 0 0 10px #a259ff, 0 0 15px #a259ff;
+              transform: scale(1);
+            }
+            50% {
+              box-shadow: 0 0 10px #a259ff, 0 0 20px #a259ff, 0 0 30px #a259ff, 0 0 40px #a259ff;
+              transform: scale(1.05);
+            }
+            100% {
+              box-shadow: 0 0 5px #a259ff, 0 0 10px #a259ff, 0 0 15px #a259ff;
+              transform: scale(1);
+            }
+          }
+          
+          .flash-button {
+            animation: flash 1.5s ease-in-out infinite;
+          }
+        `}
+      </style>
       <div
         style={{
           margin: "auto",
@@ -80,8 +113,12 @@ export default function IntroScreen({ onBack, onBeginCackle, onDebugNavigateToSc
           Back
         </button>
         <button
-          className="main-menu-btn"
-          style={{ minWidth: 120, fontSize: "1.2rem" }}
+          className={`main-menu-btn ${isFlashing ? 'flash-button' : ''}`}
+          style={{ 
+            minWidth: 120, 
+            fontSize: "1.2rem",
+            transition: "all 0.3s ease"
+          }}
           onClick={onBeginCackle}
         >
           Begin
