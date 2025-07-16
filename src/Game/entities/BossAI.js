@@ -135,7 +135,33 @@ class BossAI {
     switch (key.toLowerCase()) {
       case 'z':
         event.preventDefault();
-        debugLog('🎹 Z key pressed - attempting range attack', 'bossattackz');
+        debugLog('🎹 ========== Z KEY PRESSED - THUNDER ATTACK INITIATED ==========', 'bossattackz');
+        debugLog('🎹 Z key pressed - attempting range attack (thunder strike)', 'bossattackz');
+        
+        // Get current character position for initial logging
+        if (window.gameMapManager && window.gameMapManager.character) {
+          const char = window.gameMapManager.character;
+          let cameraX = 0;
+          let cameraY = 0;
+          
+          // Try to get camera position from various sources
+          if (this.bossEntity && this.bossEntity.app) {
+            cameraX = this.bossEntity.app.stage.position.x || 0;
+            cameraY = this.bossEntity.app.stage.position.y || 0;
+          } else if (window.gameMapManager.app) {
+            cameraX = window.gameMapManager.app.stage.position.x || 0;
+            cameraY = window.gameMapManager.app.stage.position.y || 0;
+          }
+          
+          const charScreenX = char.position.x + cameraX;
+          const charScreenY = char.position.y + cameraY;
+          
+          debugLog('🎹 CHARACTER POSITION AT Z KEY PRESS:', 'bossattackz');
+          debugLog(`🎹 - Map Position: (${char.position.x.toFixed(1)}, ${char.position.y.toFixed(1)})`, 'bossattackz');
+          debugLog(`🎹 - Screen Position: (${charScreenX.toFixed(1)}, ${charScreenY.toFixed(1)})`, 'bossattackz');
+          debugLog(`🎹 - Camera Position: (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)})`, 'bossattackz');
+        }
+        
         this.performAttack('range');
         break;
       case 'x':

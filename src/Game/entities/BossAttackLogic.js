@@ -738,22 +738,22 @@ export default class BossAttackLogic {
     const coneSprite = new PIXI.Sprite(coneTexture);
     debugLog('🌀 Zap cone sprite created successfully', logCategory);
     
-    coneSprite.anchor.set(0.0, 1.0); // Bottom-left anchor (cone emanates from boss)
-    debugLog('🌀 Zap cone anchor set to bottom-left (0.0, 1.0)', logCategory);
+    coneSprite.anchor.set(0.0, 0.5); // Center-left anchor for cone emanating from boss front
+    debugLog('🌀 Zap cone anchor set to (0.0, 0.5) - center-left for cone emanating from boss front', logCategory);
     
     // Enhanced scaling calculations with detailed logging
     const bossWidth = this.boss.sprite.width;
     const bossHeight = this.boss.sprite.height;
-    const targetWidth = bossWidth * 2.5; // 2.5x boss width
-    const targetHeight = bossHeight * 2.0; // 2x boss height
+    const targetWidth = bossWidth * 1.25; // 1.25x boss width (reduced from 2.5x)
+    const targetHeight = bossHeight * 1.0; // 1x boss height (reduced from 2x)
     const originalWidth = 4090; // Original zap cone texture width
     const originalHeight = 3112; // Original zap cone texture height
     const scaleX = targetWidth / originalWidth;
     const scaleY = targetHeight / originalHeight;
     
-    debugLog(`🌀 Zap cone scaling calculation:`, logCategory);
+    debugLog(`🌀 Zap cone scaling calculation (SMALLER SIZE):`, logCategory);
     debugLog(`🌀 - Boss size: ${bossWidth}x${bossHeight}`, logCategory);
-    debugLog(`🌀 - Target size: ${targetWidth}x${targetHeight}`, logCategory);
+    debugLog(`🌀 - Target size: ${targetWidth}x${targetHeight} (2x smaller than before)`, logCategory);
     debugLog(`🌀 - Original texture: ${originalWidth}x${originalHeight}`, logCategory);
     debugLog(`🌀 - Scale factors: X=${scaleX.toFixed(4)}, Y=${scaleY.toFixed(4)}`, logCategory);
     
@@ -773,19 +773,62 @@ export default class BossAttackLogic {
       debugLog(`➡️ Applied scale: X=${scaleX.toFixed(4)}, Y=${scaleY.toFixed(4)}`, logCategory);
     }
     
+    // === ENHANCED POSITIONING DEBUG FOR ZAP CONE ===
+    debugLog(`🔍 ZAP CONE POSITIONING DEBUG - DETAILED ANALYSIS:`, logCategory);
+    debugLog(`🔍 - Boss position: (${this.boss.position.x}, ${this.boss.position.y})`, logCategory);
+    debugLog(`🔍 - Boss sprite position: (${this.boss.sprite.position.x}, ${this.boss.sprite.position.y})`, logCategory);
+    debugLog(`🔍 - Container position: (${this.boss.sprite.parent.position.x}, ${this.boss.sprite.parent.position.y})`, logCategory);
+    debugLog(`🔍 - Container name: ${this.boss.sprite.parent.name || 'unnamed'}`, logCategory);
+    debugLog(`🔍 - Boss direction: ${this.boss.direction} (isLeftFacing: ${isLeftFacing})`, logCategory);
+    
     // Enhanced positioning calculations with detailed logging
     const frontOffset = isLeftFacing ? -bossWidth * 0.3 : bossWidth * 0.3; // 30% boss width forward
-    const topOffset = -bossHeight * 0.4; // 40% boss height upward
+    const topOffset = -bossHeight * 0.2; // 20% boss height upward (reduced from 40% to account for anchor change)
     const coneX = this.boss.position.x + frontOffset;
     const coneY = this.boss.position.y + topOffset;
     
     debugLog(`🌀 Zap cone positioning calculation:`, logCategory);
     debugLog(`🌀 - Boss position: (${this.boss.position.x}, ${this.boss.position.y})`, logCategory);
     debugLog(`🌀 - Front offset: ${frontOffset.toFixed(1)} (${isLeftFacing ? 'left' : 'right'})`, logCategory);
-    debugLog(`🌀 - Top offset: ${topOffset.toFixed(1)} (upward)`, logCategory);
+    debugLog(`🌀 - Top offset: ${topOffset.toFixed(1)} (upward) [reduced for anchor adjustment]`, logCategory);
     debugLog(`🌀 - Final cone position: (${coneX.toFixed(1)}, ${coneY.toFixed(1)})`, logCategory);
     
-    coneSprite.position.set(coneX, coneY);
+    // === CRITICAL POSITIONING DEBUG FOR ZAP CONE ===
+    debugLog(`🔍 ZAP CONE POSITIONING DEBUG:`, logCategory);
+    debugLog(`🔍 - Container position: (${this.boss.sprite.parent.position.x}, ${this.boss.sprite.parent.position.y})`, logCategory);
+    debugLog(`🔍 - Boss position: (${this.boss.position.x}, ${this.boss.position.y})`, logCategory);
+    debugLog(`🔍 - Intended cone position: (${coneX.toFixed(1)}, ${coneY.toFixed(1)})`, logCategory);
+    
+    // CONVERT WORLD COORDINATES TO CONTAINER-RELATIVE COORDINATES
+    const containerX = this.boss.sprite.parent.position.x;
+    const containerY = this.boss.sprite.parent.position.y;
+    const relativeX = coneX - containerX;
+    const relativeY = coneY - containerY;
+    
+    debugLog(`🔍 - Calculated relative position: (${relativeX.toFixed(1)}, ${relativeY.toFixed(1)})`, logCategory);
+    debugLog(`🔍 - Conversion: world(${coneX.toFixed(1)}, ${coneY.toFixed(1)}) - container(${containerX}, ${containerY}) = relative(${relativeX.toFixed(1)}, ${relativeY.toFixed(1)})`, logCategory);
+    
+    // === ALTERNATIVE POSITIONING METHOD - RELATIVE TO BOSS SPRITE ===
+    const bossRelativeX = isLeftFacing ? -bossWidth * 0.05 : bossWidth * 0.05; // Very close to boss (5% of width)
+    const bossRelativeY = -bossHeight * 0.25; // 25% of boss height upward from center
+    
+    debugLog(`🔍 ALTERNATIVE: Position relative to boss sprite (CLOSER TO BOSS + HIGHER):`, logCategory);
+    debugLog(`🔍 - Boss relative position: (${bossRelativeX.toFixed(1)}, ${bossRelativeY.toFixed(1)}) - 5% width, 25% height up`, logCategory);
+    debugLog(`🔍 - Boss sprite position: (${this.boss.sprite.position.x}, ${this.boss.sprite.position.y})`, logCategory);
+    
+    const altRelativeX = this.boss.sprite.position.x + bossRelativeX;
+    const altRelativeY = this.boss.sprite.position.y + bossRelativeY;
+    
+    debugLog(`🔍 - Alternative final position: (${altRelativeX.toFixed(1)}, ${altRelativeY.toFixed(1)})`, logCategory);
+    
+    // Try using the boss sprite position as base instead of world position
+    debugLog(`🔍 USING BOSS SPRITE POSITION AS BASE FOR POSITIONING - CONE EMANATES FROM BOSS FRONT`, logCategory);
+    
+    // Set the correct relative position
+    coneSprite.position.set(altRelativeX, altRelativeY);
+    debugLog(`🌀 Zap cone positioned at RELATIVE coordinates (${altRelativeX.toFixed(1)}, ${altRelativeY.toFixed(1)})`, logCategory);
+    debugLog(`🌀 Position calculation: sprite(${this.boss.sprite.position.x}, ${this.boss.sprite.position.y}) + offset(${bossRelativeX.toFixed(1)}, ${bossRelativeY.toFixed(1)})`, logCategory);
+    debugLog(`🌀 CHANGES: Smaller size (2x reduction) + closer to boss (5% width) + higher (25% boss height up) + center-left anchor`, logCategory);
     
     // Enhanced final sprite measurements
     const finalWidth = Math.abs(coneSprite.width);
@@ -800,15 +843,100 @@ export default class BossAttackLogic {
       debugLog(`🌀 Container children before add: ${this.boss.sprite.parent.children.length}`, logCategory);
       
       try {
+        // Ensure container is sortable
+        this.boss.sprite.parent.sortableChildren = true;
+        
         this.boss.sprite.parent.addChild(coneSprite);
         coneSprite.zIndex = 950; // Above most game elements
         
+        // Force container to sort children by zIndex
+        this.boss.sprite.parent.sortChildren();
+        
         debugLog(`🌀 Zap cone added successfully - zIndex: ${coneSprite.zIndex}`, logCategory);
         debugLog(`🌀 Container children after add: ${this.boss.sprite.parent.children.length}`, logCategory);
+        debugLog(`🌀 Container sortChildren() called to ensure proper z-index ordering`, logCategory);
+        
+        // === ENHANCED WORLD POSITION VERIFICATION ===
+        debugLog(`🌀 Zap cone visibility check: visible=${coneSprite.visible}, alpha=${coneSprite.alpha}`, logCategory);
+        
+        // Calculate actual world position
+        const actualWorldPos = coneSprite.toGlobal(new PIXI.Point(0, 0));
+        debugLog(`🌍 Zap cone ACTUAL world position: (${actualWorldPos.x.toFixed(1)}, ${actualWorldPos.y.toFixed(1)})`, logCategory);
+        
+        // Get boss world position for comparison
+        const bossWorldPos = this.boss.sprite.toGlobal(new PIXI.Point(0, 0));
+        debugLog(`🌍 Boss sprite ACTUAL world position: (${bossWorldPos.x.toFixed(1)}, ${bossWorldPos.y.toFixed(1)})`, logCategory);
+        
+        // Calculate distance between cone and boss
+        const distanceX = actualWorldPos.x - bossWorldPos.x;
+        const distanceY = actualWorldPos.y - bossWorldPos.y;
+        const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+        
+        debugLog(`🌍 Distance from boss to cone: X=${distanceX.toFixed(1)}, Y=${distanceY.toFixed(1)}, Total=${distance.toFixed(1)}`, logCategory);
+        
+        // Check if cone is in correct position relative to boss
+        const expectedDirection = isLeftFacing ? 'left' : 'right';
+        const actualDirection = distanceX < 0 ? 'left' : 'right';
+        const isCorrectSide = expectedDirection === actualDirection;
+        
+        debugLog(`🌍 Direction check: Expected=${expectedDirection}, Actual=${actualDirection}, Correct=${isCorrectSide}`, logCategory);
+        
+        if (!isCorrectSide) {
+          debugLog(`⚠️ WARNING: Cone is on the wrong side of the boss!`, logCategory);
+        }
+        
+        if (distance > 500) {
+          debugLog(`⚠️ WARNING: Cone is too far from boss (${distance.toFixed(1)}px)!`, logCategory);
+        }
+        
+        // Check if it's within screen bounds
+        const cameraX = this.app.stage.position.x || 0;
+        const cameraY = this.app.stage.position.y || 0;
+        const screenWidth = this.app.screen.width;
+        const screenHeight = this.app.screen.height;
+        const screenLeft = -cameraX;
+        const screenRight = -cameraX + screenWidth;
+        const screenTop = -cameraY;
+        const screenBottom = -cameraY + screenHeight;
+        
+        const isOnScreen = actualWorldPos.x >= screenLeft && actualWorldPos.x <= screenRight &&
+                          actualWorldPos.y >= screenTop && actualWorldPos.y <= screenBottom;
+        
+        debugLog(`📺 Screen bounds check: left=${screenLeft.toFixed(1)}, right=${screenRight.toFixed(1)}, top=${screenTop.toFixed(1)}, bottom=${screenBottom.toFixed(1)}`, logCategory);
+        debugLog(`📺 Zap cone is ${isOnScreen ? 'ON SCREEN' : 'OFF SCREEN'}`, logCategory);
+        
+        if (!isOnScreen) {
+          debugLog(`⚠️ WARNING: Zap cone is positioned outside visible screen area!`, logCategory);
+        }
+        
+        // Enhanced bounds logging after positioning fix
+        const coneBounds = coneSprite.getBounds();
+        debugLog(`🌀 Zap cone bounds after positioning: x=${coneBounds.x.toFixed(1)}, y=${coneBounds.y.toFixed(1)}, w=${coneBounds.width.toFixed(1)}, h=${coneBounds.height.toFixed(1)}`, logCategory);
+        
+        // Calculate expected character hit area
+        const expectedHitAreaLeft = coneBounds.x;
+        const expectedHitAreaRight = coneBounds.x + coneBounds.width;
+        const expectedHitAreaTop = coneBounds.y;
+        const expectedHitAreaBottom = coneBounds.y + coneBounds.height;
+        
+        debugLog(`🌀 Expected hit area: left=${expectedHitAreaLeft.toFixed(1)}, right=${expectedHitAreaRight.toFixed(1)}, top=${expectedHitAreaTop.toFixed(1)}, bottom=${expectedHitAreaBottom.toFixed(1)}`, logCategory);
+        
+        // Check if character would be in hit area
+        if (window.gameMapManager && window.gameMapManager.character) {
+          const charPos = window.gameMapManager.character.position;
+          const wouldHitX = charPos.x >= expectedHitAreaLeft && charPos.x <= expectedHitAreaRight;
+          const wouldHitY = charPos.y >= expectedHitAreaTop && charPos.y <= expectedHitAreaBottom;
+          debugLog(`🌀 Character hit prediction: X=${wouldHitX}, Y=${wouldHitY}, Overall=${wouldHitX && wouldHitY}`, logCategory);
+          debugLog(`🌀 Character position: (${charPos.x.toFixed(1)}, ${charPos.y.toFixed(1)})`, logCategory);
+        }
         
         // Start animation with frame changes
         debugLog('🌀 Starting zap cone animation sequence', logCategory);
         this.animateZapCone(coneSprite, randomFrame);
+        
+        // Initialize damage tracking for this attack
+        coneSprite.hasDealtDamage = false;
+        debugLog('🌀 Zap cone damage tracking initialized: hasDealtDamage = false', logCategory);
         
       } catch (error) {
         debugLog(`❌ Error adding zap cone to container: ${error.message}`, logCategory);
@@ -846,7 +974,11 @@ export default class BossAttackLogic {
     // Enhanced frame change tracking
     let frameChangeCount = 0;
     let lastLogTime = startTime;
+    let lastDamageCheckTime = startTime;
     const logInterval = 500; // Log every 500ms during animation
+    const damageCheckInterval = 100; // Check for damage every 100ms
+    
+    debugLog('🌀 CONTINUOUS DAMAGE: Will check for character collision every 100ms during animation', logCategory);
     
     const animateFrame = () => {
       // Enhanced safety checks with detailed logging
@@ -864,16 +996,30 @@ export default class BossAttackLogic {
         const progress = (elapsed / animationDuration * 100).toFixed(1);
         debugLog(`🌀 Zap cone animation progress: ${progress}% (${elapsed}ms elapsed)`, logCategory);
         debugLog(`🌀 Current frame: ${currentFrame + 1}, frame changes: ${frameChangeCount}`, logCategory);
+        debugLog(`🌀 Damage status: hasDealtDamage=${coneSprite.hasDealtDamage}`, logCategory);
         lastLogTime = now;
+      }
+      
+      // Continuous damage checking during animation
+      if (now - lastDamageCheckTime >= damageCheckInterval && !coneSprite.hasDealtDamage) {
+        this.checkZapConeDamageContinuous(coneSprite);
+        lastDamageCheckTime = now;
       }
       
       // Check if animation should end
       if (elapsed >= animationDuration) {
         // Enhanced animation completion logging
-        debugLog('🌀 Zap cone animation complete - checking for character damage', logCategory);
+        debugLog('🌀 Zap cone animation complete - final damage check', logCategory);
         debugLog(`🌀 Total animation time: ${elapsed}ms, frame changes: ${frameChangeCount}`, logCategory);
+        debugLog(`🌀 Final damage status: hasDealtDamage=${coneSprite.hasDealtDamage}`, logCategory);
         
-        this.checkZapConeDamage(coneSprite);
+        // Final damage check if no damage was dealt during animation
+        if (!coneSprite.hasDealtDamage) {
+          debugLog('🌀 No damage dealt during animation - performing final check', logCategory);
+          this.checkZapConeDamage(coneSprite);
+        } else {
+          debugLog('🌀 Damage already dealt during animation - skipping final check', logCategory);
+        }
         
         // Enhanced cleanup with detailed logging
         setTimeout(() => {
@@ -933,11 +1079,82 @@ export default class BossAttackLogic {
   }
 
   /**
+   * Check if character is within zap cone damage area (continuous checking during animation)
+   */
+  checkZapConeDamageContinuous(coneSprite) {
+    const logCategory = this.getAttackLogCategory('range');
+    
+    // Skip if damage already dealt
+    if (coneSprite.hasDealtDamage) {
+      return;
+    }
+    
+    if (!window.gameMapManager || !window.gameMapManager.character) {
+      return;
+    }
+    
+    const character = window.gameMapManager.character;
+    const characterX = character.position.x;
+    const characterY = character.position.y;
+    
+    // Enhanced bounds calculation with detailed logging
+    const coneBounds = coneSprite.getBounds();
+    
+    // Enhanced collision detection with detailed logging
+    const leftBound = coneBounds.x;
+    const rightBound = coneBounds.x + coneBounds.width;
+    const topBound = coneBounds.y;
+    const bottomBound = coneBounds.y + coneBounds.height;
+    
+    const isInConeX = characterX >= leftBound && characterX <= rightBound;
+    const isInConeY = characterY >= topBound && characterY <= bottomBound;
+    let isInCone = isInConeX && isInConeY;
+    
+    // Enhanced character size consideration
+    if (character.sprite && !isInCone) {
+      const charWidth = character.sprite.width;
+      const charHeight = character.sprite.height;
+      
+      // Check character center point as well
+      const charCenterX = characterX + charWidth / 2;
+      const charCenterY = characterY + charHeight / 2;
+      const isCenterInCone = charCenterX >= leftBound && charCenterX <= rightBound &&
+                             charCenterY >= topBound && charCenterY <= bottomBound;
+      
+      if (isCenterInCone) {
+        isInCone = true;
+      }
+    }
+    
+    if (isInCone) {
+      debugLog(`💥 ZAP CONE CONTINUOUS HIT! Character entered cone at (${characterX.toFixed(1)}, ${characterY.toFixed(1)})`, logCategory);
+      debugLog(`💥 Cone bounds: left=${leftBound.toFixed(1)}, right=${rightBound.toFixed(1)}, top=${topBound.toFixed(1)}, bottom=${bottomBound.toFixed(1)}`, logCategory);
+      
+      // Mark damage as dealt to prevent multiple hits
+      coneSprite.hasDealtDamage = true;
+      
+      // Enhanced damage application with invulnerability check
+      if (typeof isInvulnerable === 'function' && isInvulnerable()) {
+        debugLog('🛡️ Character is invulnerable - damage blocked', logCategory);
+      } else {
+        debugLog('💥 Applying zap cone damage to character (continuous detection)', logCategory);
+        this.damageCharacter();
+      }
+    }
+  }
+
+  /**
    * Check if character is within zap cone damage area
    */
   checkZapConeDamage(coneSprite) {
     const logCategory = this.getAttackLogCategory('range');
-    debugLog('🌀 Checking zap cone damage collision', logCategory);
+    debugLog('🌀 Checking zap cone damage collision (final check)', logCategory);
+    
+    // Skip if damage already dealt during animation
+    if (coneSprite.hasDealtDamage) {
+      debugLog('🌀 Damage already dealt during animation - skipping final damage check', logCategory);
+      return;
+    }
     
     if (!window.gameMapManager || !window.gameMapManager.character) {
       debugLog('⚠️ Character not found for zap cone damage check', logCategory);
@@ -993,14 +1210,17 @@ export default class BossAttackLogic {
     }
     
     if (isInCone) {
-      debugLog(`💥 ZAP CONE HIT CHARACTER at (${characterX.toFixed(1)}, ${characterY.toFixed(1)})!`, logCategory);
+      debugLog(`💥 ZAP CONE FINAL HIT CHARACTER at (${characterX.toFixed(1)}, ${characterY.toFixed(1)})!`, logCategory);
       debugLog(`💥 Damage will be applied to character`, logCategory);
       
+      // Mark damage as dealt
+      coneSprite.hasDealtDamage = true;
+      
       // Enhanced damage application with invulnerability check
-      if (isInvulnerable()) {
+      if (typeof isInvulnerable === 'function' && isInvulnerable()) {
         debugLog('🛡️ Character is invulnerable - damage blocked', logCategory);
       } else {
-        debugLog('💥 Applying zap cone damage to character', logCategory);
+        debugLog('💥 Applying zap cone damage to character (final check)', logCategory);
         this.damageCharacter();
       }
     } else {
@@ -1018,6 +1238,7 @@ export default class BossAttackLogic {
    */
   executeThunderAttack(characterPosition) {
     const logCategory = this.getAttackLogCategory('range');
+    debugLog('⚡ ========== THUNDER ATTACK DEBUG SESSION START ==========', logCategory);
     debugLog('⚡ Executing THUNDER ATTACK with multiple strikes', logCategory);
     
     // Enhanced safety checks with detailed logging
@@ -1034,16 +1255,35 @@ export default class BossAttackLogic {
     debugLog(`⚡ Thunder texture loaded: ${thunderTexture.width}x${thunderTexture.height}`, logCategory);
     debugLog(`⚡ Thunder texture state: destroyed=${thunderTexture.destroyed}, valid=${thunderTexture.valid}`, logCategory);
     
+    // === CAMERA AND SCREEN INFORMATION ===
+    const appScreenWidth = this.app.screen.width;
+    const appScreenHeight = this.app.screen.height;
+    const cameraX = this.app.stage.position.x || 0;
+    const cameraY = this.app.stage.position.y || 0;
+    
+    debugLog(`📱 SCREEN INFO: ${appScreenWidth}x${appScreenHeight}`, logCategory);
+    debugLog(`📷 CAMERA INFO: position (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)})`, logCategory);
+    debugLog(`🗺️ WORLD VISIBLE AREA: left=${(-cameraX).toFixed(1)}, right=${(-cameraX + appScreenWidth).toFixed(1)}, top=${(-cameraY).toFixed(1)}, bottom=${(-cameraY + appScreenHeight).toFixed(1)}`, logCategory);
+    
+    // === CHARACTER INFORMATION ===
+    debugLog(`👤 CHARACTER INFO AT ATTACK START:`, logCategory);
+    debugLog(`👤 - Map Position: (${characterPosition.x.toFixed(1)}, ${characterPosition.y.toFixed(1)})`, logCategory);
+    
+    // Calculate character's screen position
+    const charScreenX = characterPosition.x + cameraX;
+    const charScreenY = characterPosition.y + cameraY;
+    debugLog(`👤 - Screen Position: (${charScreenX.toFixed(1)}, ${charScreenY.toFixed(1)})`, logCategory);
+    
     // Enhanced character sprite size detection
     let characterHeight = 64; // Default character height
     if (window.gameMapManager && window.gameMapManager.character && window.gameMapManager.character.sprite) {
       const characterSprite = window.gameMapManager.character.sprite;
       characterHeight = characterSprite.height;
-      debugLog(`📏 Character sprite detected: ${characterSprite.width}x${characterSprite.height}`, logCategory);
-      debugLog(`📏 Character sprite scale: (${characterSprite.scale.x}, ${characterSprite.scale.y})`, logCategory);
-      debugLog(`📏 Character sprite position: (${characterSprite.position.x}, ${characterSprite.position.y})`, logCategory);
+      debugLog(`� - Sprite Size: ${characterSprite.width}x${characterSprite.height}`, logCategory);
+      debugLog(`� - Sprite Scale: (${characterSprite.scale.x}, ${characterSprite.scale.y})`, logCategory);
+      debugLog(`� - Sprite Position: (${characterSprite.position.x}, ${characterSprite.position.y})`, logCategory);
     } else {
-      debugLog('📏 Character sprite not found - using default height: 64px', logCategory);
+      debugLog('� - Character sprite not found - using default height: 64px', logCategory);
     }
     
     // Enhanced thunder scaling calculations with detailed logging
@@ -1072,14 +1312,29 @@ export default class BossAttackLogic {
     
     debugLog(`⚡ Primary target (character): (${characterPosition.x.toFixed(1)}, ${characterPosition.y.toFixed(1)})`, logCategory);
     
-    // 2-4. Three random screen positions for dramatic effect
+    // 2-4. Three random screen positions for dramatic effect (with 10% edge margin)
     const screenBounds = this.getScreenBounds();
     debugLog(`⚡ Screen bounds: left=${screenBounds.left.toFixed(1)}, right=${screenBounds.right.toFixed(1)}, top=${screenBounds.top.toFixed(1)}, bottom=${screenBounds.bottom.toFixed(1)}`, logCategory);
     debugLog(`⚡ Screen dimensions: ${(screenBounds.right - screenBounds.left).toFixed(1)}x${(screenBounds.bottom - screenBounds.top).toFixed(1)}`, logCategory);
     
+    // Add 10% margin from screen edges
+    const boundsScreenWidth = screenBounds.right - screenBounds.left;
+    const boundsScreenHeight = screenBounds.bottom - screenBounds.top;
+    const marginX = boundsScreenWidth * 0.1;  // 10% margin from left/right edges
+    const marginY = boundsScreenHeight * 0.1; // 10% margin from top/bottom edges
+    
+    const constrainedBounds = {
+      left: screenBounds.left + marginX,
+      right: screenBounds.right - marginX,
+      top: screenBounds.top + marginY,
+      bottom: screenBounds.bottom - marginY
+    };
+    
+    debugLog(`⚡ Constrained bounds (10% margin): left=${constrainedBounds.left.toFixed(1)}, right=${constrainedBounds.right.toFixed(1)}, top=${constrainedBounds.top.toFixed(1)}, bottom=${constrainedBounds.bottom.toFixed(1)}`, logCategory);
+    
     for (let i = 0; i < 3; i++) {
-      const randomX = screenBounds.left + Math.random() * (screenBounds.right - screenBounds.left);
-      const randomY = screenBounds.top + Math.random() * (screenBounds.bottom - screenBounds.top);
+      const randomX = constrainedBounds.left + Math.random() * (constrainedBounds.right - constrainedBounds.left);
+      const randomY = constrainedBounds.top + Math.random() * (constrainedBounds.bottom - constrainedBounds.top);
       
       attackLocations.push({
         x: randomX,
@@ -1087,7 +1342,13 @@ export default class BossAttackLogic {
         type: 'random'
       });
       
-      debugLog(`⚡ Random strike ${i + 1}: (${randomX.toFixed(1)}, ${randomY.toFixed(1)})`, logCategory);
+      // Calculate screen position for random strike
+      const randomScreenX = randomX + cameraX;
+      const randomScreenY = randomY + cameraY;
+      
+      debugLog(`⚡ Random strike ${i + 1}:`, logCategory);
+      debugLog(`⚡ - Map Position: (${randomX.toFixed(1)}, ${randomY.toFixed(1)})`, logCategory);
+      debugLog(`⚡ - Screen Position: (${randomScreenX.toFixed(1)}, ${randomScreenY.toFixed(1)})`, logCategory);
     }
     
     debugLog(`⚡ Thunder strike locations: ${attackLocations.length} total`, logCategory);
@@ -1132,6 +1393,13 @@ export default class BossAttackLogic {
     });
     
     debugLog(`⚡ All thunder strikes scheduled - total timeouts: ${this.attackSequenceTimeouts.length}`, logCategory);
+    debugLog(`⚡ ========== THUNDER STRIKE SUMMARY ==========`, logCategory);
+    debugLog(`⚡ Total strikes: ${attackLocations.length}`, logCategory);
+    debugLog(`⚡ Character strike at: (${attackLocations[0].x.toFixed(1)}, ${attackLocations[0].y.toFixed(1)})`, logCategory);
+    for (let i = 1; i < attackLocations.length; i++) {
+      debugLog(`⚡ Random strike ${i} at: (${attackLocations[i].x.toFixed(1)}, ${attackLocations[i].y.toFixed(1)})`, logCategory);
+    }
+    debugLog(`⚡ ========== THUNDER ATTACK DEBUG SESSION END ==========`, logCategory);
   }
 
   /**
@@ -1139,7 +1407,46 @@ export default class BossAttackLogic {
    */
   createThunderStrike(x, y, scaleX, scaleY, strikeType, index) {
     const logCategory = this.getAttackLogCategory('range');
+    debugLog(`⚡ ========== THUNDER STRIKE ${index + 1} CREATION ==========`, logCategory);
     debugLog(`⚡ Creating thunder strike ${index + 1} at (${x.toFixed(1)}, ${y.toFixed(1)}) [${strikeType}]`, logCategory);
+    
+    // === DETAILED POSITION LOGGING ===
+    const cameraX = this.app.stage.position.x || 0;
+    const cameraY = this.app.stage.position.y || 0;
+    const strikeScreenX = x + cameraX;
+    const strikeScreenY = y + cameraY;
+    
+    debugLog(`⚡ STRIKE ${index + 1} POSITION DETAILS:`, logCategory);
+    debugLog(`⚡ - Map Position: (${x.toFixed(1)}, ${y.toFixed(1)})`, logCategory);
+    debugLog(`⚡ - Screen Position: (${strikeScreenX.toFixed(1)}, ${strikeScreenY.toFixed(1)})`, logCategory);
+    debugLog(`⚡ - Strike Type: ${strikeType}`, logCategory);
+    
+    // === CURRENT CHARACTER POSITION ===
+    const currentCharacterPosition = this.getCurrentCharacterPosition();
+    if (currentCharacterPosition) {
+      const charScreenX = currentCharacterPosition.x + cameraX;
+      const charScreenY = currentCharacterPosition.y + cameraY;
+      
+      debugLog(`👤 CURRENT CHARACTER POSITION:`, logCategory);
+      debugLog(`👤 - Map Position: (${currentCharacterPosition.x.toFixed(1)}, ${currentCharacterPosition.y.toFixed(1)})`, logCategory);
+      debugLog(`👤 - Screen Position: (${charScreenX.toFixed(1)}, ${charScreenY.toFixed(1)})`, logCategory);
+      
+      // Distance calculations
+      const mapDistance = Math.sqrt(
+        Math.pow(currentCharacterPosition.x - x, 2) + 
+        Math.pow(currentCharacterPosition.y - y, 2)
+      );
+      const screenDistance = Math.sqrt(
+        Math.pow(charScreenX - strikeScreenX, 2) + 
+        Math.pow(charScreenY - strikeScreenY, 2)
+      );
+      
+      debugLog(`📏 DISTANCE CALCULATIONS:`, logCategory);
+      debugLog(`📏 - Map Distance: ${mapDistance.toFixed(1)}px`, logCategory);
+      debugLog(`📏 - Screen Distance: ${screenDistance.toFixed(1)}px`, logCategory);
+    } else {
+      debugLog(`👤 ⚠️ CHARACTER POSITION NOT AVAILABLE`, logCategory);
+    }
     
     // Enhanced texture validation - now checking all thunder frames
     const thunderTextures = this.boss.animations.thunder;
@@ -1177,22 +1484,29 @@ export default class BossAttackLogic {
     thunderSprite.anchor.set(0.5, 0.5); // Center anchor for better visibility on character
     debugLog(`⚡ Thunder sprite ${index + 1} anchor set to center (0.5, 0.5)`, logCategory);
     
+    // All thunder strikes use the same scale regardless of type
+    let effectiveScaleX = scaleX;
+    let effectiveScaleY = scaleY;
+    
+    // Character strikes no longer have different scaling - they look the same as random strikes
+    debugLog(`⚡ Thunder strike ${index + 1} using standard scale: X=${effectiveScaleX.toFixed(4)}, Y=${effectiveScaleY.toFixed(4)}`, logCategory);
+    
     // Enhanced scaling with detailed logging
-    thunderSprite.scale.set(scaleX, scaleY);
-    debugLog(`⚡ Thunder sprite ${index + 1} initial scale: X=${scaleX.toFixed(4)}, Y=${scaleY.toFixed(4)}`, logCategory);
+    thunderSprite.scale.set(effectiveScaleX, effectiveScaleY);
+    debugLog(`⚡ Thunder sprite ${index + 1} initial scale: X=${effectiveScaleX.toFixed(4)}, Y=${effectiveScaleY.toFixed(4)}`, logCategory);
     
     // Enhanced random flip with detailed logging
     const shouldFlip = Math.random() < 0.5;
     if (shouldFlip) {
-      thunderSprite.scale.x = -Math.abs(scaleX);
+      thunderSprite.scale.x = -Math.abs(effectiveScaleX);
       debugLog(`⚡ Thunder strike ${index + 1} flipped horizontally (scale.x = ${thunderSprite.scale.x.toFixed(4)})`, logCategory);
     } else {
       debugLog(`⚡ Thunder strike ${index + 1} using normal orientation`, logCategory);
     }
     
     // Enhanced positioning with detailed logging
-    thunderSprite.position.set(x, y);
-    debugLog(`⚡ Thunder sprite ${index + 1} positioned at (${x.toFixed(1)}, ${y.toFixed(1)})`, logCategory);
+    // IMPORTANT: Don't set position here yet - we need to calculate relative position first
+    debugLog(`⚡ Thunder sprite ${index + 1} target position: (${x.toFixed(1)}, ${y.toFixed(1)}) [will be converted to relative]`, logCategory);
     
     // Enhanced final measurements
     const finalWidth = Math.abs(thunderSprite.width);
@@ -1203,10 +1517,33 @@ export default class BossAttackLogic {
     if (this.boss.sprite.parent && !this.boss.sprite.parent.destroyed) {
       debugLog(`⚡ Adding thunder sprite ${index + 1} to container: ${this.boss.sprite.parent.constructor.name}`, logCategory);
       
+      // === CRITICAL POSITIONING DEBUG ===
+      debugLog(`🔍 POSITIONING DEBUG FOR STRIKE ${index + 1}:`, logCategory);
+      debugLog(`🔍 - Container position: (${this.boss.sprite.parent.position.x}, ${this.boss.sprite.parent.position.y})`, logCategory);
+      debugLog(`🔍 - Boss position: (${this.boss.position.x}, ${this.boss.position.y})`, logCategory);
+      debugLog(`🔍 - Intended strike position: (${x.toFixed(1)}, ${y.toFixed(1)})`, logCategory);
+      
+      // CONVERT WORLD COORDINATES TO CONTAINER-RELATIVE COORDINATES
+      const containerX = this.boss.sprite.parent.position.x;
+      const containerY = this.boss.sprite.parent.position.y;
+      const relativeX = x - containerX;
+      const relativeY = y - containerY;
+      
+      debugLog(`🔍 - Calculated relative position: (${relativeX.toFixed(1)}, ${relativeY.toFixed(1)})`, logCategory);
+      debugLog(`🔍 - Conversion: world(${x.toFixed(1)}, ${y.toFixed(1)}) - container(${containerX}, ${containerY}) = relative(${relativeX.toFixed(1)}, ${relativeY.toFixed(1)})`, logCategory);
+      
+      // Set the correct relative position
+      thunderSprite.position.set(relativeX, relativeY);
+      debugLog(`⚡ Thunder sprite ${index + 1} positioned at RELATIVE coordinates (${relativeX.toFixed(1)}, ${relativeY.toFixed(1)})`, logCategory);
+      
       try {
         const childrenBefore = this.boss.sprite.parent.children.length;
+        
+        // Ensure container is sortable
+        this.boss.sprite.parent.sortableChildren = true;
+        
         this.boss.sprite.parent.addChild(thunderSprite);
-        thunderSprite.zIndex = 1100; // Above character (1000) but below UI (2000+)
+        thunderSprite.zIndex = 2000; // Much higher z-index to ensure visibility above everything
         
         // Force container to sort children by zIndex (important for proper layering)
         this.boss.sprite.parent.sortChildren();
@@ -1214,6 +1551,34 @@ export default class BossAttackLogic {
         debugLog(`⚡ Thunder sprite ${index + 1} added successfully - zIndex: ${thunderSprite.zIndex}`, logCategory);
         debugLog(`⚡ Container children: ${childrenBefore} → ${this.boss.sprite.parent.children.length}`, logCategory);
         debugLog(`⚡ Container sortChildren() called to ensure proper z-index ordering`, logCategory);
+        debugLog(`⚡ Container sortableChildren set to: ${this.boss.sprite.parent.sortableChildren}`, logCategory);
+        
+        // === ENHANCED WORLD POSITION VERIFICATION ===
+        debugLog(`⚡ Thunder sprite ${index + 1} visibility check: visible=${thunderSprite.visible}, alpha=${thunderSprite.alpha}`, logCategory);
+        
+        // Calculate actual world position
+        const actualWorldPos = thunderSprite.toGlobal(new PIXI.Point(0, 0));
+        debugLog(`🌍 Thunder sprite ${index + 1} ACTUAL world position: (${actualWorldPos.x.toFixed(1)}, ${actualWorldPos.y.toFixed(1)})`, logCategory);
+        
+        // Check if it's within screen bounds
+        const screenWidth = this.app.screen.width;
+        const screenHeight = this.app.screen.height;
+        const screenLeft = -cameraX;
+        const screenRight = -cameraX + screenWidth;
+        const screenTop = -cameraY;
+        const screenBottom = -cameraY + screenHeight;
+        
+        const isOnScreen = actualWorldPos.x >= screenLeft && actualWorldPos.x <= screenRight &&
+                          actualWorldPos.y >= screenTop && actualWorldPos.y <= screenBottom;
+        
+        debugLog(`📺 Screen bounds check: left=${screenLeft.toFixed(1)}, right=${screenRight.toFixed(1)}, top=${screenTop.toFixed(1)}, bottom=${screenBottom.toFixed(1)}`, logCategory);
+        debugLog(`📺 Thunder sprite ${index + 1} is ${isOnScreen ? 'ON SCREEN' : 'OFF SCREEN'}`, logCategory);
+        
+        if (!isOnScreen) {
+          debugLog(`⚠️ WARNING: Thunder sprite ${index + 1} is positioned outside visible screen area!`, logCategory);
+        }
+        
+        // All thunder strikes now look the same - no special effects for character strikes
         
         // Enhanced damage detection - check if character is actually at the thunder strike position
         const currentCharacterPosition = this.getCurrentCharacterPosition();
@@ -1379,6 +1744,7 @@ export default class BossAttackLogic {
               
               thunderSprite.destroy();
               debugLog(`⚡ Thunder strike ${index + 1} destroyed after animation`, logCategory);
+              debugLog(`⚡ ========== THUNDER STRIKE ${index + 1} CLEANUP COMPLETE ==========`, logCategory);
             } catch (error) {
               debugLog(`⚠️ Error destroying thunder strike ${index + 1}: ${error.message}`, logCategory);
               debugLog(`⚠️ Error stack: ${error.stack}`, logCategory);
@@ -1463,11 +1829,19 @@ export default class BossAttackLogic {
     debugLog(`⚡ Screen dimensions: ${screenWidth}x${screenHeight}`, logCategory);
     debugLog(`⚡ Camera position: (${cameraX.toFixed(1)}, ${cameraY.toFixed(1)})`, logCategory);
     
+    // Calculate world coordinates visible on screen
+    const worldLeft = -cameraX;
+    const worldRight = -cameraX + screenWidth;
+    const worldTop = -cameraY;
+    const worldBottom = -cameraY + screenHeight;
+    
+    debugLog(`⚡ World coordinates visible on screen: left=${worldLeft.toFixed(1)}, right=${worldRight.toFixed(1)}, top=${worldTop.toFixed(1)}, bottom=${worldBottom.toFixed(1)}`, logCategory);
+    
     const bounds = {
-      left: -cameraX,
-      right: -cameraX + screenWidth,
-      top: -cameraY,
-      bottom: -cameraY + screenHeight
+      left: worldLeft,
+      right: worldRight,
+      top: worldTop,
+      bottom: worldBottom
     };
     
     debugLog(`⚡ Calculated bounds: left=${bounds.left.toFixed(1)}, right=${bounds.right.toFixed(1)}, top=${bounds.top.toFixed(1)}, bottom=${bounds.bottom.toFixed(1)}`, logCategory);
