@@ -40,6 +40,11 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     // This prevents conflicts and ensures consistent portal data
     this.portalManager = null;
     debugLog('Map1 will use portal information passed from MapManager', 'map');
+    
+    // Enemy spawning system - calculated once during map loading and remembered
+    this.enemySpawnData = null; // Will store all enemy spawn positions and properties
+    this.spawnedEnemyIds = new Set(); // Track which enemies have been spawned to prevent duplicates
+    this.isEnemyDataCalculated = false; // Flag to ensure enemy positions are calculated only once
   }
   
   /**
@@ -145,6 +150,322 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     debugLog('Map1 props loaded. Portals are managed by MapManager.', 'map');
     
     return props;
+  }
+
+  /**
+   * Calculate enemy spawn data once during map loading
+   * This is called once when Map1 is first loaded and positions are remembered
+   */
+  calculateEnemySpawnData() {
+    if (this.isEnemyDataCalculated) {
+      debugLog('Enemy spawn data already calculated, skipping recalculation', 'map');
+      return;
+    }
+    
+    debugLog('Calculating enemy spawn data for Map1', 'map');
+    
+    this.enemySpawnData = {
+      centerTiles: [], // 1Amap.png tiles (6,6 to 9,9)
+      portalTiles: [], // Portal tiles
+      otherTiles: []   // All other tiles
+    };
+    
+    // Helper function to get random position within a tile
+    const getRandomPositionInTile = (tileX, tileY) => {
+      const margin = 100; // Keep enemies away from tile edges
+      const x = (tileX * this.tileWidth) + margin + Math.random() * (this.tileWidth - 2 * margin);
+      const y = (tileY * this.tileHeight) + margin + Math.random() * (this.tileHeight - 2 * margin);
+      return { x, y };
+    };
+    
+    // Helper function to create enemy spawn info
+    const createEnemySpawn = (tileX, tileY, type, hp, spawnId) => {
+      const position = getRandomPositionInTile(tileX, tileY);
+      return {
+        id: spawnId,
+        tileX,
+        tileY,
+        type,
+        hp,
+        position: position,
+        isSpawned: false // Track if this enemy has been spawned
+      };
+    };
+    
+    let spawnIdCounter = 1; // Unique ID for each enemy spawn
+    
+    // 1. CENTER TILES (1Amap.png tiles: 6,6 to 9,9) - 1-3 blue slimes, HP 1-3
+    debugLog('Calculating center tile enemy spawns (1Amap.png tiles)', 'map');
+    const centerTileCoords = [];
+    for (let x = 6; x <= 9; x++) {
+      for (let y = 6; y <= 9; y++) {
+        centerTileCoords.push([x, y]);
+      }
+    }
+    
+    // Add 1-3 blue slimes per 1Amap tile, HP 1-3
+    let totalCenterBlueSlimes = 0;
+    for (let i = 0; i < centerTileCoords.length; i++) {
+      const tile = centerTileCoords[i];
+      const slimesInThisTile = 1 + Math.floor(Math.random() * 3); // 1-3 slimes per tile
+      
+      for (let j = 0; j < slimesInThisTile; j++) {
+        const hp = 1 + Math.floor(Math.random() * 3); // 1-3 HP
+        const enemySpawn = createEnemySpawn(tile[0], tile[1], 'blue', hp, `center_${spawnIdCounter++}`);
+        this.enemySpawnData.centerTiles.push(enemySpawn);
+        totalCenterBlueSlimes++;
+        
+        debugLog(`Planned center blue slime (${hp}HP) in 1Amap tile (${tile[0]},${tile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+      }
+    }
+    
+    debugLog(`Total center blue slimes planned: ${totalCenterBlueSlimes} (in ${centerTileCoords.length} 1Amap tiles)`, 'map');
+    
+    // 2. PORTAL TILES - Get from propGenerator or fallback
+    debugLog('Calculating portal tile enemy spawns', 'map');
+    let portalTileCoords = [];
+    
+    if (this.propGenerator && this.propGenerator.portalTiles && this.propGenerator.portalTiles.length > 0) {
+      portalTileCoords = this.propGenerator.portalTiles;
+      debugLog(`Found ${portalTileCoords.length} portal tiles from propGenerator`, 'map');
+    } else {
+      // Fallback: generate some portal tiles (corners and edges)
+      portalTileCoords = [
+        [0, 0], [0, 15], [15, 0], [15, 15], // Corners
+        [7, 0], [8, 0], [7, 15], [8, 15],   // Top/bottom edges
+        [0, 7], [0, 8], [15, 7], [15, 8]    // Left/right edges
+      ];
+      debugLog(`Using fallback portal tiles: ${portalTileCoords.length} tiles`, 'map');
+    }
+    
+    if (portalTileCoords.length > 0) {
+      let totalPortalBlueSlimes = 0;
+      let totalPortalRedSlimes = 0;
+      
+      // 4 random blue slimes HP 3-5 in portal tiles
+      for (let i = 0; i < 4; i++) {
+        const randomTile = portalTileCoords[Math.floor(Math.random() * portalTileCoords.length)];
+        const hp = 3 + Math.floor(Math.random() * 3); // 3-5 HP
+        
+        const enemySpawn = createEnemySpawn(randomTile[0], randomTile[1], 'blue', hp, `portal_blue_${spawnIdCounter++}`);
+        this.enemySpawnData.portalTiles.push(enemySpawn);
+        totalPortalBlueSlimes++;
+        
+        debugLog(`Planned portal blue slime (${hp}HP) in portal tile (${randomTile[0]},${randomTile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+      }
+      
+      // 1 red slime 5HP in portal tile
+      const randomTile5HP = portalTileCoords[Math.floor(Math.random() * portalTileCoords.length)];
+      const enemySpawn5HP = createEnemySpawn(randomTile5HP[0], randomTile5HP[1], 'red', 5, `portal_red_5hp_${spawnIdCounter++}`);
+      this.enemySpawnData.portalTiles.push(enemySpawn5HP);
+      totalPortalRedSlimes++;
+      debugLog(`Planned portal red slime (5HP) in portal tile (${randomTile5HP[0]},${randomTile5HP[1]}) at (${enemySpawn5HP.position.x.toFixed(1)}, ${enemySpawn5HP.position.y.toFixed(1)})`, 'map');
+      
+      // 2 red slimes 2-3 HP in portal tiles
+      for (let i = 0; i < 2; i++) {
+        const randomTile = portalTileCoords[Math.floor(Math.random() * portalTileCoords.length)];
+        const hp = 2 + Math.floor(Math.random() * 2); // 2-3 HP
+        
+        const enemySpawn = createEnemySpawn(randomTile[0], randomTile[1], 'red', hp, `portal_red_${spawnIdCounter++}`);
+        this.enemySpawnData.portalTiles.push(enemySpawn);
+        totalPortalRedSlimes++;
+        
+        debugLog(`Planned portal red slime (${hp}HP) in portal tile (${randomTile[0]},${randomTile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+      }
+      
+      debugLog(`Total portal slimes: ${totalPortalBlueSlimes} blue, ${totalPortalRedSlimes} red`, 'map');
+    }
+    
+    // 3. OTHER TILES (1Bmap.png tiles - all remaining tiles) - 2-4 slimes HP 2-4, 1-2 red slimes HP 1-2
+    debugLog('Calculating other tile enemy spawns (1Bmap.png tiles)', 'map');
+    const otherTileCoords = [];
+    const portalTileSet = new Set(portalTileCoords.map(t => `${t[0]},${t[1]}`));
+    
+    for (let x = 0; x < this.gridSize; x++) {
+      for (let y = 0; y < this.gridSize; y++) {
+        // Skip center tiles (1Amap.png) and portal tiles
+        const isCenterTile = (x >= 6 && x <= 9 && y >= 6 && y <= 9);
+        const isPortalTile = portalTileSet.has(`${x},${y}`);
+        
+        if (!isCenterTile && !isPortalTile) {
+          otherTileCoords.push([x, y]);
+        }
+      }
+    }
+    
+    debugLog(`Found ${otherTileCoords.length} 1Bmap tiles for enemy spawning`, 'map');
+    
+    // Every 1Bmap tile gets enemies: 2-4 blue slimes (2-4 HP) + 1-2 red slimes (1-2 HP) per tile
+    let totalOtherBlueSlimes = 0;
+    let totalOtherRedSlimes = 0;
+    
+    for (const [tileX, tileY] of otherTileCoords) {
+      // 2-4 blue slimes per tile
+      const blueSlimesPerTile = 2 + Math.floor(Math.random() * 3); // 2-4
+      for (let i = 0; i < blueSlimesPerTile; i++) {
+        const hp = 2 + Math.floor(Math.random() * 3); // 2-4 HP
+        
+        const enemySpawn = createEnemySpawn(tileX, tileY, 'blue', hp, `other_blue_${spawnIdCounter++}`);
+        this.enemySpawnData.otherTiles.push(enemySpawn);
+        totalOtherBlueSlimes++;
+        
+        debugLog(`Planned 1Bmap blue slime (${hp}HP) in tile (${tileX},${tileY}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+      }
+      
+      // 1-2 red slimes per tile
+      const redSlimesPerTile = 1 + Math.floor(Math.random() * 2); // 1-2
+      for (let i = 0; i < redSlimesPerTile; i++) {
+        const hp = 1 + Math.floor(Math.random() * 2); // 1-2 HP
+        
+        const enemySpawn = createEnemySpawn(tileX, tileY, 'red', hp, `other_red_${spawnIdCounter++}`);
+        this.enemySpawnData.otherTiles.push(enemySpawn);
+        totalOtherRedSlimes++;
+        
+        debugLog(`Planned 1Bmap red slime (${hp}HP) in tile (${tileX},${tileY}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+      }
+    }
+    
+    debugLog(`Total 1Bmap slimes: ${totalOtherBlueSlimes} blue, ${totalOtherRedSlimes} red`, 'map');
+    
+    // FINAL SUMMARY REPORT
+    const totalCenterBlue = totalCenterBlueSlimes;
+    const totalPortalBlue = 4; // Always 4 blue slimes
+    const totalPortalRed = 3; // Always 1 (HP 5) + 2 (HP 2-3) = 3 red slimes
+    const totalOtherBlue = totalOtherBlueSlimes;
+    const totalOtherRed = totalOtherRedSlimes;
+    
+    const grandTotalBlue = totalCenterBlue + totalPortalBlue + totalOtherBlue;
+    const grandTotalRed = totalPortalRed + totalOtherRed;
+    const grandTotal = grandTotalBlue + grandTotalRed;
+    
+    debugLog('=== MAP1 ENEMY DISTRIBUTION REPORT ===', 'map');
+    debugLog(`1Amap tiles (center): ${totalCenterBlue} blue slimes (HP 1-3)`, 'map');
+    debugLog(`Portal tiles: ${totalPortalBlue} blue slimes (HP 3-5) + ${totalPortalRed} red slimes (1×HP5, 2×HP2-3)`, 'map');
+    debugLog(`1Bmap tiles (other): ${totalOtherBlue} blue slimes (HP 2-4) + ${totalOtherRed} red slimes (HP 1-2)`, 'map');
+    debugLog(`TOTAL: ${grandTotalBlue} blue slimes + ${grandTotalRed} red slimes = ${grandTotal} enemies`, 'map');
+    debugLog('=== MIN/MAX ENEMY COUNTS ===', 'map');
+    debugLog('1Amap tiles: 16-48 blue slimes (1-3 per tile × 16 tiles)', 'map');
+    debugLog('Portal tiles: 7 enemies total (4 blue + 3 red)', 'map');
+    
+    // Calculate 1Bmap tile counts - every tile gets 2-4 blue + 1-2 red = 3-6 enemies per tile
+    const otherTileCount = otherTileCoords.length;
+    const minOtherEnemies = otherTileCount * 3; // (2 blue + 1 red) per tile
+    const maxOtherEnemies = otherTileCount * 6; // (4 blue + 2 red) per tile
+    debugLog(`1Bmap tiles: ${minOtherEnemies}-${maxOtherEnemies} enemies (3-6 per tile × ${otherTileCount} tiles)`, 'map');
+    
+    const overallMin = 16 + 7 + minOtherEnemies; // 1Amap min + portal + 1Bmap min
+    const overallMax = 48 + 7 + maxOtherEnemies; // 1Amap max + portal + 1Bmap max
+    debugLog(`OVERALL RANGE: ${overallMin}-${overallMax} total enemies per Map1 load`, 'map');
+    debugLog('==========================================', 'map');
+    
+    this.isEnemyDataCalculated = true;
+    
+    const totalEnemies = this.enemySpawnData.centerTiles.length + 
+                        this.enemySpawnData.portalTiles.length + 
+                        this.enemySpawnData.otherTiles.length;
+    
+    debugLog(`Enemy spawn data calculation complete: ${totalEnemies} enemies planned`, 'map');
+    debugLog(`  Center tiles: ${this.enemySpawnData.centerTiles.length} enemies`, 'map');
+    debugLog(`  Portal tiles: ${this.enemySpawnData.portalTiles.length} enemies`, 'map');
+    debugLog(`  Other tiles: ${this.enemySpawnData.otherTiles.length} enemies`, 'map');
+  }
+
+  /**
+   * Spawn enemies based on screen visibility
+   * This is called periodically to spawn enemies when their world position becomes visible
+   */
+  async spawnVisibleEnemies() {
+    if (!this.enemySpawnData || !window.globalEnemyManager) {
+      return;
+    }
+    
+    const enemyManager = window.globalEnemyManager;
+    
+    // Get current camera/screen information for visibility calculations
+    const camera = window.gameMapManager?.camera;
+    if (!camera) {
+      return;
+    }
+    
+    const screenWidth = this.app?.screen?.width || 1920;
+    const screenHeight = this.app?.screen?.height || 1080;
+    
+    // Calculate world bounds that are currently visible on screen
+    let worldViewBounds = {
+      minX: -camera.mapContainer.x,
+      minY: -camera.mapContainer.y,
+      maxX: -camera.mapContainer.x + screenWidth,
+      maxY: -camera.mapContainer.y + screenHeight
+    };
+    
+    // Add margin to spawn enemies slightly off-screen for smooth appearance
+    const spawnMargin = 200;
+    worldViewBounds.minX -= spawnMargin;
+    worldViewBounds.minY -= spawnMargin;
+    worldViewBounds.maxX += spawnMargin;
+    worldViewBounds.maxY += spawnMargin;
+    
+    // Helper function to check if a position is visible
+    const isPositionVisible = (x, y) => {
+      return x >= worldViewBounds.minX && x <= worldViewBounds.maxX &&
+             y >= worldViewBounds.minY && y <= worldViewBounds.maxY;
+    };
+    
+    // Helper function to spawn enemy and mark as spawned
+    const spawnEnemyFromData = async (enemyData) => {
+      if (enemyData.isSpawned || this.spawnedEnemyIds.has(enemyData.id)) {
+        return; // Already spawned
+      }
+      
+      if (isPositionVisible(enemyData.position.x, enemyData.position.y)) {
+        debugLog(`Spawning ${enemyData.type} slime (${enemyData.hp}HP) at visible position (${enemyData.position.x.toFixed(1)}, ${enemyData.position.y.toFixed(1)})`, 'map');
+        
+        const enemy = await enemyManager.spawnEnemy(enemyData.type, enemyData.position.x, enemyData.position.y, enemyData.hp);
+        if (enemy) {
+          enemyData.isSpawned = true;
+          this.spawnedEnemyIds.add(enemyData.id);
+          
+          // Store reference to Map1 spawn data in enemy for persistence
+          enemy.map1SpawnId = enemyData.id;
+          
+          debugLog(`✅ Successfully spawned ${enemyData.type} slime (${enemyData.hp}HP) with ID ${enemyData.id}`, 'map');
+        } else {
+          debugLog(`❌ Failed to spawn ${enemyData.type} slime (${enemyData.hp}HP) with ID ${enemyData.id}`, 'map');
+        }
+      }
+    };
+    
+    // Check and spawn enemies from all categories
+    const allEnemyData = [
+      ...this.enemySpawnData.centerTiles,
+      ...this.enemySpawnData.portalTiles,
+      ...this.enemySpawnData.otherTiles
+    ];
+    
+    for (const enemyData of allEnemyData) {
+      await spawnEnemyFromData(enemyData);
+    }
+  }
+
+  /**
+   * Initialize enemies for Map1 based on tile locations
+   * This method now calculates enemy positions and spawns only visible ones
+   */
+  async initializeEnemies() {
+    debugLog('Initializing enemies for Map1', 'map');
+    
+    if (!window.globalEnemyManager) {
+      debugLog('ERROR: Global EnemyManager not available for enemy spawning', 'map');
+      return;
+    }
+    
+    // Calculate enemy spawn data if not already done
+    this.calculateEnemySpawnData();
+    
+    // Spawn enemies that are currently visible
+    await this.spawnVisibleEnemies();
+    
+    debugLog('Map1 enemy initialization complete', 'map');
   }
 
   /**
@@ -361,8 +682,34 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
    * @param {number} delta - Time since last update
    */
   update(delta) {
+    // Check and spawn enemies based on screen visibility
+    this.updateEnemyVisibility();
+    
     // Map-specific update logic can go here
     // Portal updates are handled by MapManager's updatePortals method
+  }
+  
+  /**
+   * Update enemy visibility and spawn enemies when they come into view
+   * This should be called periodically (e.g., in Map1's update method)
+   */
+  updateEnemyVisibility() {
+    // Only check every 500ms to avoid performance issues
+    if (!this._lastEnemyVisibilityCheck) {
+      this._lastEnemyVisibilityCheck = Date.now();
+    }
+    
+    const now = Date.now();
+    if (now - this._lastEnemyVisibilityCheck < 500) {
+      return; // Too early to check again
+    }
+    
+    this._lastEnemyVisibilityCheck = now;
+    
+    // Spawn enemies that are now visible (but don't wait for it)
+    this.spawnVisibleEnemies().catch(error => {
+      debugLog(`Error spawning visible enemies: ${error.message}`, 'map');
+    });
   }
   
   /**

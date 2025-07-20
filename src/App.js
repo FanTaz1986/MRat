@@ -154,8 +154,16 @@ function App() {
         // UI assets
         { name: "heart_icon", url: "/Extra/HP/hearticon.png" },
         
-        // Enemy assets
-        { name: "slime", url: "/1MAP/Enemies/slime.png" },
+        // Enemy assets - Slime textures for immediate availability
+        // { name: "slime", url: "/1MAP/Enemies/slime.png" }, // Removed - file doesn't exist or corrupted
+        { name: "red_slime_idle", url: "/1MAP/Enemies/Red_slime_idle.png.png" }, // Note: double .png extension
+        { name: "red_slime_move", url: "/1MAP/Enemies/Red_slime_move.png" },
+        { name: "red_slime_attack", url: "/1MAP/Enemies/Red_slime_attack.png" },
+        { name: "blue_slime_idle", url: "/1MAP/Enemies/Blue_slime_idle.png" },
+        { name: "blue_slime_move", url: "/1MAP/Enemies/Blue_slime_move.png" },
+        { name: "blue_slime_attack", url: "/1MAP/Enemies/Blue_slime_attack.png" },
+        
+        // Other enemy assets - Loaded dynamically as needed
         { name: "ghost", url: "/2MAP/Enemies/ghost.png" },
         { name: "rock", url: "/2MAP/Enemies/rock.png" },
         { name: "sludge", url: "/2MAP/Enemies/sludge.png" },

@@ -491,6 +491,11 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         bossAI.current = new BossAI();
         debugLog('BossAI initialized', 'boss');
         
+        // Initialize Enemy Manager
+        const EnemyManager = (await import('./engine/EnemyManager.js')).default;
+        window.globalEnemyManager = new EnemyManager(pixiApp.current, pixiApp.current.stage);
+        debugLog('EnemyManager initialized', 'enemies');
+        
         // Expose mapManager globally for ObjectiveUI and boss system
         window.gameMapManager = mapManager.current;
         // Also expose character for boss attacks
@@ -876,6 +881,13 @@ const resizeHandler = () => {
         bossAI.current.destroy();
         bossAI.current = null;
         debugLog('BossAI cleaned up', 'boss');
+      }
+      
+      // Cleanup EnemyManager
+      if (window.globalEnemyManager) {
+        window.globalEnemyManager.destroy();
+        window.globalEnemyManager = null;
+        debugLog('EnemyManager cleaned up', 'enemies');
       }
       
       // Cleanup debug system

@@ -63,38 +63,40 @@ export function createLoggingTab(debugConfig, toggleLogging, forceUpdate) {
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '8px'
         }
-      }, Object.keys(debugConfig.logCategories).map(category =>
-        React.createElement('label', {
-          key: category,
-          style: {
-            display: 'flex',
-            alignItems: 'center',
-            padding: '6px 8px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '11px'
-          }
-        }, [
-          React.createElement('input', {
-            key: `checkbox-${category}`,
-            type: 'checkbox',
-            checked: debugConfig.logCategories[category],
-            onChange: () => toggleLogging(category),
+      }, Object.keys(debugConfig.logCategories)
+        .filter(category => !category.startsWith('bossattack')) // Exclude boss attack categories (available in boss tab)
+        .map(category =>
+          React.createElement('label', {
+            key: category,
             style: {
-              marginRight: '6px',
-              accentColor: '#a259ff'
+              display: 'flex',
+              alignItems: 'center',
+              padding: '6px 8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '11px'
             }
-          }),
-          React.createElement('span', {
-            key: `label-${category}`,
-            style: { 
-              color: debugConfig.logCategories[category] ? '#4CAF50' : '#888',
-              textTransform: 'capitalize'
-            }
-          }, category)
-        ])
-      ))
+          }, [
+            React.createElement('input', {
+              key: `checkbox-${category}`,
+              type: 'checkbox',
+              checked: debugConfig.logCategories[category],
+              onChange: () => toggleLogging(category),
+              style: {
+                marginRight: '6px',
+                accentColor: '#a259ff'
+              }
+            }),
+            React.createElement('span', {
+              key: `label-${category}`,
+              style: { 
+                color: debugConfig.logCategories[category] ? '#4CAF50' : '#888',
+                textTransform: 'capitalize'
+              }
+            }, category)
+          ])
+        ))
     ])
   ]);
 }

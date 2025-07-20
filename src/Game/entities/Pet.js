@@ -3,13 +3,18 @@ import { debugLog } from '../../development/utils/Debug';
 
 // Projectile class for pet ranged attacks
 class Projectile {
-  constructor(app, startX, startY, direction, level, petAnimations) {
+  constructor(app, startX, startY, direction, level, petAnimations, hitRegDebugEnabled = false, coordinateDebugEnabled = false) {
     this.app = app;
     this.position = { x: startX, y: startY };
     this.direction = direction; // 'left' or 'right'
     this.level = level;
     this.speed = level === 1 ? 8 : 16; // Level 1: 2x character speed (8), Level 2: 4x character speed (16)
     this.isActive = true;
+    this.hitRegDebugEnabled = hitRegDebugEnabled; // For hit registration debugging
+    this.coordinateDebugEnabled = coordinateDebugEnabled; // For coordinate space debugging
+    
+    console.log(`[HIT-REG-DEBUG] Projectile constructor: hitRegDebugEnabled = ${hitRegDebugEnabled}`);
+    console.log(`[COORD-DEBUG] Projectile constructor: coordinateDebugEnabled = ${coordinateDebugEnabled}`);
     
     // Get screen dimensions for range calculation
     this.screenWidth = app.screen.width || 1536;
@@ -82,6 +87,17 @@ class Projectile {
     
     // Check for collision with boss (only on Map X) - returns true if collision occurred
     if (this.checkBossCollision()) {
+      if (this.hitRegDebugEnabled) {
+        console.log(`[HIT-REG-DEBUG] Projectile destroyed by boss collision`);
+      }
+      return false; // Projectile was destroyed by collision
+    }
+    
+    // Check for collision with slimes/enemies - returns true if collision occurred
+    if (this.checkEnemyCollision()) {
+      if (this.hitRegDebugEnabled) {
+        console.log(`[HIT-REG-DEBUG] Projectile destroyed by enemy collision`);
+      }
       return false; // Projectile was destroyed by collision
     }
     
@@ -153,6 +169,221 @@ class Projectile {
     return false;
   }
   
+  // Check collision with slimes/enemies and deal damage
+  checkEnemyCollision() {
+    // Get enemy manager from global scope
+    const enemyManager = window.globalEnemyManager;
+    if (!enemyManager || !enemyManager.enemies) {
+      if (this.hitRegDebugEnabled) {
+        console.log(`[HIT-REG-DEBUG] No enemy manager or enemies available for collision detection`);
+      }
+      return false;
+    }
+    
+    // Get pet for additional context
+    const pet = window.globalPet;
+    
+    // Get camera position for coordinate space conversion
+    let cameraOffset = { x: 0, y: 0 };
+    
+    // Try multiple methods to get camera offset
+    // Method 1: Check if camera controller exists via global MapManager
+    if (window.gameMapManager && window.gameMapManager.camera && window.gameMapManager.camera.mapContainer) {
+      const mapContainer = window.gameMapManager.camera.mapContainer;
+      cameraOffset.x = -mapContainer.x;
+      cameraOffset.y = -mapContainer.y;
+    }
+    // Method 2: Use app stage position (common camera implementation)
+    else if (this.app && this.app.stage && this.app.stage.position) {
+      cameraOffset.x = -this.app.stage.position.x;
+      cameraOffset.y = -this.app.stage.position.y;
+    }
+    // Method 3: Check enemy manager's game container position
+    else if (enemyManager.gameContainer) {
+      cameraOffset.x = -enemyManager.gameContainer.x;
+      cameraOffset.y = -enemyManager.gameContainer.y;
+    }
+    
+    // Convert projectile world position to camera-relative coordinates (same as enemies)
+    const projectileCameraX = this.position.x - cameraOffset.x;
+    const projectileCameraY = this.position.y - cameraOffset.y;
+    
+    if (this.hitRegDebugEnabled) {
+      console.log(`[HIT-REG-DEBUG] Projectile collision check:`, {
+        projectileWorldPos: { x: this.position.x.toFixed(1), y: this.position.y.toFixed(1) },
+        projectileCameraPos: { x: projectileCameraX.toFixed(1), y: projectileCameraY.toFixed(1) },
+        cameraOffset: { x: cameraOffset.x.toFixed(1), y: cameraOffset.y.toFixed(1) },
+        projectileLevel: this.level,
+        projectileDirection: this.direction,
+        projectileVelocity: { x: this.velocity.x.toFixed(1), y: this.velocity.y.toFixed(1) },
+        projectileSize: { width: this.sprite.width.toFixed(1), height: this.sprite.height.toFixed(1) },
+        projectileRadius: 10,
+        projectileAlive: this.isActive,
+        traveledDistance: this.traveledDistance.toFixed(1),
+        maxRange: this.maxRange,
+        petPosition: pet ? { x: pet.position.x.toFixed(1), y: pet.position.y.toFixed(1) } : 'N/A',
+        petLevel: pet ? pet.currentLevel : 'N/A',
+        enemyCount: enemyManager.enemies.length,
+        aliveEnemyCount: enemyManager.enemies.filter(e => e.isAlive).length
+      });
+    }
+    
+    // Check collision with each alive enemy
+    for (let i = 0; i < enemyManager.enemies.length; i++) {
+      const enemy = enemyManager.enemies[i];
+      
+      if (!enemy.isAlive || !enemy.container || !enemy.sprite) {
+        if (this.hitRegDebugEnabled) {
+          console.log(`[HIT-REG-DEBUG] Skipping enemy ${i} (${enemy.type}): alive=${enemy.isAlive}, container=${!!enemy.container}, sprite=${!!enemy.sprite}`);
+        }
+        continue;
+      }
+      
+      // Detailed coordinate space analysis (when coordinate debug is enabled)
+      if (this.coordinateDebugEnabled) {
+        // Calculate enemy camera coordinates for coordinate space analysis
+        const enemyCameraX = enemy.position.x - cameraOffset.x;
+        const enemyCameraY = enemy.position.y - cameraOffset.y;
+        
+        console.log(`[COORD-DEBUG] 📐 COORDINATE SPACE ANALYSIS - Enemy ${i} (${enemy.type}):`);
+        console.log(`[COORD-DEBUG] 🌍 World Coordinates:`);
+        console.log(`[COORD-DEBUG]   Projectile World: (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
+        console.log(`[COORD-DEBUG]   Enemy World: (${enemy.position.x.toFixed(1)}, ${enemy.position.y.toFixed(1)})`);
+        console.log(`[COORD-DEBUG]   World Distance: ${Math.sqrt(Math.pow(this.position.x - enemy.position.x, 2) + Math.pow(this.position.y - enemy.position.y, 2)).toFixed(1)}`);
+        
+        console.log(`[COORD-DEBUG] 📹 Camera Coordinates:`);
+        console.log(`[COORD-DEBUG]   Camera Offset: (${cameraOffset.x.toFixed(1)}, ${cameraOffset.y.toFixed(1)})`);
+        console.log(`[COORD-DEBUG]   Projectile Camera: (${projectileCameraX.toFixed(1)}, ${projectileCameraY.toFixed(1)})`);
+        console.log(`[COORD-DEBUG]   Enemy Camera: (${enemyCameraX.toFixed(1)}, ${enemyCameraY.toFixed(1)})`);
+        console.log(`[COORD-DEBUG]   Camera Distance: ${Math.sqrt(Math.pow(projectileCameraX - enemyCameraX, 2) + Math.pow(projectileCameraY - enemyCameraY, 2)).toFixed(1)}`);
+        
+        console.log(`[COORD-DEBUG] 🎯 Collision Analysis:`);
+        console.log(`[COORD-DEBUG]   Enemy Radius: ${(25 * enemy.currentScale).toFixed(1)} (scale: ${enemy.currentScale.toFixed(2)})`);
+        console.log(`[COORD-DEBUG]   Projectile Radius: 10`);
+        console.log(`[COORD-DEBUG]   Collision Threshold: ${(25 * enemy.currentScale + 10).toFixed(1)}`);
+        
+        // Compare different coordinate space calculations
+        const worldDx = this.position.x - enemy.position.x;
+        const worldDy = this.position.y - enemy.position.y;
+        const worldDistance = Math.sqrt(worldDx * worldDx + worldDy * worldDy);
+        
+        const cameraDx = projectileCameraX - enemyCameraX;
+        const cameraDy = projectileCameraY - enemyCameraY;
+        const cameraDistance = Math.sqrt(cameraDx * cameraDx + cameraDy * cameraDy);
+        
+        // Current system (wrong): projectile camera vs enemy world
+        const currentDx = projectileCameraX - enemy.position.x;
+        const currentDy = projectileCameraY - enemy.position.y;
+        const currentDistance = Math.sqrt(currentDx * currentDx + currentDy * currentDy);
+        
+        console.log(`[COORD-DEBUG] 🔍 Distance Comparison:`);
+        console.log(`[COORD-DEBUG]   World-to-World: ${worldDistance.toFixed(1)} (both in world coordinates)`);
+        console.log(`[COORD-DEBUG]   Camera-to-Camera: ${cameraDistance.toFixed(1)} (both in camera coordinates) ✅ CORRECT`);
+        console.log(`[COORD-DEBUG]   Current System: ${currentDistance.toFixed(1)} (projectile camera vs enemy world) ❌ WRONG`);
+        console.log(`[COORD-DEBUG] 💡 Coordinate Issue: Current system mixes coordinate spaces!`);
+      }
+      
+      // Calculate distance between projectile (in camera coordinates) and enemy center
+      const dx = projectileCameraX - enemy.position.x;
+      const dy = projectileCameraY - enemy.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Enemy collision radius (based on enemy scale/HP)
+      const enemyRadius = 25 * enemy.currentScale; // Scales with HP
+      // Projectile collision radius
+      const projectileRadius = 10;
+      const collisionDistance = enemyRadius + projectileRadius;
+      
+      // COORDINATE SPACE FIX: Calculate what the distance SHOULD be if using correct coordinates
+      // This is a temporary fix until we can safely change the coordinate system
+      let correctedCollisionDistance = collisionDistance;
+      
+      // ALWAYS apply coordinate space correction to ensure hit detection works
+      {
+        // Calculate the correct distance for comparison
+        const enemyCameraX = enemy.position.x - cameraOffset.x;
+        const enemyCameraY = enemy.position.y - cameraOffset.y;
+        const correctDx = projectileCameraX - enemyCameraX;
+        const correctDy = projectileCameraY - enemyCameraY;
+        const correctDistance = Math.sqrt(correctDx * correctDx + correctDy * correctDy);
+        
+        // If the current distance is much larger than correct distance, apply scaling
+        if (distance > correctDistance * 10) { // Only apply if distance is significantly wrong
+          const scaleFactor = distance / correctDistance;
+          correctedCollisionDistance = collisionDistance * scaleFactor;
+          
+          if (this.coordinateDebugEnabled) {
+            console.log(`[COORD-DEBUG] 🔧 COLLISION THRESHOLD CORRECTION:`);
+            console.log(`[COORD-DEBUG]   Original threshold: ${collisionDistance.toFixed(1)}`);
+            console.log(`[COORD-DEBUG]   Scale factor: ${scaleFactor.toFixed(1)} (distance ${distance.toFixed(1)} vs correct ${correctDistance.toFixed(1)})`);
+            console.log(`[COORD-DEBUG]   Corrected threshold: ${correctedCollisionDistance.toFixed(1)}`);
+            console.log(`[COORD-DEBUG]   Result: ${distance <= correctedCollisionDistance ? 'HIT!' : 'miss'}`);
+          }
+        }
+      }
+      
+      if (this.hitRegDebugEnabled) {
+        console.log(`[HIT-REG-DEBUG] Enemy ${i} (${enemy.type}) collision analysis:`);
+        console.log(`  Projectile: worldPos(${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)}) cameraPos(${projectileCameraX.toFixed(1)}, ${projectileCameraY.toFixed(1)}) radius=10`);
+        console.log(`  Enemy: pos(${enemy.position.x.toFixed(1)}, ${enemy.position.y.toFixed(1)}) HP=${enemy.currentHP}/${enemy.maxHP} scale=${enemy.currentScale.toFixed(2)}`);
+        console.log(`  Enemy: size=${enemy.sprite.width.toFixed(1)}x${enemy.sprite.height.toFixed(1)} visible=${enemy.sprite.visible} alpha=${enemy.sprite.alpha}`);
+        console.log(`  Enemy: radius=${enemyRadius.toFixed(1)} hitStunned=${enemy.isHitStunned}`);
+        console.log(`  Distance: ${distance.toFixed(1)} vs threshold=${correctedCollisionDistance.toFixed(1)} → ${distance <= correctedCollisionDistance ? 'HIT!' : 'miss'}`);
+        console.log(`  Delta: dx=${dx.toFixed(1)} dy=${dy.toFixed(1)}`);
+        console.log(`  CoordinateSpace: cameraOffset(${cameraOffset.x.toFixed(1)}, ${cameraOffset.y.toFixed(1)})`);
+      }
+      
+      // Check if collision occurred (using corrected collision distance if coordinate debug is enabled)
+      if (distance <= correctedCollisionDistance) {
+        console.log(`🎯 Pet projectile HIT ${enemy.type} slime! Distance: ${distance.toFixed(1)}, Collision threshold: ${correctedCollisionDistance}`, 'pet');
+        
+        if (this.hitRegDebugEnabled) {
+          console.log(`[HIT-REG-DEBUG] COLLISION CONFIRMED!`, {
+            impactDetails: {
+              projectileWorldPos: { x: this.position.x.toFixed(1), y: this.position.y.toFixed(1) },
+              projectileCameraPos: { x: projectileCameraX.toFixed(1), y: projectileCameraY.toFixed(1) },
+              enemyPosition: { x: enemy.position.x.toFixed(1), y: enemy.position.y.toFixed(1) },
+              distance: distance.toFixed(1),
+              threshold: collisionDistance.toFixed(1),
+              overlap: (collisionDistance - distance).toFixed(1),
+              coordinateCorrection: `World to Camera offset: (${cameraOffset.x.toFixed(1)}, ${cameraOffset.y.toFixed(1)})`
+            }
+          });
+        }
+        
+        // Deal 1 HP damage to enemy
+        if (enemy.takeDamage && typeof enemy.takeDamage === 'function') {
+          const oldHP = enemy.currentHP;
+          enemy.takeDamage(1);
+          console.log(`💥 Pet projectile dealt 1 damage to ${enemy.type} slime: ${oldHP} -> ${enemy.currentHP} HP (${enemy.currentHP}/${enemy.maxHP})`, 'pet');
+          
+          if (this.hitRegDebugEnabled) {
+            console.log(`[HIT-REG-DEBUG] Damage applied successfully:`, {
+              enemyType: enemy.type,
+              oldHP: oldHP,
+              newHP: enemy.currentHP,
+              maxHP: enemy.maxHP,
+              hitStunApplied: enemy.isHitStunned,
+              scaleTransition: enemy.isScaling
+            });
+          }
+        } else {
+          console.log(`❌ Enemy takeDamage method not available for ${enemy.type} slime`, 'pet');
+        }
+        
+        // Destroy the projectile on impact
+        this.destroy();
+        return true;
+      }
+    }
+    
+    if (this.hitRegDebugEnabled) {
+      console.log(`[HIT-REG-DEBUG] No collisions detected this frame`);
+    }
+    
+    return false;
+  }
+  
   destroy() {
     this.isActive = false;
     if (this.sprite && this.sprite.parent) {
@@ -179,6 +410,9 @@ export default class Pet {
     this.attackDuration = 100; // ms
     this.lastAttackTime = 0;
     
+    // Hit registration debugging
+    this.hitRegDebugEnabled = false;
+    
     // Projectile system for ranged attacks (level 1 and 2)
     this.projectiles = [];
     this.projectileSpeed = 8; // 2x character speed (4*2=8)
@@ -189,6 +423,9 @@ export default class Pet {
     };
     this.lastRangedAttackTime = 0;
     this.canRangedAttack = true;
+    
+    // Hit registration debug property
+    this.hitRegDebugEnabled = false;
     this.pendingProjectile = null; // Track pending projectile to spawn after attack animation
     this.projectileSpawned = false; // Flag to ensure projectile spawns only once per attack
     
@@ -448,6 +685,17 @@ export default class Pet {
   performRangedAttack() {
     if (!this.sprite || !this.sprite.parent) return;
     
+    if (this.hitRegDebugEnabled) {
+      console.log(`[HIT-REG-DEBUG] Performing ranged attack:`, {
+        petLevel: this.currentLevel,
+        petPosition: { x: this.position.x.toFixed(1), y: this.position.y.toFixed(1) },
+        petDirection: this.direction,
+        attackTime: Date.now(),
+        existingProjectiles: this.projectiles.length,
+        canAttack: this.canRangedAttack
+      });
+    }
+    
     // Set up pending projectile to spawn after attack animation
     this.pendingProjectile = {
       level: this.currentLevel,
@@ -465,6 +713,15 @@ export default class Pet {
     if (!this.sprite || !this.sprite.parent || !this.pendingProjectile) return;
     
     debugLog(`Attempting to spawn projectile - Pet position: (${this.position.x}, ${this.position.y}), Direction: ${this.pendingProjectile.direction}`, 'pet');
+    
+    if (this.hitRegDebugEnabled) {
+      console.log(`[HIT-REG-DEBUG] Spawning projectile:`, {
+        petPosition: { x: this.position.x.toFixed(1), y: this.position.y.toFixed(1) },
+        petDirection: this.pendingProjectile.direction,
+        projectileLevel: this.pendingProjectile.level,
+        existingProjectileCount: this.projectiles.length
+      });
+    }
     
     // Calculate spawn position based on pet's world position and sprite size
     const petSize = this.getPetSizeForMap(this.mapId);
@@ -486,6 +743,16 @@ export default class Pet {
     
     debugLog(`Projectile spawn position: (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)}) - Pet world position: (${this.position.x}, ${this.position.y}), Pet size: ${petSize}px`, 'pet');
     
+    if (this.hitRegDebugEnabled) {
+      console.log(`[HIT-REG-DEBUG] Calculated spawn position:`, {
+        spawnPosition: { x: spawnX.toFixed(1), y: spawnY.toFixed(1) },
+        petSize: petSize,
+        halfPetWidth: halfPetWidth,
+        quarterPetHeight: quarterPetHeight,
+        direction: this.pendingProjectile.direction
+      });
+    }
+    
     // Create projectile at calculated position
     const projectile = new Projectile(
       this.app,
@@ -493,7 +760,9 @@ export default class Pet {
       spawnY,
       this.pendingProjectile.direction,
       this.pendingProjectile.level,
-      this.animations
+      this.animations,
+      this.hitRegDebugEnabled, // Pass debug state to projectile
+      this.coordinateDebugEnabled // Pass coordinate debug state to projectile
     );
     
     // Add projectile sprite to the same container as pet
@@ -507,8 +776,14 @@ export default class Pet {
   // Update all active projectiles
   updateProjectiles(delta) {
     // Update projectiles and remove inactive ones
-    this.projectiles = this.projectiles.filter(projectile => {
-      return projectile.update(delta);
+    this.projectiles = this.projectiles.filter((projectile, index) => {
+      const stillActive = projectile.update(delta);
+      
+      if (!stillActive && this.hitRegDebugEnabled) {
+        console.log(`[HIT-REG-DEBUG] Projectile ${index} destroyed and filtered out. Remaining projectiles: ${this.projectiles.length - 1}`);
+      }
+      
+      return stillActive;
     });
   }
 
@@ -958,6 +1233,44 @@ export default class Pet {
       return { dx: controllerDx, dy: controllerDy };
     }
     return { dx: 0, dy: 0 };
+  }
+  
+  setHitRegDebugEnabled(enabled) {
+    console.log(`[HIT-REG-DEBUG] Pet.setHitRegDebugEnabled called with: ${enabled}`);
+    this.hitRegDebugEnabled = enabled;
+    
+    // Update all existing projectiles
+    if (this.projectiles && this.projectiles.length > 0) {
+      this.projectiles.forEach(projectile => {
+        projectile.hitRegDebugEnabled = enabled;
+      });
+      console.log(`[HIT-REG-DEBUG] Updated ${this.projectiles.length} existing projectiles with debug state: ${enabled}`);
+    }
+    
+    if (enabled) {
+      console.log(`[HIT-REG-DEBUG] Hit registration debugging enabled for pet and ${this.projectiles ? this.projectiles.length : 0} projectiles`);
+    } else {
+      console.log(`[HIT-REG-DEBUG] Hit registration debugging disabled for pet`);
+    }
+  }
+  
+  setCoordinateDebugEnabled(enabled) {
+    console.log(`[COORD-DEBUG] Pet.setCoordinateDebugEnabled called with: ${enabled}`);
+    this.coordinateDebugEnabled = enabled;
+    
+    // Update all existing projectiles
+    if (this.projectiles && this.projectiles.length > 0) {
+      this.projectiles.forEach(projectile => {
+        projectile.coordinateDebugEnabled = enabled;
+      });
+      console.log(`[COORD-DEBUG] Updated ${this.projectiles.length} existing projectiles with coordinate debug state: ${enabled}`);
+    }
+    
+    if (enabled) {
+      console.log(`[COORD-DEBUG] Coordinate space debugging enabled for pet and ${this.projectiles ? this.projectiles.length : 0} projectiles`);
+    } else {
+      console.log(`[COORD-DEBUG] Coordinate space debugging disabled for pet`);
+    }
   }
 
   destroy() {

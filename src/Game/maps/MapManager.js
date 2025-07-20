@@ -203,6 +203,9 @@ export default class MapManager {
     // Note: Camera reference will be set after camera is created
     this.pet.setBounds(mapConfig.bounds); // Set map boundaries for pet
     
+    // Register pet globally for debugging
+    window.globalPet = this.pet;
+    
     // Connect character and pet for controller integration
     this.character.setPetReference(this.pet);
     debugLog('Character and pet connected for controller integration', 'character');
@@ -232,9 +235,18 @@ export default class MapManager {
     );
     this.camera.follow(this.character);
     
+    // Set up global camera reference for EnemyManager
+    window.globalCamera = this.camera;
+    
     // Now that camera is created, connect it to the pet for viewport bounds
     this.pet.setCamera(this.camera);
-    debugLog('Pet camera reference set after camera creation', 'pet');    // Create portal manager
+    debugLog('Pet camera reference set after camera creation', 'pet');
+    
+    // Connect EnemyManager to the world container (characterLayer moves with camera)
+    if (window.globalEnemyManager) {
+      window.globalEnemyManager.setWorldContainer(this.characterLayer);
+      debugLog('EnemyManager connected to character layer for world positioning', 'enemies');
+    }    // Create portal manager
     this.portalManager = new PortalManager(this.app, mapId, mapConfig.mapSize, mapConfig.mapHeight);
     // Add portals to character layer so they can be properly z-ordered with character
     this.portalManager.addToScene(this.characterLayer);    this.portalManager.setOnTeleport((targetMap) => {
@@ -417,6 +429,15 @@ export default class MapManager {
     
     // Generate props (now with correct portal exclusions)
     this.map1Instance.loadProps();
+    
+    // Initialize enemies for Map1 (with small delay to ensure everything is set up)
+    if (this.map1Instance.initializeEnemies) {
+      setTimeout(() => {
+        this.map1Instance.initializeEnemies().catch(error => {
+          debugLog(`Error initializing Map1 enemies: ${error.message}`, 'map');
+        });
+      }, 100); // 100ms delay to ensure world container is set
+    }
     
     // Add update to ticker
     this.updateMap1 = (delta) => {

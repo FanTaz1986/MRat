@@ -7,4 +7,5 @@ export { createLoggingTab } from './debugTabLogging.js';
 export { createAnalysisTab } from './debugTabAnalysis.js';
 export { createCombatTab } from './debugTabCombat.js';
 export { createBossTab } from './debugTabBoss.js';
+export { createEnemyTab } from './debugTabEnemy.js';
 export { createScreensTab } from './debugTabScreens.js';

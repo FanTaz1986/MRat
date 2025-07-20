@@ -10,6 +10,7 @@ import {
   createAnalysisTab, 
   createCombatTab, 
   createBossTab, 
+  createEnemyTab,
   createScreensTab 
 } from './debugTabs/index.js';
 
@@ -43,7 +44,8 @@ let debugConfig = {
     bossattackz: false, // Boss Z attack (range) debugging - separate toggle
     bossattackx: false, // Boss X attack (bolt) debugging - separate toggle
     bossattackc: false, // Boss C attack (melee) debugging - separate toggle
-    optionsSubmenu: false // Options submenu debugging (Audio, How to Play buttons)
+    optionsSubmenu: false, // Options submenu debugging (Audio, How to Play buttons)
+    enemies: false // Enemy system debugging
   }
 };
 
@@ -581,8 +583,18 @@ function SimpleDebugOverlay({
             
             // Center camera on character with additional safety checks
             if (currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
-              currentCamera.centerOn(currentCharacter.position.x, currentCharacter.position.y);
-              debugLog(`Camera re-centered after map teleport to position: (${currentCharacter.position.x}, ${currentCharacter.position.y}) with zoom: ${currentCamera.zoom}`, 'map');
+              const charX = currentCharacter.position.x;
+              const charY = currentCharacter.position.y;
+              
+              if (typeof charX === 'number' && typeof charY === 'number' && 
+                  !isNaN(charX) && !isNaN(charY) && 
+                  isFinite(charX) && isFinite(charY)) {
+                
+                currentCamera.centerOn(charX, charY);
+                debugLog(`Camera re-centered after map teleport to position: (${charX}, ${charY}) with zoom: ${currentCamera.zoom}`, 'map');
+              } else {
+                debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'map');
+              }
             } else {
               debugLog('Cannot center camera: missing mapContainer or character position', 'map');
             }
@@ -609,8 +621,18 @@ function SimpleDebugOverlay({
           
           // Additional safety checks before calling centerOn
           if (currentCamera && currentCamera.centerOn && currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
-            currentCamera.centerOn(currentCharacter.position.x, currentCharacter.position.y);
-            debugLog(`Camera centered on character at portal: (${currentCharacter.position.x}, ${currentCharacter.position.y})`, 'portal');
+            const charX = currentCharacter.position.x;
+            const charY = currentCharacter.position.y;
+            
+            if (typeof charX === 'number' && typeof charY === 'number' && 
+                !isNaN(charX) && !isNaN(charY) && 
+                isFinite(charX) && isFinite(charY)) {
+              
+              currentCamera.centerOn(charX, charY);
+              debugLog(`Camera centered on character at portal: (${charX}, ${charY})`, 'portal');
+            } else {
+              debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'portal');
+            }
           } else {
             debugLog('Cannot center camera: missing camera, mapContainer, or character', 'portal');
           }
@@ -636,8 +658,19 @@ function SimpleDebugOverlay({
         setTimeout(() => {
           // Additional safety checks before calling centerOn
           if (camera && camera.centerOn && camera.mapContainer && character && character.position) {
-            camera.centerOn(character.position.x, character.position.y);
-            debugLog(`Camera centered on character at spawn: (${character.position.x}, ${character.position.y})`, 'character');
+            // Double-check coordinates are valid
+            const charX = character.position.x;
+            const charY = character.position.y;
+            
+            if (typeof charX === 'number' && typeof charY === 'number' && 
+                !isNaN(charX) && !isNaN(charY) && 
+                isFinite(charX) && isFinite(charY)) {
+              
+              camera.centerOn(charX, charY);
+              debugLog(`Camera centered on character at spawn: (${charX}, ${charY})`, 'character');
+            } else {
+              debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'character');
+            }
           } else {
             debugLog('Cannot center camera at spawn: missing camera, mapContainer, or character', 'character');
           }
@@ -689,8 +722,18 @@ function SimpleDebugOverlay({
             
             // Center camera on character with additional safety checks
             if (currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
-              currentCamera.centerOn(currentCharacter.position.x, currentCharacter.position.y);
-              debugLog(`Camera re-centered after boss teleport to position: (${currentCharacter.position.x}, ${currentCharacter.position.y}) with zoom: ${currentCamera.zoom}`, 'map');
+              const charX = currentCharacter.position.x;
+              const charY = currentCharacter.position.y;
+              
+              if (typeof charX === 'number' && typeof charY === 'number' && 
+                  !isNaN(charX) && !isNaN(charY) && 
+                  isFinite(charX) && isFinite(charY)) {
+                
+                currentCamera.centerOn(charX, charY);
+                debugLog(`Camera re-centered after boss teleport to position: (${charX}, ${charY}) with zoom: ${currentCamera.zoom}`, 'map');
+              } else {
+                debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'map');
+              }
             } else {
               debugLog('Cannot center camera: missing mapContainer or character position', 'map');
             }
@@ -790,7 +833,7 @@ function SimpleDebugOverlay({
         flexWrap: 'wrap', // Allow tabs to wrap if needed
         minHeight: '50px' // Ensure minimum height for tabs
       }
-    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'combat', 'boss', 'screens'].map(tab => 
+    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'combat', 'boss', 'enemy', 'screens'].map(tab => 
       React.createElement('button', {
         key: tab,
         onClick: () => setActiveTab(tab),
@@ -846,6 +889,9 @@ function SimpleDebugOverlay({
       
       // Boss tab
       activeTab === 'boss' && createBossTab(debugConfig, toggleLogging, forceUpdate, debugLog),
+      
+      // Enemy tab
+      activeTab === 'enemy' && createEnemyTab(debugConfig, toggleLogging, forceUpdate, debugLog),
       
       // Screens tab
       activeTab === 'screens' && createScreensTab(onNavigateToScreen)
