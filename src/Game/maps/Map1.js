@@ -212,12 +212,20 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       portalTiles: [], // Portal tiles
       otherTiles: []   // All other tiles
     };
-    
-    // Helper function to get random position within a tile
+
+    // Initialize global seed for deterministic enemy generation
+    // This ensures that every restart generates the exact same enemy layout
+    let globalSeed = 12345; // Fixed seed for consistent generation
+    const seededRandom = () => {
+      globalSeed = (globalSeed * 9301 + 49297) % 233280;
+      return globalSeed / 233280;
+    };
+
+    // Helper function to get deterministic random position within a tile
     const getRandomPositionInTile = (tileX, tileY) => {
       const margin = 100; // Keep enemies away from tile edges
-      const x = (tileX * this.tileWidth) + margin + Math.random() * (this.tileWidth - 2 * margin);
-      const y = (tileY * this.tileHeight) + margin + Math.random() * (this.tileHeight - 2 * margin);
+      const x = (tileX * this.tileWidth) + margin + seededRandom() * (this.tileWidth - 2 * margin);
+      const y = (tileY * this.tileHeight) + margin + seededRandom() * (this.tileHeight - 2 * margin);
       return { x, y };
     };
     
@@ -229,7 +237,7 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
              (y >= SAFE_ZONE_CENTER_Y - halfHeight && y <= SAFE_ZONE_CENTER_Y + halfHeight);
     };
 
-    // Helper function to create enemy spawn info
+    // Helper function to create enemy spawn info using seeded random
     const createEnemySpawn = (tileX, tileY, type, hp, spawnId) => {
       const position = getRandomPositionInTile(tileX, tileY);
       
@@ -265,10 +273,10 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     let totalCenterBlueSlimes = 0;
     for (let i = 0; i < centerTileCoords.length; i++) {
       const tile = centerTileCoords[i];
-      const slimesInThisTile = 1 + Math.floor(Math.random() * 3); // 1-3 slimes per tile
+      const slimesInThisTile = 1 + Math.floor(seededRandom() * 3); // 1-3 slimes per tile
       
       for (let j = 0; j < slimesInThisTile; j++) {
-        const hp = 1 + Math.floor(Math.random() * 3); // 1-3 HP
+        const hp = 1 + Math.floor(seededRandom() * 3); // 1-3 HP
         const enemySpawn = createEnemySpawn(tile[0], tile[1], 'blue', hp, `center_${spawnIdCounter++}`);
         
         // Only add enemy if it's not in safe zone
@@ -306,8 +314,8 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       
       // 4 random blue slimes HP 3-5 in portal tiles
       for (let i = 0; i < 4; i++) {
-        const randomTile = portalTileCoords[Math.floor(Math.random() * portalTileCoords.length)];
-        const hp = 3 + Math.floor(Math.random() * 3); // 3-5 HP
+        const randomTile = portalTileCoords[Math.floor(seededRandom() * portalTileCoords.length)];
+        const hp = 3 + Math.floor(seededRandom() * 3); // 3-5 HP
         
         const enemySpawn = createEnemySpawn(randomTile[0], randomTile[1], 'blue', hp, `portal_blue_${spawnIdCounter++}`);
         
@@ -321,7 +329,7 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       }
       
       // 1 red slime 5HP in portal tile
-      const randomTile5HP = portalTileCoords[Math.floor(Math.random() * portalTileCoords.length)];
+      const randomTile5HP = portalTileCoords[Math.floor(seededRandom() * portalTileCoords.length)];
       const enemySpawn5HP = createEnemySpawn(randomTile5HP[0], randomTile5HP[1], 'red', 5, `portal_red_5hp_${spawnIdCounter++}`);
       
       // Only add enemy if it's not in safe zone
@@ -333,8 +341,8 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       
       // 2 red slimes 2-3 HP in portal tiles
       for (let i = 0; i < 2; i++) {
-        const randomTile = portalTileCoords[Math.floor(Math.random() * portalTileCoords.length)];
-        const hp = 2 + Math.floor(Math.random() * 2); // 2-3 HP
+        const randomTile = portalTileCoords[Math.floor(seededRandom() * portalTileCoords.length)];
+        const hp = 2 + Math.floor(seededRandom() * 2); // 2-3 HP
         
         const enemySpawn = createEnemySpawn(randomTile[0], randomTile[1], 'red', hp, `portal_red_${spawnIdCounter++}`);
         
@@ -375,9 +383,9 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     
     for (const [tileX, tileY] of otherTileCoords) {
       // 2-4 blue slimes per tile
-      const blueSlimesPerTile = 2 + Math.floor(Math.random() * 3); // 2-4
+      const blueSlimesPerTile = 2 + Math.floor(seededRandom() * 3); // 2-4
       for (let i = 0; i < blueSlimesPerTile; i++) {
-        const hp = 2 + Math.floor(Math.random() * 3); // 2-4 HP
+        const hp = 2 + Math.floor(seededRandom() * 3); // 2-4 HP
         
         const enemySpawn = createEnemySpawn(tileX, tileY, 'blue', hp, `other_blue_${spawnIdCounter++}`);
         
@@ -391,9 +399,9 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       }
       
       // 1-2 red slimes per tile
-      const redSlimesPerTile = 1 + Math.floor(Math.random() * 2); // 1-2
+      const redSlimesPerTile = 1 + Math.floor(seededRandom() * 2); // 1-2
       for (let i = 0; i < redSlimesPerTile; i++) {
-        const hp = 1 + Math.floor(Math.random() * 2); // 1-2 HP
+        const hp = 1 + Math.floor(seededRandom() * 2); // 1-2 HP
         
         const enemySpawn = createEnemySpawn(tileX, tileY, 'red', hp, `other_red_${spawnIdCounter++}`);
         
@@ -828,6 +836,32 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     // Clean up portal manager
     if (this.portalManager) {
       this.portalManager.destroy();
+    }
+    
+    // Reset enemy spawn tracking
+    this.resetEnemySpawnTracking();
+  }
+
+  /**
+   * Reset enemy spawn tracking for restart functionality
+   * This ensures that when the game restarts, all enemies will respawn in their original positions
+   */
+  resetEnemySpawnTracking() {
+    debugLog('Map1: Resetting enemy spawn tracking for restart', 'map');
+    this.spawnedEnemyIds.clear();
+    this.isEnemyDataCalculated = false;
+    this.enemySpawnData = null;
+    
+    // If enemy spawn data exists, mark all enemies as not spawned
+    if (this.enemySpawnData) {
+      const allEnemyData = [
+        ...this.enemySpawnData.centerTiles,
+        ...this.enemySpawnData.portalTiles,
+        ...this.enemySpawnData.otherTiles
+      ];
+      allEnemyData.forEach(enemyData => {
+        enemyData.isSpawned = false;
+      });
     }
   }
 

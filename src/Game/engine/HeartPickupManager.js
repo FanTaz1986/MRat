@@ -143,10 +143,17 @@ export default class HeartPickupManager {
    * @returns {Object} Heart object
    */
   createHeart(tileX, tileY, spawnChance, guaranteed = false) {
-    // Generate random position within the tile
+    // Use seeded random for deterministic position generation based on tile coordinates
+    let positionSeed = (tileX * 13337 + tileY * 51234) % 99991;
+    const seededPositionRandom = () => {
+      positionSeed = (positionSeed * 9301 + 49297) % 233280;
+      return positionSeed / 233280;
+    };
+
+    // Generate deterministic random position within the tile
     const margin = 50; // Keep hearts away from tile edges
-    const randomX = margin + Math.random() * (this.tileWidth - 2 * margin);
-    const randomY = margin + Math.random() * (this.tileHeight - 2 * margin);
+    const randomX = margin + seededPositionRandom() * (this.tileWidth - 2 * margin);
+    const randomY = margin + seededPositionRandom() * (this.tileHeight - 2 * margin);
     
     const worldX = tileX * this.tileWidth + randomX;
     const worldY = tileY * this.tileHeight + randomY;
@@ -166,16 +173,16 @@ export default class HeartPickupManager {
     // High-quality rendering
     heartSprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
     
-    // Create heart object
+    // Create heart object with deterministic animation offset
     const heart = {
-      id: `heart_${tileX}_${tileY}_${Date.now()}_${Math.random()}`,
+      id: `heart_${tileX}_${tileY}_deterministic`,
       sprite: heartSprite,
       tileX: tileX,
       tileY: tileY,
       worldX: worldX,
       worldY: worldY,
       baseY: worldY, // Store original Y position for animation
-      animationOffset: Math.random() * Math.PI * 2, // Random animation phase
+      animationOffset: (tileX + tileY) * Math.PI * 0.1, // Deterministic animation phase based on tile coordinates
       isCollected: false,
       guaranteed: guaranteed,
       spawnChance: spawnChance

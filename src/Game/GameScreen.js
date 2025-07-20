@@ -186,6 +186,12 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
       }
     }
     
+    // Clear all existing enemies before restarting
+    if (window.globalEnemyManager) {
+      window.globalEnemyManager.clearAllEnemies();
+      debugLog('Cleared all enemies for restart', 'game');
+    }
+    
     // Reset character position to map's starting position and reload current map
     if (mapManager.current) {
       // Use MapManager's current map instead of game store to ensure accuracy
