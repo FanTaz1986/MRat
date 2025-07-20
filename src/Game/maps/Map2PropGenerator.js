@@ -10,8 +10,9 @@ export default class Map2PropGenerator extends BasePropGenerator {
    * Create a new Map2PropGenerator
    * @param {number} tileWidth - The width of a single map tile
    * @param {number} tileHeight - The height of a single map tile (defaults to tileWidth if not provided)
+   * @param {number} gameSeed - Seed for random generation (ensures consistent layouts within game session)
    */
-  constructor(tileWidth, tileHeight = null) {
+  constructor(tileWidth, tileHeight = null, gameSeed = null) {
     // For backwards compatibility, if only one parameter is passed, use it for both
     const actualTileHeight = tileHeight || tileWidth;
     
@@ -19,7 +20,8 @@ export default class Map2PropGenerator extends BasePropGenerator {
     super(tileWidth, {
       propDensity: 1.0,
       maxPropsPerTile: 30, // High prop density
-      texturePath: "/2MAP/Props/"
+      texturePath: "/2MAP/Props/",
+      seed: gameSeed || 12345 // Use provided game seed or default
     });
     
     // Store tile dimensions
@@ -234,6 +236,68 @@ export default class Map2PropGenerator extends BasePropGenerator {
     } else {
       debugLog(`Tile (${tileX},${tileY}): Generated ${props.length} A props with random scales 100%-250%`, 'map');
     }
+
+    // Add portal-finding props based on proximity to portals
+    const proximity = this.getPortalProximity(tileX, tileY);
+    
+    if (proximity.adjacent) {
+      // Adjacent to portal: add 2-3 portal area props (using C-type props)
+      const portalPropCount = 2 + Math.floor(this.seededRandom() * 2); // 2-3 props
+      for (let i = 0; i < portalPropCount; i++) {
+        // Random position within the tile
+        const offsetX = this.seededRandom() * (this.tileWidth - 200) + 100; // Leave 100px margin
+        const offsetY = this.seededRandom() * (this.tileHeight - 200) + 100; // Leave 100px margin
+        const worldX = tileX * this.tileWidth + offsetX;
+        const worldY = tileY * this.tileHeight + offsetY;
+        
+        // Use proper portal area props (C-type props) instead of portal sprites
+        const portalPropTemplate = this.portalProps[Math.floor(this.seededRandom() * this.portalProps.length)];
+        
+        // Apply same scaling rules as normal props (100% to 250%)
+        const randomScale = 1.0 + this.seededRandom() * 1.5;
+        const finalScale = portalPropTemplate.baseScale * randomScale;
+        
+        const portalProp = {
+          x: worldX,
+          y: worldY,
+          texturePath: `/2MAP/Props/${portalPropTemplate.file}`,
+          scale: finalScale, // Use proper scaling rules
+          rotation: 0, // No rotation
+          mirrored: this.seededRandom() < 0.5,
+          zIndex: portalPropTemplate.zIndex,
+          alpha: 1.0, // Normal alpha, no transparency
+          tint: 0xFFFFFF // Normal white tint, no special effects
+        };
+        props.push(portalProp);
+      }
+    } else if (proximity.oneAway) {
+      // One tile away from portal: add 1 portal area prop (using C-type props)
+      const offsetX = this.seededRandom() * (this.tileWidth - 200) + 100;
+      const offsetY = this.seededRandom() * (this.tileHeight - 200) + 100;
+      const worldX = tileX * this.tileWidth + offsetX;
+      const worldY = tileY * this.tileHeight + offsetY;
+      
+      // Use proper portal area props (C-type props) instead of portal sprites
+      const portalPropTemplate = this.portalProps[Math.floor(this.seededRandom() * this.portalProps.length)];
+      
+      // Apply same scaling rules as normal props (100% to 250%)
+      const randomScale = 1.0 + this.seededRandom() * 1.5;
+      const finalScale = portalPropTemplate.baseScale * randomScale;
+      
+      const portalProp = {
+        x: worldX,
+        y: worldY,
+        texturePath: `/2MAP/Props/${portalPropTemplate.file}`,
+        scale: finalScale, // Use proper scaling rules
+        rotation: 0, // No rotation
+        mirrored: this.seededRandom() < 0.5,
+        zIndex: portalPropTemplate.zIndex,
+        alpha: 1.0, // Normal alpha, no transparency
+        tint: 0xFFFFFF // Normal white tint, no special effects
+      };
+      props.push(portalProp);
+    }
+    
     return props;
   }
   
@@ -269,5 +333,43 @@ export default class Map2PropGenerator extends BasePropGenerator {
     
     // Use the main prop generation method for this tile
     return this.getPropsForTile(tileX, tileY);
+  }
+
+  /**
+   * Get portal proximity information for a tile
+   * @param {number} tileX - Tile X coordinate
+   * @param {number} tileY - Tile Y coordinate
+   * @returns {Object} Proximity info {adjacent: boolean, oneAway: boolean}
+   */
+  getPortalProximity(tileX, tileY) {
+    let adjacent = false;
+    let oneAway = false;
+
+    // Check all tiles within 2 tile radius
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        if (dx === 0 && dy === 0) continue; // Skip the current tile
+        
+        const checkX = tileX + dx;
+        const checkY = tileY + dy;
+        
+        // Ensure we're within map bounds
+        if (checkX >= 0 && checkX < this.gridSize && checkY >= 0 && checkY < this.gridSize) {
+          const checkKey = `${checkX},${checkY}`;
+          
+          if (this.portalTiles.has(checkKey)) {
+            const distance = Math.abs(dx) + Math.abs(dy); // Manhattan distance
+            
+            if (distance === 1) {
+              adjacent = true;
+            } else if (distance === 2) {
+              oneAway = true;
+            }
+          }
+        }
+      }
+    }
+
+    return { adjacent, oneAway };
   }
 }

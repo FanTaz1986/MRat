@@ -552,7 +552,7 @@ export default class Enemy {
     }
     
     // Only set initial texture when state changes, updateAnimation() will handle frame cycling
-    if (this.sprite && this.animations[newState]) {
+    if (this.sprite && this.animations[newState] && this.animations[newState].valid) {
       const oldTexture = this.sprite.texture;
       this.sprite.texture = this.animations[newState];
       
@@ -657,7 +657,7 @@ export default class Enemy {
       }
       
       // Keep showing attack frame during attack duration
-      if (this.animations.attack && this.sprite) {
+      if (this.animations.attack && this.sprite && this.animations.attack.valid) {
         const previousTexture = this.getTextureName(this.sprite.texture);
         this.sprite.texture = this.animations.attack;
         
@@ -682,7 +682,7 @@ export default class Enemy {
       // Alternate between move and idle textures for walking animation
       if (currentTextureName?.includes('move')) {
         // Switch to idle frame
-        if (this.animations.idle) {
+        if (this.animations.idle && this.animations.idle.valid) {
           this.sprite.texture = this.animations.idle;
           if (this.debugEnabled) {
             console.log(`Enemy ${this.type} frame cycle: move → idle`);
@@ -690,7 +690,7 @@ export default class Enemy {
         }
       } else {
         // Switch to move frame
-        if (this.animations.move) {
+        if (this.animations.move && this.animations.move.valid) {
           this.sprite.texture = this.animations.move;
           if (this.debugEnabled) {
             console.log(`Enemy ${this.type} frame cycle: idle → move`);
@@ -703,7 +703,7 @@ export default class Enemy {
     
     // If idle, ensure we're showing idle texture and stop any cycling
     if (this.state === 'idle') {
-      if (this.animations.idle && this.sprite) {
+      if (this.animations.idle && this.sprite && this.animations.idle.valid) {
         const currentTextureName = this.getTextureName(this.sprite.texture);
         if (!currentTextureName?.includes('idle')) {
           this.sprite.texture = this.animations.idle;

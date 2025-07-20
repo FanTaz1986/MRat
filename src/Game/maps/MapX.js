@@ -5,10 +5,11 @@ import Boss from '../entities/Boss';
 import { debugLog } from '../../development/utils/Debug';
 
 export default class MapX {
-  constructor(app, mapSize, layers) {
+  constructor(app, mapSize, layers, gameSeed = null) {
     this.app = app;
     this.mapId = 'mapareax';
     this.layers = layers; // MapManager's layers
+    this.gameSeed = gameSeed; // Store game seed for prop generation
     this.props = [];
     this.obstacles = [];
 
@@ -82,8 +83,8 @@ export default class MapX {
     // Add basic obstacles (map edges)
     this.addObstacles();
     
-    // Generate props using MapXPropGenerator
-    const propGenerator = new MapXPropGenerator(this.mapWidth);
+    // Generate props using MapXPropGenerator with game seed
+    const propGenerator = new MapXPropGenerator(this.mapWidth, this.gameSeed);
     const propData = propGenerator.getAllProps();
     
     debugLog(`MapX: Generated ${propData.length} props`, 'map');

@@ -11,8 +11,8 @@ import { playAmbianceForMap, stopAmbiance } from '../../utils/AudioManager';
 import { debugLog } from '../../development/utils/Debug';
 
 export default class MapManager {
-  constructor(app) {
-    debugLog('MapManager constructor called with: app=' + !!app + ', appType=' + typeof app + ', appConstructor=' + app?.constructor?.name + ', hasStage=' + !!app?.stage + ', stageType=' + typeof app?.stage + ', stageConstructor=' + app?.stage?.constructor?.name, 'system');
+  constructor(app, gameSeed = null) {
+    debugLog('MapManager constructor called with: app=' + !!app + ', appType=' + typeof app + ', appConstructor=' + app?.constructor?.name + ', hasStage=' + !!app?.stage + ', stageType=' + typeof app?.stage + ', stageConstructor=' + app?.stage?.constructor?.name + ', gameSeed=' + gameSeed, 'system');
     
     // Safety check: Ensure we receive a valid PIXI app
     if (!app) {
@@ -35,6 +35,7 @@ export default class MapManager {
     debugLog('MapManager constructor: Validation passed, creating MapManager...', 'system');
     
     this.app = app;
+    this.gameSeed = gameSeed; // Store game seed for passing to maps
     this.currentMap = null;
     this.character = null;
     this.pet = null;
@@ -368,7 +369,7 @@ export default class MapManager {
     };
     
     // Create a Map0 instance with the layers and pass the character reference
-    this.map0Instance = new Map0(this.app, this.mapConfigs.maparea0.mapSize, layers, this.character);
+    this.map0Instance = new Map0(this.app, this.mapConfigs.maparea0.mapSize, layers, this.character, this.gameSeed);
     
     // This will generate and load all props
     this.map0Instance.loadProps();
@@ -408,7 +409,7 @@ export default class MapManager {
     
     // Create Map1 instance with correct dimensions (67200x47520 total area)
     const mapConfig = this.mapConfigs.maparea1;
-    this.map1Instance = new Map1(this.app, mapConfig.mapSize, mapConfig.mapHeight, layers);
+    this.map1Instance = new Map1(this.app, mapConfig.mapSize, mapConfig.mapHeight, layers, this.gameSeed);
     
     // CRITICAL FIX: Pass portal information from MapManager's PortalManager to Map1
     // This ensures that Map1's prop generator knows about portal locations
@@ -473,7 +474,7 @@ export default class MapManager {
       ui: this.uiLayer
     };    // Create Map2 instance with correct dimensions (33600x23760 total area - same as Map1)
     const mapConfig = this.mapConfigs.maparea2;
-    this.map2Instance = new Map2(this.app, mapConfig.mapSize, mapConfig.mapHeight, layers);
+    this.map2Instance = new Map2(this.app, mapConfig.mapSize, mapConfig.mapHeight, layers, this.gameSeed);
     
     // Set the portal manager for Map2
     this.map2Instance.setPortalManager(this.portalManager);
@@ -527,7 +528,7 @@ export default class MapManager {
     };
     
     // Create MapX instance
-    this.mapXInstance = new MapX(this.app, this.mapConfigs.mapareax.mapSize, layers);
+    this.mapXInstance = new MapX(this.app, this.mapConfigs.mapareax.mapSize, layers, this.gameSeed);
     
     // Set up portal enable callback - connect MapX to PortalManager
     this.mapXInstance.setPortalEnabledCallback(() => {

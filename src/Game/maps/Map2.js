@@ -8,8 +8,8 @@ import { debugLog } from '../../development/utils/Debug';
  * This map features dark atmosphere and fog effects
  */
 export default class Map2 {
-  constructor(app, mapWidth, mapHeight, layers) {
-    debugLog(`Map2 constructor called - app: ${!!app}, mapWidth: ${mapWidth}, mapHeight: ${mapHeight}, layers: ${!!layers}`, 'map');
+  constructor(app, mapWidth, mapHeight, layers, gameSeed = null) {
+    debugLog(`Map2 constructor called - app: ${!!app}, mapWidth: ${mapWidth}, mapHeight: ${mapHeight}, layers: ${!!layers}, gameSeed: ${gameSeed}`, 'map');
     
     this.app = app;
     this.mapId = 'maparea2';
@@ -30,8 +30,8 @@ export default class Map2 {
     // For backwards compatibility, keep tileSize as the width (some code might still use it)
     this.tileSize = this.tileWidth;
     
-    // Create prop generator with correct tile dimensions
-    this.propGenerator = new Map2PropGenerator(this.tileWidth, this.tileHeight);
+    // Create prop generator with correct tile dimensions and game seed
+    this.propGenerator = new Map2PropGenerator(this.tileWidth, this.tileHeight, gameSeed);
       // Map boundaries for character movement (use slightly smaller bounds to prevent edge walking)
     this.mapBounds = {
       minX: 32,

@@ -4,8 +4,9 @@
  */
 
 export default class MapXPropGenerator {
-  constructor(mapSize) {
+  constructor(mapSize, gameSeed = null) {
     this.mapSize = mapSize;
+    this.gameSeed = gameSeed || 12345; // Use provided game seed or default
     // Available props for MapX - using 1B, 2B, 3B props (3x variety)
     this.propFiles = ["1B.png", "2B.png", "3B.png"];
   }
@@ -19,8 +20,8 @@ export default class MapXPropGenerator {
     const minProps = 32;
     const maxProps = 50;
     
-    // Create seed for consistent generation
-    let seed = 12345;
+    // Create seed for consistent generation using game seed
+    let seed = this.gameSeed;
     const seededRandom = () => {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;

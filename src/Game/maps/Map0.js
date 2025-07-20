@@ -5,7 +5,7 @@ import PortalManager from '../engine/Portal/PortalManager';
 import { debugLog } from '../../development/utils/Debug';
 
 export default class Map0 {
-  constructor(app, mapSize, layers, character = null) {
+  constructor(app, mapSize, layers, character = null, gameSeed = null) {
     this.app = app;
     this.mapId = 'maparea0';
     this.mapSize = mapSize; // Keep the original mapSize parameter
@@ -23,8 +23,8 @@ export default class Map0 {
     this.tileWidth = this.mapWidth / this.gridSize;  // 262.5px
     this.tileHeight = this.mapHeight / this.gridSize; // 185.625px
     
-    // Create prop generator with original mapSize (keep compatibility)
-    this.propGenerator = new Map0PropGenerator(mapSize);
+    // Create prop generator with original mapSize and game seed for consistent generation
+    this.propGenerator = new Map0PropGenerator(mapSize, gameSeed);
     
     // Special boundary for Map0 - only allow beach area
     this.mapBounds = {

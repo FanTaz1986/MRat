@@ -32,7 +32,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
   const mapManager = useRef(null);
   const debugSystem = useRef(null);
   const bossAI = useRef(null);
-  const { currentMap, setCurrentMap } = useGameStore();
+  const { currentMap, setCurrentMap, gameSeed } = useGameStore();
   const [appReady, setAppReady] = useState(false);
   const [mapManagerReady, setMapManagerReady] = useState(false);
   
@@ -508,10 +508,10 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         initializeConsoleCapture();
         
         // Create map manager with additional safety checks
-        debugLog('Creating MapManager with app: hasApp=' + !!pixiApp.current + ', hasStage=' + !!pixiApp.current.stage + ', stageChildren=' + (pixiApp.current.stage?.children?.length || 0), 'system');
+        debugLog('Creating MapManager with app: hasApp=' + !!pixiApp.current + ', hasStage=' + !!pixiApp.current.stage + ', stageChildren=' + (pixiApp.current.stage?.children?.length || 0) + ', gameSeed=' + gameSeed, 'system');
         
-        mapManager.current = new MapManager(pixiApp.current);
-        debugLog('MapManager created successfully', 'system');
+        mapManager.current = new MapManager(pixiApp.current, gameSeed);
+        debugLog('MapManager created successfully with gameSeed: ' + gameSeed, 'system');
         
         // Initialize Boss AI
         bossAI.current = new BossAI();
@@ -693,7 +693,7 @@ const resizeHandler = () => {
         }
       }
     };
-  }, [appReady, onDebugNavigateToScreen]);
+  }, [appReady, onDebugNavigateToScreen, gameSeed]);
   
   // Separate useEffect for keyboard event listener
   useEffect(() => {

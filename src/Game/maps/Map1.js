@@ -7,8 +7,8 @@ import { debugLog } from '../../development/utils/Debug';
 /**
  * Map1 - A grid-based gameplay map with tile-based background
  */
-export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
-    debugLog(`Map1 constructor called - app: ${!!app}, mapWidth: ${mapWidth}, mapHeight: ${mapHeight}, layers: ${!!layers}`, 'map');
+export default class Map1 {  constructor(app, mapWidth, mapHeight, layers, gameSeed = null) {
+    debugLog(`Map1 constructor called - app: ${!!app}, mapWidth: ${mapWidth}, mapHeight: ${mapHeight}, layers: ${!!layers}, gameSeed: ${gameSeed}`, 'map');
     
     this.app = app;
     this.mapId = 'maparea1';    this.mapWidth = mapWidth;   // 33600 (was 67200)
@@ -26,8 +26,8 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     // For backwards compatibility, keep tileSize as the width (some code might still use it)
     this.tileSize = this.tileWidth;
     
-    // Create prop generator with correct tile dimensions
-    this.propGenerator = new Map1PropGenerator(this.tileWidth, this.tileHeight);
+    // Create prop generator with correct tile dimensions and game seed
+    this.propGenerator = new Map1PropGenerator(this.tileWidth, this.tileHeight, gameSeed);
     
     // Map boundaries for character movement
     this.mapBounds = {

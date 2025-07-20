@@ -5,8 +5,9 @@
  */
 
 export default class Map0PropGenerator {
-  constructor(mapSize) {
+  constructor(mapSize, gameSeed = null) {
     this.mapSize = mapSize;
+    this.gameSeed = gameSeed || 12345; // Use provided game seed or default
     
     // Available props for Map0 - only using rock props (1A.png and 2A.png)
     this.propFiles = {
@@ -29,8 +30,8 @@ export default class Map0PropGenerator {
     } = options;
       // No duplicate portal location declaration here - moved to below
     
-    // Create seed from tile key
-    let seed = 0;
+    // Create seed from tile key combined with game seed for variation between game sessions
+    let seed = this.gameSeed; // Start with game seed
     for (let i = 0; i < tileKey.length; i++) {
       seed += tileKey.charCodeAt(i);
     }

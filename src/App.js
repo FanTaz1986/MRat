@@ -25,7 +25,7 @@ let globalAssetLoadingInitiated = false;
 function App() {
   const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const { gameState, setGameState } = useGameStore();
+  const { gameState, setGameState, generateNewGameSeed } = useGameStore();
   
   // Load all assets on mount
   useEffect(() => {
@@ -253,7 +253,16 @@ function App() {
   
   // Handler for Begin button: play cackle, then start game
   function handleBeginWithCackle() {
+    // Generate new game seed for fresh map layouts
+    generateNewGameSeed();
     playEvilCackle(() => setGameState('PLAYING'));
+  }
+
+  // Handler for restarting the game: generate new seed for new layouts
+  function handleRestart() {
+    // Generate new game seed for fresh map layouts on restart
+    generateNewGameSeed();
+    setGameState('PLAYING');
   }
 
   // Debug handler for navigating to different screens from debug overlay
@@ -337,7 +346,7 @@ function App() {
         return (
           <GameOverScreen
             onMainMenu={() => setGameState('MENU')}
-            onRestart={() => setGameState('PLAYING')}
+            onRestart={handleRestart}
             onDebugNavigateToScreen={debugNavigateToScreen}
           />
         );
