@@ -184,6 +184,9 @@ export default class Character {
       this.sprite.position.set(this.position.x, this.position.y);
       this.sprite.zIndex = 1000; // Higher z-index to ensure it's on top
       
+      // Initialize proper tint to ensure character is never stuck in red
+      this.sprite.tint = 0xFFFFFF; // Normal white tint
+      
       // Stop the animation initially
       if (this.sprite.gotoAndStop && typeof this.sprite.gotoAndStop === 'function') {
         this.sprite.gotoAndStop(0);
@@ -211,6 +214,9 @@ export default class Character {
       this.sprite.zIndex = 1000;
       this.sprite.visible = true;
       this.sprite.alpha = 1;
+      
+      // Initialize proper tint to ensure character is never stuck in red
+      this.sprite.tint = 0xFFFFFF; // Normal white tint
       
       // Mark this as a fallback sprite
       this.sprite.isFallbackSprite = true;
@@ -885,6 +891,22 @@ export default class Character {
       }
     } catch (error) {
       debugLog(`Controller: Error attempting teleport: ${error.message}`, 'character');
+    }
+  }
+  
+  /**
+   * Reset character tint to normal (fixes red flash stuck bug)
+   */
+  resetTint() {
+    if (this.sprite && !this.sprite.destroyed) {
+      // Clear any pending hit effect timeout
+      if (this._hitEffectTimeout) {
+        clearTimeout(this._hitEffectTimeout);
+        this._hitEffectTimeout = null;
+      }
+      
+      this.sprite.tint = 0xFFFFFF; // Normal white tint
+      debugLog('Character tint reset to normal', 'character');
     }
   }
 }

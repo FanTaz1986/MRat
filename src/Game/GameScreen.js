@@ -228,7 +228,27 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
               const newHealth = prev + change;
               // If invulnerability is enabled, prevent health from going below 1
               const minHealth = isInvulnerable() ? 1 : 0;
-              return Math.max(minHealth, Math.min(5, newHealth));
+              const clampedHealth = Math.max(minHealth, Math.min(5, newHealth));
+              
+              // Update the actual character's health
+              if (mapManager.current && mapManager.current.character) {
+                const character = mapManager.current.character;
+                if (character.modifyHealth) {
+                  // Calculate the difference and apply it to character
+                  const healthDiff = clampedHealth - character.currentHP;
+                  character.modifyHealth(healthDiff);
+                  debugLog(`Debug health change (restart): UI health ${prev} -> ${clampedHealth}, Character health adjusted by ${healthDiff}`, 'debug');
+                } else {
+                  // Fallback: directly set character health properties
+                  character.currentHP = clampedHealth;
+                  character.health = clampedHealth;
+                  debugLog(`Debug health change (restart): Character health directly set to ${clampedHealth}`, 'debug');
+                }
+              } else {
+                debugLog('Debug health change (restart): Character not available for health update', 'debug');
+              }
+              
+              return clampedHealth;
             });
           };
           
@@ -513,7 +533,27 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
             // If invulnerability is enabled, prevent health from going below 1
             const minHealth = isInvulnerable() ? 1 : 0;
             // Clamp between minHealth and 5 hearts
-            return Math.max(minHealth, Math.min(5, newHealth));
+            const clampedHealth = Math.max(minHealth, Math.min(5, newHealth));
+            
+            // Update the actual character's health
+            if (mapManager.current && mapManager.current.character) {
+              const character = mapManager.current.character;
+              if (character.modifyHealth) {
+                // Calculate the difference and apply it to character
+                const healthDiff = clampedHealth - character.currentHP;
+                character.modifyHealth(healthDiff);
+                debugLog(`Debug health change: UI health ${prev} -> ${clampedHealth}, Character health adjusted by ${healthDiff}`, 'debug');
+              } else {
+                // Fallback: directly set character health properties
+                character.currentHP = clampedHealth;
+                character.health = clampedHealth;
+                debugLog(`Debug health change: Character health directly set to ${clampedHealth}`, 'debug');
+              }
+            } else {
+              debugLog('Debug health change: Character not available for health update', 'debug');
+            }
+            
+            return clampedHealth;
           });
         };
         

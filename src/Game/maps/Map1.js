@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import MapObstacle from './MapObstacle';
 import Map1PropGenerator from './Map1PropGenerator';
+import HeartPickupManager from '../engine/HeartPickupManager';
 import { debugLog } from '../../development/utils/Debug';
 
 /**
@@ -45,6 +46,10 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     this.enemySpawnData = null; // Will store all enemy spawn positions and properties
     this.spawnedEnemyIds = new Set(); // Track which enemies have been spawned to prevent duplicates
     this.isEnemyDataCalculated = false; // Flag to ensure enemy positions are calculated only once
+    
+    // Heart pickup system
+    this.heartPickupManager = new HeartPickupManager(app, layers.foreground, this.tileWidth, this.tileHeight, this.gridSize);
+    debugLog('Map1: HeartPickupManager initialized', 'map');
   }
   
   /**
@@ -146,10 +151,39 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     // Add obstacles after loading props
     this.addObstacles();
     
+    // Generate heart pickups after props are loaded
+    this.generateHeartPickups();
+    
     // NOTE: Portals are managed by MapManager, not by Map1
     debugLog('Map1 props loaded. Portals are managed by MapManager.', 'map');
     
     return props;
+  }
+
+  /**
+   * Generate heart pickups for Map1
+   */
+  generateHeartPickups() {
+    debugLog('Map1: Generating heart pickups', 'map');
+    
+    // Set portal tiles if available from prop generator
+    if (this.propGenerator && this.propGenerator.portalTiles) {
+      const portalTilesArray = Array.from(this.propGenerator.portalTiles).map(tileKey => {
+        const [x, y] = tileKey.split(',').map(Number);
+        return { x, y };
+      });
+      this.heartPickupManager.setPortalTiles(portalTilesArray);
+      debugLog(`Map1: Set ${portalTilesArray.length} portal tiles for heart pickup manager`, 'map');
+    }
+    
+    // Generate hearts
+    this.heartPickupManager.generateHearts();
+    
+    // Add heart container to the foreground layer
+    this.heartPickupManager.addToContainer(this.layers.foreground);
+    
+    const stats = this.heartPickupManager.getStats();
+    debugLog(`Map1: Heart pickup generation complete - ${stats.total} hearts created`, 'map');
   }
 
   /**
@@ -163,6 +197,15 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
     }
     
     debugLog('Calculating enemy spawn data for Map1', 'map');
+    
+    // Safe zone settings - approximately 1920x1080 screen size around starting position
+    const SAFE_ZONE_CENTER_X = 16800; // Character starting position X
+    const SAFE_ZONE_CENTER_Y = 11880; // Character starting position Y
+    const SAFE_ZONE_WIDTH = 1920;     // 1080p screen width
+    const SAFE_ZONE_HEIGHT = 1080;    // 1080p screen height
+    
+    debugLog(`Safe zone configured: Center(${SAFE_ZONE_CENTER_X}, ${SAFE_ZONE_CENTER_Y}), Size(${SAFE_ZONE_WIDTH}x${SAFE_ZONE_HEIGHT})`, 'map');
+    debugLog(`Safe zone bounds: X(${SAFE_ZONE_CENTER_X - SAFE_ZONE_WIDTH/2} to ${SAFE_ZONE_CENTER_X + SAFE_ZONE_WIDTH/2}), Y(${SAFE_ZONE_CENTER_Y - SAFE_ZONE_HEIGHT/2} to ${SAFE_ZONE_CENTER_Y + SAFE_ZONE_HEIGHT/2})`, 'map');
     
     this.enemySpawnData = {
       centerTiles: [], // 1Amap.png tiles (6,6 to 9,9)
@@ -178,9 +221,24 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       return { x, y };
     };
     
+    // Helper function to check if position is within safe zone
+    const isInSafeZone = (x, y) => {
+      const halfWidth = SAFE_ZONE_WIDTH / 2;
+      const halfHeight = SAFE_ZONE_HEIGHT / 2;
+      return (x >= SAFE_ZONE_CENTER_X - halfWidth && x <= SAFE_ZONE_CENTER_X + halfWidth) &&
+             (y >= SAFE_ZONE_CENTER_Y - halfHeight && y <= SAFE_ZONE_CENTER_Y + halfHeight);
+    };
+
     // Helper function to create enemy spawn info
     const createEnemySpawn = (tileX, tileY, type, hp, spawnId) => {
       const position = getRandomPositionInTile(tileX, tileY);
+      
+      // Check if position is in safe zone - if so, skip this enemy
+      if (isInSafeZone(position.x, position.y)) {
+        debugLog(`Skipping enemy spawn in safe zone at (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`, 'map');
+        return null; // Return null to indicate this enemy should be skipped
+      }
+      
       return {
         id: spawnId,
         tileX,
@@ -212,10 +270,14 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
       for (let j = 0; j < slimesInThisTile; j++) {
         const hp = 1 + Math.floor(Math.random() * 3); // 1-3 HP
         const enemySpawn = createEnemySpawn(tile[0], tile[1], 'blue', hp, `center_${spawnIdCounter++}`);
-        this.enemySpawnData.centerTiles.push(enemySpawn);
-        totalCenterBlueSlimes++;
         
-        debugLog(`Planned center blue slime (${hp}HP) in 1Amap tile (${tile[0]},${tile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        // Only add enemy if it's not in safe zone
+        if (enemySpawn !== null) {
+          this.enemySpawnData.centerTiles.push(enemySpawn);
+          totalCenterBlueSlimes++;
+          
+          debugLog(`Planned center blue slime (${hp}HP) in 1Amap tile (${tile[0]},${tile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        }
       }
     }
     
@@ -248,18 +310,26 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
         const hp = 3 + Math.floor(Math.random() * 3); // 3-5 HP
         
         const enemySpawn = createEnemySpawn(randomTile[0], randomTile[1], 'blue', hp, `portal_blue_${spawnIdCounter++}`);
-        this.enemySpawnData.portalTiles.push(enemySpawn);
-        totalPortalBlueSlimes++;
         
-        debugLog(`Planned portal blue slime (${hp}HP) in portal tile (${randomTile[0]},${randomTile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        // Only add enemy if it's not in safe zone
+        if (enemySpawn !== null) {
+          this.enemySpawnData.portalTiles.push(enemySpawn);
+          totalPortalBlueSlimes++;
+          
+          debugLog(`Planned portal blue slime (${hp}HP) in portal tile (${randomTile[0]},${randomTile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        }
       }
       
       // 1 red slime 5HP in portal tile
       const randomTile5HP = portalTileCoords[Math.floor(Math.random() * portalTileCoords.length)];
       const enemySpawn5HP = createEnemySpawn(randomTile5HP[0], randomTile5HP[1], 'red', 5, `portal_red_5hp_${spawnIdCounter++}`);
-      this.enemySpawnData.portalTiles.push(enemySpawn5HP);
-      totalPortalRedSlimes++;
-      debugLog(`Planned portal red slime (5HP) in portal tile (${randomTile5HP[0]},${randomTile5HP[1]}) at (${enemySpawn5HP.position.x.toFixed(1)}, ${enemySpawn5HP.position.y.toFixed(1)})`, 'map');
+      
+      // Only add enemy if it's not in safe zone
+      if (enemySpawn5HP !== null) {
+        this.enemySpawnData.portalTiles.push(enemySpawn5HP);
+        totalPortalRedSlimes++;
+        debugLog(`Planned portal red slime (5HP) in portal tile (${randomTile5HP[0]},${randomTile5HP[1]}) at (${enemySpawn5HP.position.x.toFixed(1)}, ${enemySpawn5HP.position.y.toFixed(1)})`, 'map');
+      }
       
       // 2 red slimes 2-3 HP in portal tiles
       for (let i = 0; i < 2; i++) {
@@ -267,10 +337,14 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
         const hp = 2 + Math.floor(Math.random() * 2); // 2-3 HP
         
         const enemySpawn = createEnemySpawn(randomTile[0], randomTile[1], 'red', hp, `portal_red_${spawnIdCounter++}`);
-        this.enemySpawnData.portalTiles.push(enemySpawn);
-        totalPortalRedSlimes++;
         
-        debugLog(`Planned portal red slime (${hp}HP) in portal tile (${randomTile[0]},${randomTile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        // Only add enemy if it's not in safe zone
+        if (enemySpawn !== null) {
+          this.enemySpawnData.portalTiles.push(enemySpawn);
+          totalPortalRedSlimes++;
+          
+          debugLog(`Planned portal red slime (${hp}HP) in portal tile (${randomTile[0]},${randomTile[1]}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        }
       }
       
       debugLog(`Total portal slimes: ${totalPortalBlueSlimes} blue, ${totalPortalRedSlimes} red`, 'map');
@@ -306,10 +380,14 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
         const hp = 2 + Math.floor(Math.random() * 3); // 2-4 HP
         
         const enemySpawn = createEnemySpawn(tileX, tileY, 'blue', hp, `other_blue_${spawnIdCounter++}`);
-        this.enemySpawnData.otherTiles.push(enemySpawn);
-        totalOtherBlueSlimes++;
         
-        debugLog(`Planned 1Bmap blue slime (${hp}HP) in tile (${tileX},${tileY}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        // Only add enemy if it's not in safe zone
+        if (enemySpawn !== null) {
+          this.enemySpawnData.otherTiles.push(enemySpawn);
+          totalOtherBlueSlimes++;
+          
+          debugLog(`Planned 1Bmap blue slime (${hp}HP) in tile (${tileX},${tileY}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        }
       }
       
       // 1-2 red slimes per tile
@@ -318,10 +396,14 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
         const hp = 1 + Math.floor(Math.random() * 2); // 1-2 HP
         
         const enemySpawn = createEnemySpawn(tileX, tileY, 'red', hp, `other_red_${spawnIdCounter++}`);
-        this.enemySpawnData.otherTiles.push(enemySpawn);
-        totalOtherRedSlimes++;
         
-        debugLog(`Planned 1Bmap red slime (${hp}HP) in tile (${tileX},${tileY}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        // Only add enemy if it's not in safe zone
+        if (enemySpawn !== null) {
+          this.enemySpawnData.otherTiles.push(enemySpawn);
+          totalOtherRedSlimes++;
+          
+          debugLog(`Planned 1Bmap red slime (${hp}HP) in tile (${tileX},${tileY}) at (${enemySpawn.position.x.toFixed(1)}, ${enemySpawn.position.y.toFixed(1)})`, 'map');
+        }
       }
     }
     
@@ -684,6 +766,11 @@ export default class Map1 {  constructor(app, mapWidth, mapHeight, layers) {
   update(delta) {
     // Check and spawn enemies based on screen visibility
     this.updateEnemyVisibility();
+    
+    // Update heart pickup manager (for floating animation and collision detection)
+    if (this.heartPickupManager) {
+      this.heartPickupManager.update(delta);
+    }
     
     // Map-specific update logic can go here
     // Portal updates are handled by MapManager's updatePortals method

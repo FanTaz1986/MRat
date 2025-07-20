@@ -430,6 +430,12 @@ export default class MapManager {
     // Generate props (now with correct portal exclusions)
     this.map1Instance.loadProps();
     
+    // Set character reference for heart pickup manager
+    if (this.map1Instance.heartPickupManager && this.character) {
+      this.map1Instance.heartPickupManager.setCharacter(this.character);
+      debugLog('MapManager: Set character reference for Map1 heart pickup manager', 'map');
+    }
+    
     // Initialize enemies for Map1 (with small delay to ensure everything is set up)
     if (this.map1Instance.initializeEnemies) {
       setTimeout(() => {
@@ -752,21 +758,9 @@ export default class MapManager {
       return { x: 100, y: 100 }; // Fallback position
     }
 
-    // For map1 and map2, return center position
-    if (this.currentMap === 'maparea1') {
-      return { 
-        x: mapConfig.mapSize * 0.5,     // 16800 (center of 33600) - was 33600
-        y: mapConfig.mapHeight * 0.5    // 11880 (center of 23760) - was 23760
-      };
-    } else if (this.currentMap === 'maparea2') {
-      return { 
-        x: mapConfig.mapSize * 0.5,     // 16384 (center of 32768)
-        y: mapConfig.mapSize * 0.5      // 16384 (center of 32768)
-      };
-    } else {
-      // For other maps, use the configured initial position
-      return mapConfig.initialCharPos;
-    }
+    // Use the configured initial position for all maps to ensure consistency
+    // This ensures teleport to spawn uses the same position as initial map load
+    return mapConfig.initialCharPos;
   }
 
   destroy() {

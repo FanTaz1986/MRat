@@ -1216,4 +1216,45 @@ export default class Enemy {
   setSpawnDebugEnabled(enabled) {
     this.spawnDebugEnabled = enabled;
   }
+  
+  // ============= AI SUPPORT METHODS =============
+  
+  /**
+   * Set enemy facing direction
+   */
+  setDirection(direction) {
+    this.direction = direction;
+    
+    // Update sprite facing if available
+    if (this.sprite) {
+      switch (direction) {
+        case 'left':
+          this.sprite.scale.x = -Math.abs(this.sprite.scale.x);
+          break;
+        case 'right':
+          this.sprite.scale.x = Math.abs(this.sprite.scale.x);
+          break;
+        default:
+          // Up and down don't change sprite flip for now
+          break;
+      }
+    }
+  }
+  
+  /**
+   * Play attack animation (stub for now)
+   */
+  playAttackAnimation() {
+    this.setState('attack');
+    this.isAttacking = true;
+    this.attackStartTime = Date.now();
+    
+    // Reset to idle after attack duration
+    setTimeout(() => {
+      if (this.isAttacking) {
+        this.setState('idle');
+        this.isAttacking = false;
+      }
+    }, this.attackDuration);
+  }
 }

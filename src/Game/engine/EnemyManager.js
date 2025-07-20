@@ -1,5 +1,7 @@
 import * as PIXI from 'pixi.js';
 import Enemy from '../entities/Enemy.js';
+import EnemyManagerDebug from './EnemyManagerDebug.js';
+import EnemyAI from './EnemyAI.js';
 
 /**
  * EnemyManager handles all enemy-related operations
@@ -24,24 +26,14 @@ export default class EnemyManager {
     this.worldContainer = null;
     this.addedToScene = false;
     
-    // Debug properties
-    this.debugEnabled = false;
-    this.attackDebugEnabled = false;
-    this.hitRegDebugEnabled = false;
-    this.coordinateDebugEnabled = false;
-    this.positionLoggingEnabled = false;
-    this.spawnDebugEnabled = false;
-    this.renderAnalysisEnabled = false;
-    this.mapEnemyDebugEnabled = false;
-    this.lastPositionLogTime = 0;
-    this.lastRenderAnalysisTime = 0;
-    this.lastMapEnemyDebugTime = 0;
-    this.positionLogInterval = 5000; // 5 seconds
-    this.renderAnalysisInterval = 2000; // 2 seconds
-    this.playerControlledEnemy = null;
+    // Initialize AI system
+    this.enemyAI = new EnemyAI(app, gameContainer);
     
-    // Note: Constructor logging removed to reduce console spam.
-    // Enable 'Spawn Debug' checkbox to see detailed construction logs.
+    // Initialize debug manager
+    this.debug = new EnemyManagerDebug(this);
+    
+    // Player control
+    this.playerControlledEnemy = null;
     
     // Input handling
     this.keys = {};
@@ -62,7 +54,7 @@ export default class EnemyManager {
       this.addedToScene = true;
       
       // Log only if spawn debug is enabled (note: may not be set yet during initial setup)
-      if (this.spawnDebugEnabled) {
+      if (this.debug?.spawnDebugEnabled) {
         console.log(`[ENEMY-MANAGER] 🌍 EnemyContainer added to world container:`, {
           worldContainerType: worldContainer.constructor.name,
           enemyContainerParent: this.enemyContainer.parent?.constructor?.name,
@@ -155,6 +147,12 @@ export default class EnemyManager {
       }
     });
     
+    // Update AI for all enemies
+    const character = window.gameMapManager?.character;
+    if (character && this.enemyAI) {
+      this.enemyAI.updateAI(this.enemies, character, deltaTime);
+    }
+    
     // Handle player control input
     this.handlePlayerControlInput();
     
@@ -162,31 +160,31 @@ export default class EnemyManager {
     this.cleanupDeadEnemies();
     
     // Handle periodic position logging
-    if (this.positionLoggingEnabled) {
+    if (this.debug?.positionLoggingEnabled) {
       const now = Date.now();
-      if (now - this.lastPositionLogTime >= this.positionLogInterval) {
-        this.logAllSlimePositions();
-        this.lastPositionLogTime = now;
+      if (now - this.debug.lastPositionLogTime >= this.debug.positionLogInterval) {
+        this.debug.logAllSlimePositions();
+        this.debug.lastPositionLogTime = now;
       }
     }
     
     // Handle periodic render analysis
-    if (this.renderAnalysisEnabled) {
+    if (this.debug?.renderAnalysisEnabled) {
       const now = Date.now();
-      if (now - this.lastRenderAnalysisTime >= this.renderAnalysisInterval) {
+      if (now - this.debug.lastRenderAnalysisTime >= this.debug.renderAnalysisInterval) {
         console.log(`🔍 [DEBUG] Periodic render analysis triggered at ${new Date().toLocaleTimeString()}`);
-        this.performRenderAnalysis();
-        this.lastRenderAnalysisTime = now;
+        this.debug.performRenderAnalysis();
+        this.debug.lastRenderAnalysisTime = now;
       }
     }
     
     // Handle periodic Map Enemy Debug analysis
-    if (this.mapEnemyDebugEnabled) {
+    if (this.debug?.mapEnemyDebugEnabled) {
       const now = Date.now();
-      if (now - this.lastMapEnemyDebugTime >= 3000) { // Every 3 seconds
+      if (now - this.debug.lastMapEnemyDebugTime >= 3000) { // Every 3 seconds
         console.log(`🗺️ [MAP-DEBUG] Periodic map enemy analysis triggered at ${new Date().toLocaleTimeString()}`);
-        this.performMapEnemyDebugAnalysis();
-        this.lastMapEnemyDebugTime = now;
+        this.debug.performMapEnemyDebugAnalysis();
+        this.debug.lastMapEnemyDebugTime = now;
       }
     }
   }
@@ -414,23 +412,23 @@ export default class EnemyManager {
           positionLoggingEnabled: this.positionLoggingEnabled,
           attackDebugEnabled: this.attackDebugEnabled,
           hitRegDebugEnabled: this.hitRegDebugEnabled,
-          spawnDebugEnabled: this.spawnDebugEnabled
+          spawnDebugEnabled: this.debug?.spawnDebugEnabled
         });
       }
       
-      enemy.setDebugEnabled(this.debugEnabled || this.positionLoggingEnabled);
-      if (this.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2b: setDebugEnabled completed`);
+      enemy.setDebugEnabled(this.debug?.debugEnabled || this.debug?.positionLoggingEnabled);
+      if (this.debug?.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2b: setDebugEnabled completed`);
       
-      enemy.setAttackDebugEnabled(this.attackDebugEnabled);
-      if (this.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2c: setAttackDebugEnabled completed`);
+      enemy.setAttackDebugEnabled(this.debug?.attackDebugEnabled);
+      if (this.debug?.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2c: setAttackDebugEnabled completed`);
       
-      enemy.setHitRegDebugEnabled(this.hitRegDebugEnabled);
-      if (this.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2d: setHitRegDebugEnabled completed`);
+      enemy.setHitRegDebugEnabled(this.debug?.hitRegDebugEnabled);
+      if (this.debug?.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2d: setHitRegDebugEnabled completed`);
       
-      enemy.setSpawnDebugEnabled(this.spawnDebugEnabled);
-      if (this.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2e: setSpawnDebugEnabled completed`);
+      enemy.setSpawnDebugEnabled(this.debug?.spawnDebugEnabled);
+      if (this.debug?.spawnDebugEnabled) console.log(`[ENEMY-MANAGER] 🔧 Step 2e: setSpawnDebugEnabled completed`);
       
-      if (this.spawnDebugEnabled) {
+      if (this.debug?.spawnDebugEnabled) {
         console.log(`[ENEMY-MANAGER] ✅ Step 2f: All enemy debug properties set successfully`);
       }
     } catch (error) {
@@ -474,6 +472,14 @@ export default class EnemyManager {
       
       this.enemyContainer.addChild(enemy.container);
       this.enemies.push(enemy);
+      
+      // Initialize AI for the new enemy
+      if (this.enemyAI) {
+        this.enemyAI.initializeEnemyAI(enemy);
+        if (this.debug?.spawnDebugEnabled) {
+          console.log(`[ENEMY-MANAGER] 🧠 AI initialized for ${enemy.type} slime`);
+        }
+      }
       
       // Force visibility check
       if (enemy.container.visible === false) {
@@ -988,104 +994,44 @@ export default class EnemyManager {
   }
   
   setDebugEnabled(enabled) {
-    this.debugEnabled = enabled;
-    
-    // Update all existing enemies
-    this.enemies.forEach(enemy => {
-      enemy.setDebugEnabled(enabled);
-    });
-    
-    if (enabled) {
-      console.log('Enemy debug logging enabled');
-    } else {
-      console.log('Enemy debug logging disabled');
+    if (this.debug) {
+      this.debug.setDebugEnabled(enabled);
     }
   }
   
   setAttackDebugEnabled(enabled) {
-    this.attackDebugEnabled = enabled;
-    
-    // Update all existing enemies
-    this.enemies.forEach(enemy => {
-      enemy.setAttackDebugEnabled(enabled);
-    });
-    
-    if (enabled) {
-      console.log('Enemy attack debug logging enabled');
-    } else {
-      console.log('Enemy attack debug logging disabled');
+    if (this.debug) {
+      this.debug.setAttackDebugEnabled(enabled);
     }
   }
   
   setHitRegDebugEnabled(enabled) {
-    this.hitRegDebugEnabled = enabled;
-    
-    // Update all existing enemies
-    this.enemies.forEach(enemy => {
-      enemy.setHitRegDebugEnabled(enabled);
-    });
-    
-    if (enabled) {
-      console.log('Hit registration debug logging enabled');
-      // Also run scaling debug when enabled
-      this.debugScaling();
-    } else {
-      console.log('Hit registration debug logging disabled');
+    if (this.debug) {
+      this.debug.setHitRegDebugEnabled(enabled);
     }
   }
   
   setCoordinateDebugEnabled(enabled) {
-    this.coordinateDebugEnabled = enabled;
-    
-    // Update all existing enemies
-    this.enemies.forEach(enemy => {
-      if (enemy.setCoordinateDebugEnabled) {
-        enemy.setCoordinateDebugEnabled(enabled);
-      }
-    });
-    
-    if (enabled) {
-      console.log('[COORD-DEBUG] 📐 Coordinate space debug logging enabled');
-    } else {
-      console.log('[COORD-DEBUG] 📐 Coordinate space debug logging disabled');
+    if (this.debug) {
+      this.debug.setCoordinateDebugEnabled(enabled);
     }
   }
   
   setPositionLoggingEnabled(enabled) {
-    this.positionLoggingEnabled = enabled;
-    this.lastPositionLogTime = enabled ? Date.now() : 0;
-    
-    if (enabled) {
-      console.log('🗺️ Position logging enabled - will log all slime positions every 5 seconds');
-      // Log immediately when enabled
-      this.logAllSlimePositions();
-    } else {
-      console.log('🗺️ Position logging disabled');
+    if (this.debug) {
+      this.debug.setPositionLoggingEnabled(enabled);
     }
   }
   
   setMapEnemyDebugEnabled(enabled) {
-    this.mapEnemyDebugEnabled = enabled;
-    this.lastMapEnemyDebugTime = enabled ? Date.now() : 0;
-    
-    if (enabled) {
-      console.log('🗺️ MAP ENEMY DEBUG enabled - will analyze Map1 enemy system vs actual spawned enemies');
-      // Log immediately when enabled
-      this.performMapEnemyDebugAnalysis();
-    } else {
-      console.log('🗺️ MAP ENEMY DEBUG disabled');
+    if (this.debug) {
+      this.debug.setMapEnemyDebugEnabled(enabled);
     }
   }
   
   setSpawnDebugEnabled(enabled) {
-    this.spawnDebugEnabled = enabled;
-    
-    if (enabled) {
-      console.log('🎯 Spawn debug enabled - detailed enemy creation and initialization logs');
-      // When spawn debug is enabled, also enable position verification
-      console.log('🔍 Auto-enabling position verification for spawn debugging');
-    } else {
-      console.log('🎯 Spawn debug disabled');
+    if (this.debug) {
+      this.debug.setSpawnDebugEnabled(enabled);
     }
   }
 
@@ -1299,58 +1245,11 @@ export default class EnemyManager {
   }
   
   setRenderAnalysisEnabled(enabled) {
-    console.log(`🔍 [DEBUG] setRenderAnalysisEnabled called with: ${enabled}`);
-    this.renderAnalysisEnabled = enabled;
-    this.lastRenderAnalysisTime = enabled ? Date.now() : 0;
-    
-    if (enabled) {
-      console.log('🔍 Render Analysis enabled - will analyze enemy sizes and HP every 2 seconds');
-      console.log(`🔍 [DEBUG] Current enemy count: ${this.enemies.length}`);
-      console.log(`🔍 [DEBUG] Analysis flag set to: ${this.renderAnalysisEnabled}`);
-      // Log immediately when enabled
-      this.performRenderAnalysis();
-    } else {
-      console.log('🔍 Render Analysis disabled');
+    if (this.debug) {
+      this.debug.setRenderAnalysisEnabled(enabled);
     }
   }
-  
-  logAllSlimePositions() {
-    if (!this.positionLoggingEnabled || this.enemies.length === 0) {
-      return;
-    }
-    
-    console.log(`🗺️ === SLIME POSITION LOG (${this.enemies.length} slimes) ===`);
-    
-    // Get camera offset for coordinate calculations
-    let cameraOffset = { x: 0, y: 0 };
-    if (window.gameMapManager && window.gameMapManager.camera && window.gameMapManager.camera.mapContainer) {
-      const mapContainer = window.gameMapManager.camera.mapContainer;
-      cameraOffset.x = -mapContainer.x;
-      cameraOffset.y = -mapContainer.y;
-    }
-    
-    console.log(`🗺️ Camera offset: (${cameraOffset.x.toFixed(1)}, ${cameraOffset.y.toFixed(1)})`);
-    
-    this.enemies.forEach((enemy, index) => {
-      if (enemy && enemy.isAlive) {
-        // Since enemies are now in world container (character layer), 
-        // enemy.position is already world coordinates
-        const worldX = enemy.position.x;
-        const worldY = enemy.position.y;
-        
-        // Screen coordinates are world coordinates minus camera offset
-        const screenX = worldX - cameraOffset.x;
-        const screenY = worldY - cameraOffset.y;
-        
-        console.log(`🗺️ Slime ${index + 1} (${enemy.type}): HP=${enemy.currentHP}/${enemy.maxHP} scale=${enemy.currentScale.toFixed(2)}`);
-        console.log(`🗺️   World: (${worldX.toFixed(1)}, ${worldY.toFixed(1)}) | Screen: (${screenX.toFixed(1)}, ${screenY.toFixed(1)})`);
-        console.log(`🗺️   State: ${enemy.state} | Speed: ${enemy.speed} | HitStunned: ${enemy.isHitStunned}`);
-      }
-    });
-    
-    console.log(`🗺️ === END POSITION LOG ===`);
-  }
-  
+
   // Debug method to add visual indicators to all enemies
   addDebugVisualIndicators() {
     this.enemies.forEach(enemy => {
@@ -1414,300 +1313,6 @@ export default class EnemyManager {
       blue,
       controlled
     };
-  }
-  
-  // Render Analysis method - logs enemy sizes and HP every 2 seconds
-  performRenderAnalysis() {
-    console.log(`🔍 === RENDER ANALYSIS (${this.enemies.length} enemies) ===`);
-    console.log(`🔍 Analysis enabled: ${this.renderAnalysisEnabled}`);
-    console.log(`🔍 Timestamp: ${new Date().toLocaleTimeString()}`);
-    
-    if (this.enemies.length === 0) {
-      console.log(`🔍 No enemies found to analyze`);
-      console.log(`🔍 === END RENDER ANALYSIS ===`);
-      return;
-    }
-    
-    this.enemies.forEach((enemy, index) => {
-      if (!enemy) {
-        console.log(`🔍 Enemy ${index + 1}: NULL ENEMY`);
-        return;
-      }
-      
-      if (!enemy.isAlive) {
-        console.log(`🔍 Enemy ${index + 1}: DEAD ENEMY (${enemy.type || 'unknown'})`);
-        return;
-      }
-      
-      // Basic enemy info
-      console.log(`🔍 Enemy ${index + 1} (${enemy.type || 'unknown'}):`);
-      console.log(`  HP: ${enemy.currentHP || 'N/A'}/${enemy.maxHP || 'N/A'}`);
-      
-      // Code-level scaling information
-      try {
-        const baseScale = enemy.baseScale || 1;
-        const scalePerHP = enemy.scalePerHP || 0.15;
-        const currentHP = enemy.currentHP || 1;
-        const currentScale = enemy.currentScale || 1;
-        const expectedScale = baseScale + (currentHP - 1) * scalePerHP;
-        
-        console.log(`  Code Scale: current=${currentScale.toFixed(4)} expected=${expectedScale.toFixed(4)}`);
-        console.log(`  Scale Formula: ${baseScale} + (${currentHP} - 1) × ${scalePerHP} = ${expectedScale.toFixed(4)}`);
-        
-        const scaleMatch = Math.abs(currentScale - expectedScale) < 0.001;
-        console.log(`  Scale Match: ${scaleMatch ? '✅' : '❌'}`);
-      } catch (scaleError) {
-        console.log(`  Code Scale: ERROR - ${scaleError.message}`);
-      }
-      
-      // Actual pixel dimensions on screen
-      if (enemy.sprite) {
-        try {
-          const spriteWidth = enemy.sprite.width || 0;
-          const spriteHeight = enemy.sprite.height || 0;
-          const textureWidth = enemy.sprite.texture?.width || 0;
-          const textureHeight = enemy.sprite.texture?.height || 0;
-          
-          console.log(`  🎯 ACTUAL SIZE ON SCREEN: ${spriteWidth.toFixed(1)}×${spriteHeight.toFixed(1)}px`);
-          console.log(`  📐 Original Texture Size: ${textureWidth}×${textureHeight}px`);
-          
-          // Show all scale sources
-          if (enemy.sprite.scale) {
-            console.log(`  🔢 Direct Sprite Scale: (${enemy.sprite.scale.x.toFixed(4)}, ${enemy.sprite.scale.y.toFixed(4)})`);
-          } else {
-            console.log(`  🔢 Direct Sprite Scale: NO SCALE PROPERTY`);
-          }
-          
-          // Calculate scale ratio from original texture to current size
-          if (textureWidth > 0 && textureHeight > 0) {
-            const actualScaleX = spriteWidth / textureWidth;
-            const actualScaleY = spriteHeight / textureHeight;
-            console.log(`  📊 Calculated Scale Ratio: X=${actualScaleX.toFixed(4)} Y=${actualScaleY.toFixed(4)}`);
-            
-            // Compare with expected HP-based scale
-            const expectedHPScale = enemy.currentScale || 1;
-            const scaleMatchX = Math.abs(actualScaleX - expectedHPScale) < 0.001;
-            const scaleMatchY = Math.abs(actualScaleY - expectedHPScale) < 0.001;
-            console.log(`  ⚖️ Scale vs HP Expected: X=${scaleMatchX ? '✅' : '❌'} Y=${scaleMatchY ? '✅' : '❌'}`);
-            console.log(`    Expected HP Scale: ${expectedHPScale.toFixed(4)}`);
-            console.log(`    Actual Scale: X=${actualScaleX.toFixed(4)} Y=${actualScaleY.toFixed(4)}`);
-            console.log(`    Difference: X=${Math.abs(actualScaleX - expectedHPScale).toFixed(4)} Y=${Math.abs(actualScaleY - expectedHPScale).toFixed(4)}`);
-          } else {
-            console.log(`  📊 Calculated Scale Ratio: Cannot calculate (no texture dimensions)`);
-          }
-          
-          // Show bounding box information
-          const spriteBounds = enemy.sprite.getBounds ? enemy.sprite.getBounds() : null;
-          if (spriteBounds) {
-            console.log(`  📦 Sprite Bounds: width=${spriteBounds.width.toFixed(1)} height=${spriteBounds.height.toFixed(1)}`);
-            console.log(`    Bounds Position: x=${spriteBounds.x.toFixed(1)} y=${spriteBounds.y.toFixed(1)}`);
-          } else {
-            console.log(`  📦 Sprite Bounds: Not available`);
-          }
-          
-          // Show transform chain scales
-          let transformScale = { x: 1, y: 1 };
-          let currentContainer = enemy.sprite;
-          const scaleChain = [];
-          while (currentContainer && scaleChain.length < 5) {
-            if (currentContainer.scale) {
-              transformScale.x *= currentContainer.scale.x;
-              transformScale.y *= currentContainer.scale.y;
-              scaleChain.push({
-                name: currentContainer.constructor.name,
-                scale: `(${currentContainer.scale.x.toFixed(4)}, ${currentContainer.scale.y.toFixed(4)})`
-              });
-            }
-            currentContainer = currentContainer.parent;
-          }
-          
-          if (scaleChain.length > 0) {
-            console.log(`  🔗 Transform Scale Chain:`);
-            scaleChain.forEach((link, index) => {
-              console.log(`    ${index + 1}. ${link.name}: ${link.scale}`);
-            });
-            console.log(`    Final Transform Scale: (${transformScale.x.toFixed(4)}, ${transformScale.y.toFixed(4)})`);
-          }
-          
-          // Get screen position if possible
-          if (enemy.sprite.toGlobal && typeof enemy.sprite.toGlobal === 'function') {
-            try {
-              const globalPos = enemy.sprite.toGlobal({ x: 0, y: 0 });
-              const spriteCorners = {
-                topLeft: enemy.sprite.toGlobal({ x: -spriteWidth/2, y: -spriteHeight/2 }),
-                topRight: enemy.sprite.toGlobal({ x: spriteWidth/2, y: -spriteHeight/2 }),
-                bottomLeft: enemy.sprite.toGlobal({ x: -spriteWidth/2, y: spriteHeight/2 }),
-                bottomRight: enemy.sprite.toGlobal({ x: spriteWidth/2, y: spriteHeight/2 })
-              };
-              
-              console.log(`  📍 Screen Position (center): (${globalPos.x.toFixed(1)}, ${globalPos.y.toFixed(1)})`);
-              console.log(`  📍 Screen Corners:`);
-              console.log(`    Top-Left: (${spriteCorners.topLeft.x.toFixed(1)}, ${spriteCorners.topLeft.y.toFixed(1)})`);
-              console.log(`    Top-Right: (${spriteCorners.topRight.x.toFixed(1)}, ${spriteCorners.topRight.y.toFixed(1)})`);
-              console.log(`    Bottom-Left: (${spriteCorners.bottomLeft.x.toFixed(1)}, ${spriteCorners.bottomLeft.y.toFixed(1)})`);
-              console.log(`    Bottom-Right: (${spriteCorners.bottomRight.x.toFixed(1)}, ${spriteCorners.bottomRight.y.toFixed(1)})`);
-              
-              // Calculate actual rendered width/height from corners
-              const renderedWidth = Math.abs(spriteCorners.topRight.x - spriteCorners.topLeft.x);
-              const renderedHeight = Math.abs(spriteCorners.bottomLeft.y - spriteCorners.topLeft.y);
-              console.log(`  📏 Actual Rendered Size: ${renderedWidth.toFixed(1)}×${renderedHeight.toFixed(1)}px`);
-              
-              // Check if visible on screen
-              const screenWidth = this.app?.screen?.width || 1920;
-              const screenHeight = this.app?.screen?.height || 1080;
-              const isVisible = globalPos.x >= -spriteWidth && globalPos.x <= screenWidth + spriteWidth &&
-                               globalPos.y >= -spriteHeight && globalPos.y <= screenHeight + spriteHeight;
-              const screenCoverage = {
-                left: Math.max(0, Math.min(screenWidth, spriteCorners.topRight.x) - Math.max(0, spriteCorners.topLeft.x)),
-                top: Math.max(0, Math.min(screenHeight, spriteCorners.bottomLeft.y) - Math.max(0, spriteCorners.topLeft.y))
-              };
-              const visibleArea = screenCoverage.left * screenCoverage.top;
-              const totalArea = renderedWidth * renderedHeight;
-              const visibilityPercent = totalArea > 0 ? (visibleArea / totalArea * 100) : 0;
-              
-              console.log(`  👁️ Screen Visibility: ${isVisible ? 'YES' : 'NO'} (${visibilityPercent.toFixed(1)}% visible)`);
-              console.log(`  📺 Screen Bounds: ${screenWidth}×${screenHeight}`);
-              console.log(`  📊 Visible Area: ${visibleArea.toFixed(1)}px² of ${totalArea.toFixed(1)}px² total`);
-              
-            } catch (globalError) {
-              console.log(`  📍 Screen Position: ERROR - ${globalError.message}`);
-            }
-          } else {
-            console.log(`  📍 Screen Position: No toGlobal method available`);
-          }
-          
-          // Sprite visibility
-          console.log(`  Sprite Visible: ${enemy.sprite.visible}`);
-          console.log(`  Sprite Alpha: ${enemy.sprite.alpha?.toFixed(2) || 'N/A'}`);
-          
-        } catch (spriteError) {
-          console.log(`  Sprite Analysis: ERROR - ${spriteError.message}`);
-        }
-      } else {
-        console.log(`  🎯 ACTUAL SIZE ON SCREEN: NO SPRITE`);
-        console.log(`  📐 Cannot measure size - sprite not available`);
-      }
-      
-      // Container information with detailed size analysis
-      if (enemy.container) {
-        try {
-          if (enemy.container.scale) {
-            console.log(`  📦 Container Scale: (${enemy.container.scale.x.toFixed(4)}, ${enemy.container.scale.y.toFixed(4)})`);
-          } else {
-            console.log(`  📦 Container Scale: NO SCALE PROPERTY`);
-          }
-          
-          // Container bounds
-          const containerBounds = enemy.container.getBounds ? enemy.container.getBounds() : null;
-          if (containerBounds) {
-            console.log(`  📦 Container Bounds: ${containerBounds.width.toFixed(1)}×${containerBounds.height.toFixed(1)}px`);
-            console.log(`    Container Bounds Position: (${containerBounds.x.toFixed(1)}, ${containerBounds.y.toFixed(1)})`);
-          } else {
-            console.log(`  📦 Container Bounds: Not available`);
-          }
-          
-          console.log(`  📦 Container Visible: ${enemy.container.visible}`);
-          console.log(`  📦 Container Alpha: ${enemy.container.alpha?.toFixed(2) || 'N/A'}`);
-          console.log(`  📦 Container Position: (${enemy.container.x?.toFixed(1) || 'N/A'}, ${enemy.container.y?.toFixed(1) || 'N/A'})`);
-          
-          // Check container children for size contributors
-          if (enemy.container.children && enemy.container.children.length > 0) {
-            console.log(`  📦 Container Children: ${enemy.container.children.length}`);
-            enemy.container.children.forEach((child, childIndex) => {
-              if (child && child.width !== undefined && child.height !== undefined) {
-                console.log(`    Child ${childIndex + 1}: ${child.constructor.name} - ${child.width.toFixed(1)}×${child.height.toFixed(1)}px`);
-              }
-            });
-          }
-          
-        } catch (containerError) {
-          console.log(`  📦 Container Analysis: ERROR - ${containerError.message}`);
-        }
-      } else {
-        console.log(`  📦 Container: NO CONTAINER`);
-      }
-      
-      // Enemy position and size summary
-      if (enemy.position) {
-        console.log(`  🗺️ Enemy Position: (${enemy.position.x?.toFixed(1) || 'N/A'}, ${enemy.position.y?.toFixed(1) || 'N/A'})`);
-      } else {
-        console.log(`  🗺️ Enemy Position: NO POSITION PROPERTY`);
-      }
-      
-      // SIZE COMPARISON SUMMARY
-      console.log(`  📊 SIZE COMPARISON SUMMARY:`);
-      if (enemy.sprite) {
-        const actualWidth = enemy.sprite.width || 0;
-        const actualHeight = enemy.sprite.height || 0;
-        const expectedScale = (enemy.baseScale || 1) + ((enemy.currentHP || 1) - 1) * (enemy.scalePerHP || 0.15);
-        const textureWidth = enemy.sprite.texture?.width || 0;
-        const textureHeight = enemy.sprite.texture?.height || 0;
-        const expectedWidth = textureWidth * expectedScale;
-        const expectedHeight = textureHeight * expectedScale;
-        
-        console.log(`    Expected Size: ${expectedWidth.toFixed(1)}×${expectedHeight.toFixed(1)}px (HP-based)`);
-        console.log(`    Actual Size: ${actualWidth.toFixed(1)}×${actualHeight.toFixed(1)}px (rendered)`);
-        console.log(`    Size Difference: ${Math.abs(actualWidth - expectedWidth).toFixed(1)}×${Math.abs(actualHeight - expectedHeight).toFixed(1)}px`);
-        
-        const sizeMatch = Math.abs(actualWidth - expectedWidth) < 1 && Math.abs(actualHeight - expectedHeight) < 1;
-        console.log(`    Size Match: ${sizeMatch ? '✅ CORRECT' : '❌ MISMATCH'}`);
-        
-        if (!sizeMatch) {
-          const widthRatio = expectedWidth > 0 ? (actualWidth / expectedWidth) : 0;
-          const heightRatio = expectedHeight > 0 ? (actualHeight / expectedHeight) : 0;
-          console.log(`    Size Ratio: Width=${widthRatio.toFixed(3)}x Height=${heightRatio.toFixed(3)}x`);
-        }
-      } else {
-        console.log(`    Cannot compare sizes - no sprite available`);
-      }
-      
-      console.log(`  ---`);
-    });
-    
-    console.log(`🔍 === END RENDER ANALYSIS ===`);
-  }
-  
-  // Debug method to analyze scaling issues
-  debugScaling() {
-    console.log(`[ENEMY-MANAGER] 📏 === SCALING DEBUG ANALYSIS ===`);
-    console.log(`[ENEMY-MANAGER] Total enemies: ${this.enemies.length}`);
-    
-    this.enemies.forEach((enemy, index) => {
-      if (!enemy || !enemy.isAlive) {
-        console.log(`[ENEMY-MANAGER] Enemy ${index}: Not alive or null`);
-        return;
-      }
-      
-      // Calculate what the scale SHOULD be
-      const expectedScale = enemy.baseScale + (enemy.currentHP - 1) * enemy.scalePerHP;
-      
-      // Get actual sprite scale if available
-      let actualSpriteScale = 'N/A';
-      if (enemy.sprite && enemy.sprite.scale) {
-        actualSpriteScale = `(${enemy.sprite.scale.x.toFixed(4)}, ${enemy.sprite.scale.y.toFixed(4)})`;
-      }
-      
-      console.log(`[ENEMY-MANAGER] 📏 Enemy ${index + 1} (${enemy.type}):`);
-      console.log(`  HP: ${enemy.currentHP}/${enemy.maxHP}`);
-      console.log(`  Base Scale: ${enemy.baseScale}`);
-      console.log(`  Scale Per HP: ${enemy.scalePerHP}`);
-      console.log(`  Current Scale: ${enemy.currentScale.toFixed(4)}`);
-      console.log(`  Expected Scale: ${expectedScale.toFixed(4)}`);
-      console.log(`  Scale Match: ${Math.abs(enemy.currentScale - expectedScale) < 0.001 ? '✅' : '❌'}`);
-      console.log(`  Actual Sprite Scale: ${actualSpriteScale}`);
-      console.log(`  Is Scaling: ${enemy.isScaling || false}`);
-      console.log(`  Previous Scale: ${enemy.previousScale?.toFixed(4) || 'N/A'}`);
-      console.log(`  Target Scale: ${enemy.targetScale?.toFixed(4) || 'N/A'}`);
-      
-      // Check for any scale modifiers or additional transforms
-      if (enemy.container) {
-        console.log(`  Container Scale: (${enemy.container.scale?.x || 'N/A'}, ${enemy.container.scale?.y || 'N/A'})`);
-      }
-      
-      console.log(`  ---`);
-    });
-    
-    console.log(`[ENEMY-MANAGER] 📏 === END SCALING DEBUG ===`);
   }
 
   // Calculate pixel-perfect sizes for HP-based scaling
@@ -3291,5 +2896,121 @@ export default class EnemyManager {
     if (this.debugEnabled) {
       console.log('EnemyManager destroyed');
     }
+  }
+  
+  // ============= AI CONTROL METHODS =============
+  
+  /**
+   * Enable/disable AI debug mode
+   */
+  setAIDebugEnabled(enabled) {
+    if (this.enemyAI) {
+      this.enemyAI.setDebugEnabled(enabled);
+    }
+  }
+  
+  /**
+   * Enable/disable AI debug visualization
+   */
+  setAIDebugVisualization(enabled) {
+    if (this.enemyAI) {
+      this.enemyAI.setAIDebugVisualization(enabled);
+    }
+  }
+  
+  /**
+   * Get AI state for a specific enemy
+   */
+  getEnemyAIState(enemy) {
+    if (this.enemyAI) {
+      return this.enemyAI.getEnemyAIState(enemy);
+    }
+    return 'none';
+  }
+  
+  /**
+   * Force enemy to specific AI state (for debugging)
+   */
+  forceEnemyAIState(enemy, state) {
+    if (this.enemyAI) {
+      this.enemyAI.forceEnemyState(enemy, state);
+    }
+  }
+  
+  /**
+   * Get AI statistics for all enemies
+   */
+  getAIStats() {
+    if (this.enemyAI) {
+      return this.enemyAI.getAIStats(this.enemies);
+    }
+    return {};
+  }
+  
+  /**
+   * Test AI behavior by forcing a random enemy to chase the player
+   */
+  testAIChase() {
+    if (!this.enemyAI || this.enemies.length === 0) {
+      console.log('[ENEMY-MANAGER] 🧠 No enemies or AI available for testing');
+      return;
+    }
+    
+    const character = window.gameMapManager?.character;
+    if (!character) {
+      console.log('[ENEMY-MANAGER] 🧠 No character found for AI testing');
+      return;
+    }
+    
+    const randomEnemy = this.enemies[Math.floor(Math.random() * this.enemies.length)];
+    if (randomEnemy && randomEnemy.isAlive) {
+      this.enemyAI.forceEnemyState(randomEnemy, 'chasing');
+      console.log(`[ENEMY-MANAGER] 🧠 Forced ${randomEnemy.type} slime to chase player`);
+    }
+  }
+  
+  /**
+   * Make all enemies return to their starting positions
+   */
+  makeAllEnemiesReturn() {
+    if (!this.enemyAI) return;
+    
+    this.enemies.forEach(enemy => {
+      if (enemy && enemy.isAlive) {
+        this.enemyAI.forceEnemyState(enemy, 'returning');
+      }
+    });
+    
+    console.log(`[ENEMY-MANAGER] 🧠 Forced ${this.enemies.length} enemies to return to start`);
+  }
+  
+  /**
+   * Display AI status for all enemies
+   */
+  showAIStatus() {
+    if (!this.enemyAI) {
+      console.log('[ENEMY-MANAGER] 🧠 AI system not available');
+      return;
+    }
+    
+    console.log('[ENEMY-MANAGER] 🧠 === AI STATUS REPORT ===');
+    
+    const stats = this.getAIStats();
+    console.log(`Total enemies: ${stats.total}`);
+    console.log(`Idle: ${stats.idle || 0}`);
+    console.log(`Chasing: ${stats.chasing || 0}`);
+    console.log(`Returning: ${stats.returning || 0}`);
+    console.log(`Attacking: ${stats.attacking || 0}`);
+    console.log(`Stunned: ${stats.stunned || 0}`);
+    
+    this.enemies.forEach((enemy, index) => {
+      if (enemy && enemy.isAlive && enemy.aiData) {
+        const state = this.getEnemyAIState(enemy);
+        const distanceFromStart = enemy.aiData.distanceFromStart || 0;
+        console.log(`Enemy ${index + 1} (${enemy.type}): ${state} - Distance from start: ${distanceFromStart.toFixed(1)}px`);
+      }
+    });
+    
+    console.log('[ENEMY-MANAGER] 🧠 === END AI STATUS ===');
   }
 }

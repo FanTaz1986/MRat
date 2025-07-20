@@ -571,18 +571,20 @@ function SimpleDebugOverlay({
           if (currentCamera && currentCharacter && currentCamera.centerOn) {
             // Force zoom scale reapplication with safety checks
             try {
-              if (currentCamera.mapContainer && currentCamera.mapContainer.scale && currentCamera.zoom) {
+              if (currentCamera.mapContainer && !currentCamera.mapContainer.destroyed && 
+                  currentCamera.mapContainer.scale && currentCamera.zoom) {
                 currentCamera.mapContainer.scale.set(currentCamera.zoom);
                 debugLog(`Zoom scale reapplied: ${currentCamera.zoom}`, 'map');
               } else {
-                debugLog('Cannot reapply zoom scale: mapContainer or scale not available', 'map');
+                debugLog('Cannot reapply zoom scale: mapContainer destroyed or scale not available', 'map');
               }
             } catch (error) {
               debugLog(`Error reapplying zoom scale: ${error.message}`, 'map');
             }
             
             // Center camera on character with additional safety checks
-            if (currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
+            if (currentCamera.mapContainer && !currentCamera.mapContainer.destroyed && 
+                currentCharacter && currentCharacter.position) {
               const charX = currentCharacter.position.x;
               const charY = currentCharacter.position.y;
               
@@ -596,7 +598,7 @@ function SimpleDebugOverlay({
                 debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'map');
               }
             } else {
-              debugLog('Cannot center camera: missing mapContainer or character position', 'map');
+              debugLog('Cannot center camera: mapContainer destroyed or character position missing', 'map');
             }
           }
         }, 200); // Longer delay to ensure everything is properly initialized
@@ -616,11 +618,12 @@ function SimpleDebugOverlay({
         
         // Center camera on character after teleporting to portal
         setTimeout(() => {
-          // Get the latest camera reference
+          // Get the latest camera reference from mapManager instead of using the potentially stale one
           const currentCamera = mapManager.camera || window.game?.mapManager?.camera;
           
           // Additional safety checks before calling centerOn
-          if (currentCamera && currentCamera.centerOn && currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
+          if (currentCamera && currentCamera.centerOn && currentCamera.mapContainer && 
+              !currentCamera.mapContainer.destroyed && currentCharacter && currentCharacter.position) {
             const charX = currentCharacter.position.x;
             const charY = currentCharacter.position.y;
             
@@ -634,11 +637,11 @@ function SimpleDebugOverlay({
               debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'portal');
             }
           } else {
-            debugLog('Cannot center camera: missing camera, mapContainer, or character', 'portal');
+            debugLog('Cannot center camera: missing camera, mapContainer destroyed, or character', 'portal');
           }
-        }, 150); // Increased delay to ensure map is fully loaded
+        }, 200); // Increased delay to ensure map is fully loaded
         
-        debugLog('Teleported to portal and centered camera', 'portal');
+        debugLog('Teleported to portal and will center camera', 'portal');
       } else {
         debugLog('Cannot teleport: portal or character position is undefined', 'portal');
       }
@@ -654,30 +657,33 @@ function SimpleDebugOverlay({
       character.position.y = spawnPoint.y;
       
       // Center camera on character after teleporting to spawn
-      if (camera && camera.centerOn) {
-        setTimeout(() => {
-          // Additional safety checks before calling centerOn
-          if (camera && camera.centerOn && camera.mapContainer && character && character.position) {
-            // Double-check coordinates are valid
-            const charX = character.position.x;
-            const charY = character.position.y;
+      setTimeout(() => {
+        // Get the latest camera reference from mapManager instead of using the potentially stale one
+        const currentCamera = mapManager.camera || window.game?.mapManager?.camera;
+        const currentCharacter = mapManager.character || window.game?.characterManager?.character;
+        
+        // Additional safety checks before calling centerOn
+        if (currentCamera && currentCamera.centerOn && currentCamera.mapContainer && 
+            !currentCamera.mapContainer.destroyed && currentCharacter && currentCharacter.position) {
+          // Double-check coordinates are valid
+          const charX = currentCharacter.position.x;
+          const charY = currentCharacter.position.y;
+          
+          if (typeof charX === 'number' && typeof charY === 'number' && 
+              !isNaN(charX) && !isNaN(charY) && 
+              isFinite(charX) && isFinite(charY)) {
             
-            if (typeof charX === 'number' && typeof charY === 'number' && 
-                !isNaN(charX) && !isNaN(charY) && 
-                isFinite(charX) && isFinite(charY)) {
-              
-              camera.centerOn(charX, charY);
-              debugLog(`Camera centered on character at spawn: (${charX}, ${charY})`, 'character');
-            } else {
-              debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'character');
-            }
+            currentCamera.centerOn(charX, charY);
+            debugLog(`Camera centered on character at spawn: (${charX}, ${charY})`, 'character');
           } else {
-            debugLog('Cannot center camera at spawn: missing camera, mapContainer, or character', 'character');
+            debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'character');
           }
-        }, 150); // Increased delay to ensure everything is initialized
-      }
+        } else {
+          debugLog('Cannot center camera at spawn: missing camera, mapContainer destroyed, or character', 'character');
+        }
+      }, 200); // Increased delay to ensure everything is initialized
       
-      debugLog('Teleported to spawn point and centered camera', 'character');
+      debugLog('Teleported to spawn point and will center camera', 'character');
     } else {
       debugLog('Cannot teleport: character position or map manager not available', 'character');
     }
@@ -710,18 +716,20 @@ function SimpleDebugOverlay({
           if (currentCamera && currentCharacter && currentCamera.centerOn) {
             // Force zoom scale reapplication with safety checks
             try {
-              if (currentCamera.mapContainer && currentCamera.mapContainer.scale && currentCamera.zoom) {
+              if (currentCamera.mapContainer && !currentCamera.mapContainer.destroyed && 
+                  currentCamera.mapContainer.scale && currentCamera.zoom) {
                 currentCamera.mapContainer.scale.set(currentCamera.zoom);
                 debugLog(`Zoom scale reapplied: ${currentCamera.zoom}`, 'map');
               } else {
-                debugLog('Cannot reapply zoom scale: mapContainer or scale not available', 'map');
+                debugLog('Cannot reapply zoom scale: mapContainer destroyed or scale not available', 'map');
               }
             } catch (error) {
               debugLog(`Error reapplying zoom scale: ${error.message}`, 'map');
             }
             
             // Center camera on character with additional safety checks
-            if (currentCamera.mapContainer && currentCharacter && currentCharacter.position) {
+            if (currentCamera.mapContainer && !currentCamera.mapContainer.destroyed && 
+                currentCharacter && currentCharacter.position) {
               const charX = currentCharacter.position.x;
               const charY = currentCharacter.position.y;
               
@@ -735,7 +743,7 @@ function SimpleDebugOverlay({
                 debugLog(`Cannot center camera: invalid character position (${charX}, ${charY})`, 'map');
               }
             } else {
-              debugLog('Cannot center camera: missing mapContainer or character position', 'map');
+              debugLog('Cannot center camera: mapContainer destroyed or character position missing', 'map');
             }
           } else {
             debugLog('Camera or character not available for centering after boss teleport', 'map');

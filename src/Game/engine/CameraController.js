@@ -17,7 +17,7 @@ export default class CameraController {
     this.target = null;
     
     // Edge margins (percentage of screen size)
-    this.edgeMargin = 0.05;
+    this.edgeMargin = 0.15;
     
     // Apply initial zoom
     this.mapContainer.scale.set(this.zoom);
@@ -227,25 +227,29 @@ export default class CameraController {
       return;
     }
     
+    // Account for zoom in map dimensions
+    const scaledMapWidth = this.mapWidth * this.zoom;
+    const scaledMapHeight = this.mapHeight * this.zoom;
+    
     // Right edge
     if (targetScreenX > screenWidth - edgeMarginX) {
-      camX = Math.min(this.mapWidth - screenWidth, this.target.position.x - screenWidth + edgeMarginX);
+      camX = Math.min(scaledMapWidth - screenWidth, this.target.position.x * this.zoom - screenWidth + edgeMarginX);
       cameraNeedsUpdate = true;
     }
     // Left edge
     else if (targetScreenX < edgeMarginX) {
-      camX = Math.max(0, this.target.position.x - edgeMarginX);
+      camX = Math.max(0, this.target.position.x * this.zoom - edgeMarginX);
       cameraNeedsUpdate = true;
     }
     
     // Bottom edge
     if (targetScreenY > screenHeight - edgeMarginY) {
-      camY = Math.min(this.mapHeight - screenHeight, this.target.position.y - screenHeight + edgeMarginY);
+      camY = Math.min(scaledMapHeight - screenHeight, this.target.position.y * this.zoom - screenHeight + edgeMarginY);
       cameraNeedsUpdate = true;
     }
     // Top edge
     else if (targetScreenY < edgeMarginY) {
-      camY = Math.max(0, this.target.position.y - edgeMarginY);
+      camY = Math.max(0, this.target.position.y * this.zoom - edgeMarginY);
       cameraNeedsUpdate = true;
     }
     

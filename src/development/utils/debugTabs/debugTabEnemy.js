@@ -471,6 +471,126 @@ export function createEnemyTab(debugConfig, toggleLogging, forceUpdate, debugLog
             forceUpdate();
           }
         }, debugConfig.renderStateAnalysis ? '🔍 Render Analysis: ON' : '🔍 Render Analysis: OFF')
+      ]),
+      
+      // AI Debug Toggle
+      React.createElement('div', {
+        key: 'aiDebugToggle',
+        style: { 
+          display: 'flex',
+          alignItems: 'center',
+          padding: '12px',
+          background: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: '8px',
+          border: '1px solid rgba(76, 175, 80, 0.3)',
+          marginBottom: '8px'
+        }
+      }, [
+        React.createElement('input', {
+          key: 'aiDebugCheckbox',
+          type: 'checkbox',
+          checked: debugConfig.aiDebug || false,
+          onChange: () => {
+            debugConfig.aiDebug = !debugConfig.aiDebug;
+            if (enemyManager && enemyManager.setAIDebugEnabled) {
+              enemyManager.setAIDebugEnabled(debugConfig.aiDebug);
+              debugLog(`AI Debug ${debugConfig.aiDebug ? 'enabled' : 'disabled'} - AI behavior logging`, 'enemies');
+            }
+            forceUpdate();
+          },
+          style: {
+            marginRight: '12px',
+            accentColor: '#4caf50',
+            transform: 'scale(1.2)'
+          }
+        }),
+        React.createElement('label', {
+          key: 'aiDebugLabel',
+          style: { 
+            color: debugConfig.aiDebug ? '#4caf50' : '#888',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          },
+          onClick: () => {
+            debugConfig.aiDebug = !debugConfig.aiDebug;
+            if (enemyManager && enemyManager.setAIDebugEnabled) {
+              enemyManager.setAIDebugEnabled(debugConfig.aiDebug);
+              debugLog(`AI Debug ${debugConfig.aiDebug ? 'enabled' : 'disabled'} - AI behavior logging`, 'enemies');
+            }
+            forceUpdate();
+          }
+        }, debugConfig.aiDebug ? '🧠 AI Debug: ON' : '🧠 AI Debug: OFF'),
+        
+        React.createElement('div', {
+          key: 'aiDebugInfo',
+          style: {
+            fontSize: '12px',
+            color: '#888',
+            marginTop: '4px',
+            fontStyle: 'italic'
+          }
+        }, 'Logs AI state changes, chasing, returning, and attacking behavior')
+      ]),
+      
+      // AI Visualization Toggle
+      React.createElement('div', {
+        key: 'aiVisualizationToggle',
+        style: { 
+          display: 'flex',
+          alignItems: 'center',
+          padding: '12px',
+          background: 'rgba(255, 255, 255, 0.05)',
+          borderRadius: '8px',
+          border: '1px solid rgba(139, 69, 19, 0.3)',
+          marginBottom: '8px'
+        }
+      }, [
+        React.createElement('input', {
+          key: 'aiVisualizationCheckbox',
+          type: 'checkbox',
+          checked: debugConfig.aiVisualization || false,
+          onChange: () => {
+            debugConfig.aiVisualization = !debugConfig.aiVisualization;
+            if (enemyManager && enemyManager.setAIDebugVisualization) {
+              enemyManager.setAIDebugVisualization(debugConfig.aiVisualization);
+              debugLog(`AI Visualization ${debugConfig.aiVisualization ? 'enabled' : 'disabled'} - shows chase ranges and paths`, 'enemies');
+            }
+            forceUpdate();
+          },
+          style: {
+            marginRight: '12px',
+            accentColor: '#8b4513',
+            transform: 'scale(1.2)'
+          }
+        }),
+        React.createElement('label', {
+          key: 'aiVisualizationLabel',
+          style: { 
+            color: debugConfig.aiVisualization ? '#8b4513' : '#888',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          },
+          onClick: () => {
+            debugConfig.aiVisualization = !debugConfig.aiVisualization;
+            if (enemyManager && enemyManager.setAIDebugVisualization) {
+              enemyManager.setAIDebugVisualization(debugConfig.aiVisualization);
+              debugLog(`AI Visualization ${debugConfig.aiVisualization ? 'enabled' : 'disabled'} - shows chase ranges and paths`, 'enemies');
+            }
+            forceUpdate();
+          }
+        }, debugConfig.aiVisualization ? '👁️ AI Visualization: ON' : '👁️ AI Visualization: OFF'),
+        
+        React.createElement('div', {
+          key: 'aiVisualizationInfo',
+          style: {
+            fontSize: '12px',
+            color: '#888',
+            marginTop: '4px',
+            fontStyle: 'italic'
+          }
+        }, 'Shows visual indicators for chase ranges, view ranges, and return paths')
       ])
     ]),
     
@@ -862,7 +982,127 @@ export function createEnemyTab(debugConfig, toggleLogging, forceUpdate, debugLog
             e.target.style.transform = 'scale(1)';
             e.target.style.boxShadow = '0 2px 4px rgba(255, 193, 7, 0.3)';
           }
-        }, '🔍 Analyze Now')
+        }, '🔍 Analyze Now'),
+        
+        React.createElement('button', {
+          key: 'testAIChaseButton',
+          onClick: async () => {
+            try {
+              if (enemyManager && enemyManager.testAIChase) {
+                enemyManager.testAIChase();
+                debugLog('Triggered AI chase test - random enemy now chasing player', 'enemies');
+              } else {
+                debugLog('Enemy Manager or testAIChase not available', 'system');
+              }
+            } catch (error) {
+              console.error('AI chase test error:', error);
+              debugLog(`Failed to test AI chase: ${error.message}`, 'system');
+            }
+          },
+          style: {
+            padding: '10px',
+            backgroundColor: '#4caf50',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 4px rgba(76, 175, 80, 0.3)',
+            minWidth: '120px'
+          },
+          onMouseEnter: (e) => {
+            e.target.style.backgroundColor = '#45a049';
+            e.target.style.transform = 'scale(1.05)';
+            e.target.style.boxShadow = '0 4px 8px rgba(76, 175, 80, 0.4)';
+          },
+          onMouseLeave: (e) => {
+            e.target.style.backgroundColor = '#4caf50';
+            e.target.style.transform = 'scale(1)';
+            e.target.style.boxShadow = '0 2px 4px rgba(76, 175, 80, 0.3)';
+          }
+        }, '🧠 Test AI Chase'),
+        
+        React.createElement('button', {
+          key: 'makeEnemiesReturnButton',
+          onClick: async () => {
+            try {
+              if (enemyManager && enemyManager.makeAllEnemiesReturn) {
+                enemyManager.makeAllEnemiesReturn();
+                debugLog('All enemies returning to start positions', 'enemies');
+              } else {
+                debugLog('Enemy Manager or makeAllEnemiesReturn not available', 'system');
+              }
+            } catch (error) {
+              console.error('AI return error:', error);
+              debugLog(`Failed to make enemies return: ${error.message}`, 'system');
+            }
+          },
+          style: {
+            padding: '10px',
+            backgroundColor: '#ff9800',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 4px rgba(255, 152, 0, 0.3)',
+            minWidth: '120px'
+          },
+          onMouseEnter: (e) => {
+            e.target.style.backgroundColor = '#f57c00';
+            e.target.style.transform = 'scale(1.05)';
+            e.target.style.boxShadow = '0 4px 8px rgba(255, 152, 0, 0.4)';
+          },
+          onMouseLeave: (e) => {
+            e.target.style.backgroundColor = '#ff9800';
+            e.target.style.transform = 'scale(1)';
+            e.target.style.boxShadow = '0 2px 4px rgba(255, 152, 0, 0.3)';
+          }
+        }, '🔙 Make Return'),
+        
+        React.createElement('button', {
+          key: 'showAIStatusButton',
+          onClick: async () => {
+            try {
+              if (enemyManager && enemyManager.showAIStatus) {
+                enemyManager.showAIStatus();
+                debugLog('AI status displayed in console', 'enemies');
+              } else {
+                debugLog('Enemy Manager or showAIStatus not available', 'system');
+              }
+            } catch (error) {
+              console.error('AI status error:', error);
+              debugLog(`Failed to show AI status: ${error.message}`, 'system');
+            }
+          },
+          style: {
+            padding: '10px',
+            backgroundColor: '#9c27b0',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 4px rgba(156, 39, 176, 0.3)',
+            minWidth: '120px'
+          },
+          onMouseEnter: (e) => {
+            e.target.style.backgroundColor = '#7b1fa2';
+            e.target.style.transform = 'scale(1.05)';
+            e.target.style.boxShadow = '0 4px 8px rgba(156, 39, 176, 0.4)';
+          },
+          onMouseLeave: (e) => {
+            e.target.style.backgroundColor = '#9c27b0';
+            e.target.style.transform = 'scale(1)';
+            e.target.style.boxShadow = '0 2px 4px rgba(156, 39, 176, 0.3)';
+          }
+        }, '📊 AI Status')
       ])
     ]),
     
@@ -1023,8 +1263,52 @@ export function createEnemyTab(debugConfig, toggleLogging, forceUpdate, debugLog
         
         React.createElement('div', {
           key: 'controlledEnemy',
-          style: { color: '#ab47bc' }
-        }, `Controlled: ${enemyManager ? enemyManager.getStats().controlled : 'none'}`)
+          style: { marginBottom: '8px', color: '#ab47bc' }
+        }, `Controlled: ${enemyManager ? enemyManager.getStats().controlled : 'none'}`),
+        
+        // AI Stats section
+        React.createElement('div', {
+          key: 'aiStatsTitle',
+          style: { 
+            marginTop: '8px', 
+            marginBottom: '4px',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            color: '#4caf50',
+            borderTop: '1px solid rgba(76, 175, 80, 0.3)',
+            paddingTop: '8px'
+          }
+        }, '🧠 AI States:'),
+        
+        ...((() => {
+          const aiStats = enemyManager ? enemyManager.getAIStats() : {};
+          return [
+            React.createElement('div', {
+              key: 'aiIdle',
+              style: { marginBottom: '2px', color: '#90a4ae', fontSize: '11px' }
+            }, `Idle: ${aiStats.idle || 0}`),
+            
+            React.createElement('div', {
+              key: 'aiChasing',
+              style: { marginBottom: '2px', color: '#ff5722', fontSize: '11px' }
+            }, `Chasing: ${aiStats.chasing || 0}`),
+            
+            React.createElement('div', {
+              key: 'aiReturning',
+              style: { marginBottom: '2px', color: '#ff9800', fontSize: '11px' }
+            }, `Returning: ${aiStats.returning || 0}`),
+            
+            React.createElement('div', {
+              key: 'aiAttacking',
+              style: { marginBottom: '2px', color: '#f44336', fontSize: '11px' }
+            }, `Attacking: ${aiStats.attacking || 0}`),
+            
+            React.createElement('div', {
+              key: 'aiStunned',
+              style: { color: '#9c27b0', fontSize: '11px' }
+            }, `Stunned: ${aiStats.stunned || 0}`)
+          ];
+        })())
       ])
     ]),
     

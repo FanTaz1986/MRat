@@ -403,7 +403,7 @@ export default class Pet {
     this.velocity = { x: 0, y: 0 };
     this.direction = 'right'; // default facing right
     this.isMoving = false;
-    this.moveSpeed = 5.2; // Increased by 30% from 4
+    this.moveSpeed = 10.4; // Doubled from 5.2 for 2x speed
     this.animationSpeed = 0.15;
     this.bounds = null;
     this.isAttacking = false;
@@ -438,7 +438,7 @@ export default class Pet {
     this.baseScale = 0.7; // Base scale for map0
     this.currentScale = this.baseScale;
     this.isFollowing = false; // Whether pet is following the character
-    this.followSpeed = 5.85; // Increased by 30% from 4.5 - slightly faster than move speed when following
+    this.followSpeed = 11.7; // Doubled from 5.85 for 2x speed - slightly faster than move speed when following
     
     // Character reference for following
     this.character = null;
@@ -859,6 +859,45 @@ export default class Pet {
     this.velocity.x = dx * this.moveSpeed * delta;
     this.velocity.y = dy * this.moveSpeed * delta;
 
+    // Apply slow zone system if moving away from character
+    if (this.character && this.character.position && (dx !== 0 || dy !== 0)) {
+      const currentDistance = Math.sqrt(
+        Math.pow(this.position.x - this.character.position.x, 2) +
+        Math.pow(this.position.y - this.character.position.y, 2)
+      );
+      
+      // Calculate direction of movement relative to character
+      const charToCurrentX = this.position.x - this.character.position.x;
+      const charToCurrentY = this.position.y - this.character.position.y;
+      const movementX = this.velocity.x;
+      const movementY = this.velocity.y;
+      
+      // Dot product to determine if moving away from character
+      const dotProduct = (charToCurrentX * movementX + charToCurrentY * movementY);
+      const isMovingAwayFromCharacter = dotProduct > 0;
+      
+      // Apply slow zone only when moving away from character
+      if (isMovingAwayFromCharacter) {
+        const slowZoneThreshold = this.currentMaxDistance * 0.7; // 70% of max distance
+        
+        if (currentDistance > slowZoneThreshold) {
+          // Calculate speed multiplier (1.0 at 70%, 0.0 at 100%)
+          const slowZoneProgress = (currentDistance - slowZoneThreshold) / (this.currentMaxDistance - slowZoneThreshold);
+          const speedMultiplier = Math.max(0, 1 - slowZoneProgress);
+          
+          // Apply speed reduction
+          this.velocity.x *= speedMultiplier;
+          this.velocity.y *= speedMultiplier;
+          
+          // Debug log slow zone effect (throttled)
+          if (!this._lastSlowZoneLog || Date.now() - this._lastSlowZoneLog > 2000) {
+            debugLog(`Pet slow zone: distance=${currentDistance.toFixed(1)}/${this.currentMaxDistance}, threshold=${slowZoneThreshold.toFixed(1)}, speedMultiplier=${speedMultiplier.toFixed(2)}`, 'pet');
+            this._lastSlowZoneLog = Date.now();
+          }
+        }
+      }
+    }
+
     // Update direction
     if (dx < 0) this.direction = 'left';
     else if (dx > 0) this.direction = 'right';
@@ -876,14 +915,14 @@ export default class Pet {
       
       // If the pet would move out of range, restrict movement
       if (futureDistance > this.currentMaxDistance) {
-        // Calculate the maximum allowed position
+        // Calculate current distance to character
         const currentDistance = Math.sqrt(
           Math.pow(this.position.x - this.character.position.x, 2) +
           Math.pow(this.position.y - this.character.position.y, 2)
         );
         
         if (currentDistance < this.currentMaxDistance) {
-          // Pet is within range but trying to move out - allow partial movement
+          // Pet is within range but trying to move out - allow partial movement to edge
           const dx = newX - this.character.position.x;
           const dy = newY - this.character.position.y;
           const angle = Math.atan2(dy, dx);
@@ -891,9 +930,31 @@ export default class Pet {
           newX = this.character.position.x + Math.cos(angle) * this.currentMaxDistance;
           newY = this.character.position.y + Math.sin(angle) * this.currentMaxDistance;
         } else {
-          // Pet is already at or beyond range - don't allow movement away from character
-          newX = this.position.x;
-          newY = this.position.y;
+          // Pet is already at or beyond range - only allow movement that brings pet closer
+          const charToCurrentX = this.position.x - this.character.position.x;
+          const charToCurrentY = this.position.y - this.character.position.y;
+          const charToNewX = newX - this.character.position.x;
+          const charToNewY = newY - this.character.position.y;
+          
+          let xBlocked = false, yBlocked = false;
+          
+          // Check each axis separately - allow movement only if it reduces distance on that axis
+          if (Math.abs(charToNewX) >= Math.abs(charToCurrentX)) {
+            // X movement would move away from or stay same distance - revert X
+            newX = this.position.x;
+            xBlocked = true;
+          }
+          if (Math.abs(charToNewY) >= Math.abs(charToCurrentY)) {
+            // Y movement would move away from or stay same distance - revert Y
+            newY = this.position.y;
+            yBlocked = true;
+          }
+          
+          // Debug log when movement is blocked (throttled to avoid spam)
+          if ((xBlocked || yBlocked) && (!this._lastRangeBlockLog || Date.now() - this._lastRangeBlockLog > 1000)) {
+            debugLog(`Pet movement restricted - beyond range: X ${xBlocked ? 'blocked' : 'allowed'}, Y ${yBlocked ? 'blocked' : 'allowed'}, distance: ${currentDistance.toFixed(1)}/${this.currentMaxDistance}`, 'pet');
+            this._lastRangeBlockLog = Date.now();
+          }
         }
       }
     }
