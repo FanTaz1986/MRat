@@ -381,7 +381,7 @@ export default class Enemy {
       // This helps ensure enemies are actually rendered during development server hot-reload
       setTimeout(() => {
         this.verifyVisibility();
-      }, 100); // Small delay to let the rendering pipeline process
+      }, 10); // Reduced from 100ms to 10ms for faster enemy loading
       
     } else {
       console.error(`[ENEMY-SPRITE] ❌ No idle texture available for ${this.type} slime - cannot create sprite`);

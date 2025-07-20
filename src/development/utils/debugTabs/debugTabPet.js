@@ -83,6 +83,75 @@ export function createPetTab(debugConfig, toggleLogging, forceUpdate) {
     ]),
     
     React.createElement('div', {
+      key: 'petAutoFollowDebugging',
+      style: { marginBottom: '16px' }
+    }, [
+      React.createElement('h5', {
+        key: 'autoFollowDebugTitle',
+        style: { 
+          color: '#ff6b35', 
+          margin: '0 0 12px 0',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          textShadow: '0 0 8px #ff6b3588'
+        }
+      }, 'Pet Auto-Follow Debugging'),
+      
+      React.createElement('div', {
+        key: 'autoFollowDebugToggle',
+        style: { 
+          display: 'flex',
+          alignItems: 'center',
+          padding: '12px',
+          background: 'rgba(255, 107, 53, 0.1)',
+          borderRadius: '8px',
+          border: '1px solid rgba(255, 107, 53, 0.3)',
+          marginBottom: '12px'
+        }
+      }, [
+        React.createElement('input', {
+          key: 'petAutoFollowDebugCheckbox',
+          type: 'checkbox',
+          checked: debugConfig.logCategories.petAutoFollow,
+          onChange: () => toggleLogging('petAutoFollow'),
+          style: {
+            marginRight: '12px',
+            accentColor: '#ff6b35',
+            transform: 'scale(1.2)'
+          }
+        }),
+        React.createElement('label', {
+          key: 'petAutoFollowDebugLabel',
+          style: { 
+            color: debugConfig.logCategories.petAutoFollow ? '#4CAF50' : '#888',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          },
+          onClick: () => toggleLogging('petAutoFollow')
+        }, debugConfig.logCategories.petAutoFollow ? '🏃 Pet Auto-Follow Debug: ON' : '🏃 Pet Auto-Follow Debug: OFF')
+      ]),
+      
+      React.createElement('div', {
+        key: 'autoFollowDebugInfo',
+        style: { 
+          fontSize: '12px', 
+          color: '#ff6b35', 
+          opacity: 0.8,
+          lineHeight: '1.4',
+          background: 'rgba(255, 107, 53, 0.1)',
+          padding: '8px',
+          borderRadius: '6px'
+        }
+      }, [
+        React.createElement('div', { key: 'autoFollowInfo1' }, '• Shows detailed auto-follow trigger conditions and state changes'),
+        React.createElement('div', { key: 'autoFollowInfo2' }, '• Displays character movement detection and distance calculations'),
+        React.createElement('div', { key: 'autoFollowInfo3' }, '• Logs auto-follow speed, direction, and stop conditions'),
+        React.createElement('div', { key: 'autoFollowInfo4' }, '• Use to debug why pet gets stuck at max range during movement')
+      ])
+    ]),
+    
+    React.createElement('div', {
       key: 'petInfo',
       style: { 
         fontSize: '12px', 

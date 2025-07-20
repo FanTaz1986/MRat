@@ -11,8 +11,8 @@ export default class EnemyAI {
     
     // AI configuration for Map1
     this.map1Config = {
-      chaseRange: 4200, // 2 tiles (each tile is 2100px)
-      returnToStartThreshold: 4200, // Same as chase range
+      chaseRange: 2100, // 1 tile (each tile is 2100px) - reduced by half for shorter chase
+      returnToStartThreshold: 2100, // Same as chase range
       attackRange: 30, // Close range for attack - reasonable touch distance
       patrolSpeed: 0.5, // Half speed for patrolling
       patrolRange: 1050, // Half a tile (1050px) for patrol area

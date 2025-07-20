@@ -734,7 +734,7 @@ export default class EnemyManager {
           // Second analysis after any fixes
           console.log(`[ENEMY-MANAGER] 🔄 Post-fix analysis:`);
           this.performPostSpawnAnalysis(enemy, x, y);
-        }, 100); // Small delay to ensure everything is initialized
+        }, 10); // Reduced from 100ms to 10ms for faster enemy loading
       }
       
       return enemy;
@@ -1069,7 +1069,7 @@ export default class EnemyManager {
           
           // Verify all enemies after this spawn
           this.verifyAndFixEnemyPositions();
-        }, 200);
+        }, 20); // Reduced from 200ms to 20ms for faster loading
         
         return enemy;
       } else {
@@ -1140,7 +1140,7 @@ export default class EnemyManager {
     // Verify positions after repositioning
     setTimeout(() => {
       this.verifyAndFixEnemyPositions();
-    }, 100);
+    }, 10); // Reduced from 100ms to 10ms for faster loading
   }
 
   // Force all enemies to be visible and properly positioned

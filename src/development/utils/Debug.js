@@ -38,6 +38,7 @@ let debugConfig = {
     input: false,
     performance: false,
     pet: false, // Debug logging disabled by default
+    petAutoFollow: false, // Pet auto-follow debugging - separate from general pet debug
     ui: false, // UI component debugging
     debug: false, // Debug system internal logging
     boss: false, // Boss fight debugging - NEVER auto-enabled

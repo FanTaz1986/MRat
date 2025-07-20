@@ -8,7 +8,7 @@ class Projectile {
     this.position = { x: startX, y: startY };
     this.direction = direction; // 'left' or 'right'
     this.level = level;
-    this.speed = level === 1 ? 8 : 16; // Level 1: 2x character speed (8), Level 2: 4x character speed (16)
+    this.speed = level === 1 ? 12 : 24; // Level 1: 3x character speed (12), Level 2: 6x character speed (24) - 50% faster
     this.isActive = true;
     this.hitRegDebugEnabled = hitRegDebugEnabled; // For hit registration debugging
     this.coordinateDebugEnabled = coordinateDebugEnabled; // For coordinate space debugging
@@ -139,8 +139,8 @@ class Projectile {
       // Smaller collision radius so projectiles can fly deeper into boss before hitting
       // Boss collision radius (much smaller - center area only)
       const bossRadius = 80; // Reduced from 250 to 80 - projectiles fly deeper into boss
-      // Projectile collision radius (small, about 15px)
-      const projectileRadius = 15;
+      // Projectile collision radius (50% bigger for more forgiving hits)
+      const projectileRadius = 22.5; // Increased from 15 to 22.5 for 50% larger hitbox
       const collisionDistance = bossRadius + projectileRadius;
       
       // Debug: Log close approaches (when within twice the collision distance)
@@ -217,7 +217,7 @@ class Projectile {
         projectileDirection: this.direction,
         projectileVelocity: { x: this.velocity.x.toFixed(1), y: this.velocity.y.toFixed(1) },
         projectileSize: { width: this.sprite.width.toFixed(1), height: this.sprite.height.toFixed(1) },
-        projectileRadius: 10,
+        projectileRadius: 15, // Updated to 15 for 50% larger hitbox
         projectileAlive: this.isActive,
         traveledDistance: this.traveledDistance.toFixed(1),
         maxRange: this.maxRange,
@@ -290,8 +290,8 @@ class Projectile {
       
       // Enemy collision radius (based on enemy scale/HP)
       const enemyRadius = 25 * enemy.currentScale; // Scales with HP
-      // Projectile collision radius
-      const projectileRadius = 10;
+      // Projectile collision radius (50% bigger for more forgiving hits)
+      const projectileRadius = 15; // Increased from 10 to 15 for 50% larger hitbox
       const collisionDistance = enemyRadius + projectileRadius;
       
       // COORDINATE SPACE FIX: Calculate what the distance SHOULD be if using correct coordinates
@@ -447,6 +447,13 @@ export default class Pet {
     // Distance limits based on character size
     this.baseMaxDistance = 164; // One character height at map0
     this.currentMaxDistance = this.baseMaxDistance;
+
+    // Character movement tracking for auto-follow when at edge
+    this.lastCharacterPosition = null;
+    this.characterMovementThreshold = 2; // Very sensitive - any movement counts
+    this.characterIsMoving = false;
+    this.isAutoFollowing = false; // Whether pet is actively auto-following due to max range
+    this.wasOutOfRange = false; // Hysteresis state for isOutOfRange() to prevent oscillation
 
     // Animation frames by direction
     this.frameIndices = {
@@ -822,6 +829,33 @@ export default class Pet {
       }
     }
 
+    // Track character movement for auto-follow logic
+    this.updateCharacterMovementTracking();
+
+    // Check auto-follow behavior first, before processing player input
+    const playerControlling = this.keys.up || this.keys.down || this.keys.left || this.keys.right;
+    
+    // Stop auto-following if player takes control
+    if (playerControlling && this.isAutoFollowing) {
+      this.isAutoFollowing = false;
+      debugLog('Pet auto-follow stopped: player took control', 'petAutoFollow');
+    }
+    
+    if (this.character && !this.isAttacking && !playerControlling) {
+      // Single unified follow check that handles both auto-follow and out-of-range scenarios
+      const shouldFollow = this.shouldAutoFollowCharacter();
+      
+      debugLog(`Pet follow check: shouldFollow=${shouldFollow}, playerControlling=${playerControlling}, isAttacking=${this.isAttacking}`, 'petAutoFollow');
+      
+      if (shouldFollow) {
+        debugLog(`Pet starting follow movement: speed=normal`, 'petAutoFollow');
+        this.moveTowardsCharacter(delta);
+        return; // Skip all other movement processing when following
+      } else {
+        debugLog(`Pet NOT following: no trigger conditions met`, 'petAutoFollow');
+      }
+    }
+
     // Movement - combine keyboard and controller input
     let dx = 0, dy = 0;
     
@@ -1000,6 +1034,10 @@ export default class Pet {
     this.position.y = newY;
     this.sprite.position.set(this.position.x, this.position.y);
 
+    // FINAL SAFETY NET: Always enforce max range as last step
+    // This catches any edge cases where pet might end up outside range
+    this.enforceMaxRangePosition();
+
     // Animation
     if (this.isAttacking) {
       // Already handled above
@@ -1034,16 +1072,6 @@ export default class Pet {
         // Ensure high-quality rendering for new texture
         this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
         this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
-      }
-    }
-
-    // Check following behavior (only when not being controlled by player)
-    const playerControlling = this.keys.up || this.keys.down || this.keys.left || this.keys.right;
-    
-    if (this.character && !this.isAttacking && !playerControlling) {
-      if (this.isOutOfRange()) {
-        this.moveTowardsCharacter(delta);
-        return; // Skip other animations when following
       }
     }
   }
@@ -1122,6 +1150,9 @@ export default class Pet {
     // Update max distance based on level (100% more each level)
     this.currentMaxDistance = this.baseMaxDistance * (1 + this.currentLevel);
     
+    // IMPORTANT: Check if pet is now out of range after map change and reposition if needed
+    this.enforceMaxRangePosition();
+    
     // Update sprite size with high-quality scaling
     const newSize = this.getPetSizeForMap(mapId);
     const scale = newSize / 2790; // 2790 is original art width
@@ -1143,6 +1174,38 @@ export default class Pet {
   setBounds(bounds) {
     this.bounds = bounds;
     debugLog(`Pet bounds set: ${JSON.stringify(bounds)}`, 'pet');
+  }
+
+  // Enforce that pet is within max range of character - universal position enforcement
+  enforceMaxRangePosition() {
+    if (!this.character || !this.character.position) {
+      debugLog('Pet enforceMaxRangePosition: No character reference', 'pet');
+      return;
+    }
+
+    const currentDistance = Math.sqrt(
+      Math.pow(this.position.x - this.character.position.x, 2) +
+      Math.pow(this.position.y - this.character.position.y, 2)
+    );
+
+    if (currentDistance > this.currentMaxDistance) {
+      // Pet is out of range - move it to the edge of max range in the same direction
+      const angle = Math.atan2(
+        this.position.y - this.character.position.y,
+        this.position.x - this.character.position.x
+      );
+      
+      const oldX = this.position.x;
+      const oldY = this.position.y;
+      
+      this.position.x = this.character.position.x + Math.cos(angle) * this.currentMaxDistance;
+      this.position.y = this.character.position.y + Math.sin(angle) * this.currentMaxDistance;
+      this.sprite.position.set(this.position.x, this.position.y);
+      
+      debugLog(`Pet enforceMaxRangePosition: moved from (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) to (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)}) - was ${currentDistance.toFixed(1)}px from character, max allowed: ${this.currentMaxDistance}px`, 'pet');
+    } else {
+      debugLog(`Pet enforceMaxRangePosition: position OK - ${currentDistance.toFixed(1)}px from character, max allowed: ${this.currentMaxDistance}px`, 'pet');
+    }
   }
 
   // Get current camera viewport bounds in world coordinates
@@ -1198,23 +1261,62 @@ export default class Pet {
     return bounds;
   }
 
-  // Check if pet is too far from character
-  isOutOfRange() {
+  // Check if pet should auto-follow (simplified logic)
+  shouldAutoFollowCharacter() {
     if (!this.character || !this.character.position) {
+      debugLog('Pet auto-follow check: No character reference', 'petAutoFollow');
       return false;
     }
-    
-    const distance = Math.sqrt(
+
+    // Calculate current distance to character
+    const currentDistance = Math.sqrt(
       Math.pow(this.position.x - this.character.position.x, 2) +
       Math.pow(this.position.y - this.character.position.y, 2)
     );
-    
-    return distance > this.currentMaxDistance;
+
+    // If already auto-following, continue until we reach the character (no interruptions)
+    if (this.isAutoFollowing) {
+      debugLog(`Pet auto-follow active: distance=${currentDistance.toFixed(1)}, stop threshold=5px`, 'petAutoFollow');
+
+      // Stop auto-following only when we get close to the character (within 5px)
+      if (currentDistance <= 5) {
+        this.isAutoFollowing = false;
+        debugLog(`Pet auto-follow completed: reached character at distance ${currentDistance.toFixed(1)}`, 'petAutoFollow');
+        return false;
+      }
+
+      return true; // Continue auto-following until we reach the character
+    }
+
+    // Only allow auto-follow if pet is within reasonable range (max 150% of max distance)
+    // This prevents auto-follow from triggering when pet is teleported or glitched far away
+    const maxReasonableDistance = this.currentMaxDistance * 1.5;
+    if (currentDistance > maxReasonableDistance) {
+      debugLog(`Pet auto-follow blocked: too far away (${currentDistance.toFixed(1)} > ${maxReasonableDistance.toFixed(1)})`, 'petAutoFollow');
+      return false;
+    }
+
+    // Start auto-follow immediately if pet hits max range (95% or more)
+    // No need to wait for character movement - if pet is at edge, it should follow back
+    const triggerThreshold = this.currentMaxDistance * 0.95;
+    const atMaxRange = currentDistance >= triggerThreshold;
+    const rangePercentage = (currentDistance / this.currentMaxDistance * 100).toFixed(1);
+
+    debugLog(`Pet follow check: distance=${currentDistance.toFixed(1)}/${this.currentMaxDistance} (${rangePercentage}%), at max range=${atMaxRange}, character moving=${this.characterIsMoving}`, 'petAutoFollow');
+
+    if (atMaxRange) {
+      this.isAutoFollowing = true;
+      debugLog(`Pet auto-follow started: distance=${currentDistance.toFixed(1)}/${this.currentMaxDistance}, hit max range trigger`, 'petAutoFollow');
+      return true;
+    }
+
+    return false;
   }
 
-  // Move pet towards character when out of range
+  // Move pet towards character when out of range or during auto-follow
   moveTowardsCharacter(delta) {
     if (!this.character || !this.character.position) {
+      debugLog('Pet moveTowardsCharacter: No character reference', 'petAutoFollow');
       return;
     }
     
@@ -1222,22 +1324,64 @@ export default class Pet {
     const dy = this.character.position.y - this.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
+    debugLog(`Pet moveTowardsCharacter: distance=${distance.toFixed(1)}, auto-following=${this.isAutoFollowing}, delta=${delta.toFixed(3)}`, 'petAutoFollow');
+    
     if (distance > 0) {
       // Normalize direction and apply speed
       const normalizedDx = dx / distance;
       const normalizedDy = dy / distance;
       
-      // Move at double speed when following
-      const followSpeed = this.moveSpeed * 2;
+      // Use normal speed for auto-follow to prevent teleporting
+      const followSpeed = this.moveSpeed * (this.isAutoFollowing ? 1 : 1); // Same speed for both cases
       
+      debugLog(`Pet moveTowardsCharacter: direction=(${normalizedDx.toFixed(3)}, ${normalizedDy.toFixed(3)}), speed=${followSpeed.toFixed(1)} (base=${this.moveSpeed})`, 'petAutoFollow');
+      
+      // Move towards character
+      const oldX = this.position.x;
+      const oldY = this.position.y;
       this.position.x += normalizedDx * followSpeed * delta;
       this.position.y += normalizedDy * followSpeed * delta;
       
-      // Ensure pet doesn't go outside camera viewport when following
+      debugLog(`Pet moveTowardsCharacter: moved from (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) to (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`, 'petAutoFollow');
+      
+      // IMPORTANT: Enforce max range BEFORE camera bounds to prevent camera pushing pet too far
+      const newDistance = Math.sqrt(
+        Math.pow(this.position.x - this.character.position.x, 2) +
+        Math.pow(this.position.y - this.character.position.y, 2)
+      );
+      
+      if (newDistance > this.currentMaxDistance) {
+        // Even during follow, don't go beyond max range
+        const angle = Math.atan2(
+          this.position.y - this.character.position.y,
+          this.position.x - this.character.position.x
+        );
+        this.position.x = this.character.position.x + Math.cos(angle) * this.currentMaxDistance;
+        this.position.y = this.character.position.y + Math.sin(angle) * this.currentMaxDistance;
+        debugLog(`Pet moveTowardsCharacter: enforced max range - clamped to ${this.currentMaxDistance}px from character`, 'petAutoFollow');
+      }
+      
+      // Only apply camera bounds if they don't push pet outside character range
       const cameraBounds = this.getCameraBounds();
       if (cameraBounds) {
-        this.position.x = Math.max(cameraBounds.minX, Math.min(cameraBounds.maxX, this.position.x));
-        this.position.y = Math.max(cameraBounds.minY, Math.min(cameraBounds.maxY, this.position.y));
+        const clampedX = Math.max(cameraBounds.minX, Math.min(cameraBounds.maxX, this.position.x));
+        const clampedY = Math.max(cameraBounds.minY, Math.min(cameraBounds.maxY, this.position.y));
+        
+        // Check if camera clamping would put pet outside character range
+        const clampedDistance = Math.sqrt(
+          Math.pow(clampedX - this.character.position.x, 2) +
+          Math.pow(clampedY - this.character.position.y, 2)
+        );
+        
+        if (clampedDistance <= this.currentMaxDistance && (clampedX !== this.position.x || clampedY !== this.position.y)) {
+          debugLog(`Pet moveTowardsCharacter: clamped by camera bounds from (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)}) to (${clampedX.toFixed(1)}, ${clampedY.toFixed(1)})`, 'petAutoFollow');
+          this.position.x = clampedX;
+          this.position.y = clampedY;
+        } else if (clampedDistance > this.currentMaxDistance) {
+          debugLog(`Pet moveTowardsCharacter: camera bounds ignored - would push pet outside character range (${clampedDistance.toFixed(1)} > ${this.currentMaxDistance})`, 'petAutoFollow');
+        }
+      } else {
+        debugLog('Pet moveTowardsCharacter: No camera bounds available', 'petAutoFollow');
       }
       
       this.sprite.position.set(this.position.x, this.position.y);
@@ -1294,6 +1438,47 @@ export default class Pet {
       return { dx: controllerDx, dy: controllerDy };
     }
     return { dx: 0, dy: 0 };
+  }
+
+  // Track character movement for intelligent auto-follow behavior
+  updateCharacterMovementTracking() {
+    if (!this.character || !this.character.position) {
+      this.characterIsMoving = false;
+      debugLog('Character movement tracking: No character reference', 'petAutoFollow');
+      return;
+    }
+
+    const currentCharPos = { x: this.character.position.x, y: this.character.position.y };
+    
+    // Initialize tracking on first update
+    if (!this.lastCharacterPosition) {
+      this.lastCharacterPosition = { ...currentCharPos };
+      this.characterIsMoving = false;
+      debugLog(`Character movement tracking initialized at (${currentCharPos.x.toFixed(1)}, ${currentCharPos.y.toFixed(1)})`, 'petAutoFollow');
+      return;
+    }
+
+    // Calculate character movement since last frame
+    const charMovementX = currentCharPos.x - this.lastCharacterPosition.x;
+    const charMovementY = currentCharPos.y - this.lastCharacterPosition.y;
+    const charMovementDistance = Math.sqrt(charMovementX * charMovementX + charMovementY * charMovementY);
+
+    // Check if character moved significantly
+    const wasMoving = this.characterIsMoving;
+    this.characterIsMoving = charMovementDistance > this.characterMovementThreshold;
+
+    // Log movement state changes
+    if (wasMoving !== this.characterIsMoving) {
+      debugLog(`Character movement state changed: ${wasMoving ? 'moving' : 'stopped'} → ${this.characterIsMoving ? 'moving' : 'stopped'} (distance=${charMovementDistance.toFixed(3)}, threshold=${this.characterMovementThreshold})`, 'petAutoFollow');
+    }
+
+    // Log detailed movement every few frames when debugging
+    if (Date.now() % 500 < 16) { // Log roughly every 500ms
+      debugLog(`Character movement: distance=${charMovementDistance.toFixed(3)}, threshold=${this.characterMovementThreshold}, moving=${this.characterIsMoving}, pos=(${currentCharPos.x.toFixed(1)}, ${currentCharPos.y.toFixed(1)})`, 'petAutoFollow');
+    }
+
+    // Update last position for next frame
+    this.lastCharacterPosition = { ...currentCharPos };
   }
   
   setHitRegDebugEnabled(enabled) {
