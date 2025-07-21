@@ -202,20 +202,30 @@ export default class GameStateManager {
         if (mapManager && mapManager.mapXInstance) {
           try {
             const bossInfo = mapManager.mapXInstance.getBossInfo();
-            if (bossInfo.isVisible) {
+            debugLog(`[SAVING] Boss info retrieved: isVisible=${bossInfo.isVisible}, health=${bossInfo.currentHealth}/${bossInfo.maxHealth}, position=(${bossInfo.position?.x}, ${bossInfo.position?.y})`, 'saving');
+            
+            // Always save boss state if we're on boss map and boss exists, regardless of visibility
+            if (bossInfo.currentHealth > 0 || bossInfo.maxHealth > 0) {
               bossState = {
                 health: bossInfo.currentHealth,
                 maxHealth: bossInfo.maxHealth,
-                isActive: true,
+                isActive: true, // Force active if boss exists
+                isVisible: bossInfo.isVisible,
+                position: bossInfo.position ? {
+                  x: bossInfo.position.x,
+                  y: bossInfo.position.y
+                } : { x: 300, y: 300 }, // Fallback to spawn position
                 mapId: 'mapareax'
               };
-              debugLog(`[SAVING] Boss state from entity: health=${bossInfo.currentHealth}/${bossInfo.maxHealth}, active=${bossInfo.isVisible}`, 'saving');
+              debugLog(`[SAVING] Boss state from entity: health=${bossInfo.currentHealth}/${bossInfo.maxHealth}, position=(${bossState.position.x}, ${bossState.position.y}), visible=${bossInfo.isVisible}`, 'saving');
             } else {
-              debugLog(`[SAVING] Boss exists but not visible/spawned`, 'saving');
+              debugLog(`[SAVING] Boss entity has no health data: health=${bossInfo.currentHealth}/${bossInfo.maxHealth}`, 'saving');
             }
           } catch (error) {
             debugLog(`[SAVING] Error getting boss info: ${error.message}`, 'saving');
           }
+        } else {
+          debugLog(`[SAVING] MapManager or MapX instance not available: mapManager=${!!mapManager}, mapXInstance=${!!(mapManager && mapManager.mapXInstance)}`, 'saving');
         }
         
         // Fallback to React state if MapX not available (shouldn't happen in boss room)
@@ -398,6 +408,7 @@ export default class GameStateManager {
       if (gameState.boss) {
         debugLog(`[RESTORE] Restoring boss state...`, 'loading');
         debugLog(`[RESTORE] - Boss health: ${gameState.boss.health}/${gameState.boss.maxHealth}`, 'loading');
+        debugLog(`[RESTORE] - Boss position: (${gameState.boss.position?.x || 'N/A'}, ${gameState.boss.position?.y || 'N/A'})`, 'loading');
         await this.restoreBossState(gameState.boss, setBossHealth, setMaxBossHealth, setShowBossUI, mapManager);
         debugLog(`[RESTORE] Boss state restoration completed`, 'loading');
       } else {
@@ -795,6 +806,13 @@ export default class GameStateManager {
             const boss = mapManager.mapXInstance.boss;
             boss.currentHP = bossState.health;
             boss.maxHP = bossState.maxHealth;
+            
+            // Restore boss position if available
+            if (bossState.position) {
+              boss.position.set(bossState.position.x, bossState.position.y);
+              debugLog(`[RESTORE] Boss entity position restored: (${bossState.position.x}, ${bossState.position.y})`, 'loading');
+            }
+            
             debugLog(`[RESTORE] Boss entity health restored: ${bossState.health}/${bossState.maxHealth}`, 'loading');
           } catch (bossEntityError) {
             debugLog(`[RESTORE] Error updating boss entity health: ${bossEntityError.message}`, 'loading');

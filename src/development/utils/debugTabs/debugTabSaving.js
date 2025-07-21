@@ -214,6 +214,55 @@ export function createSavingTab(debugConfig, toggleLogging, forceUpdate, debugLo
     }
   };
   
+  const handleDebugBossState = () => {
+    debugLog('=== BOSS STATE DEBUG ===', 'saving');
+    
+    // Check if we're on boss map
+    if (window.gameMapManager) {
+      debugLog(`Current map: ${window.gameMapManager.currentMap}`, 'saving');
+      
+      if (window.gameMapManager.currentMap === 'mapareax') {
+        debugLog('On boss map - checking boss state...', 'saving');
+        
+        if (window.gameMapManager.mapXInstance) {
+          debugLog('MapX instance found', 'saving');
+          
+          try {
+            const bossInfo = window.gameMapManager.mapXInstance.getBossInfo();
+            debugLog(`Boss Info from getBossInfo():`, 'saving');
+            debugLog(`- isVisible: ${bossInfo.isVisible}`, 'saving');
+            debugLog(`- currentHealth: ${bossInfo.currentHealth}`, 'saving');
+            debugLog(`- maxHealth: ${bossInfo.maxHealth}`, 'saving');
+            debugLog(`- position: (${bossInfo.position?.x || 'N/A'}, ${bossInfo.position?.y || 'N/A'})`, 'saving');
+            
+            // Also check boss entity directly
+            if (window.gameMapManager.mapXInstance.boss) {
+              const boss = window.gameMapManager.mapXInstance.boss;
+              debugLog(`Boss Entity Direct Check:`, 'saving');
+              debugLog(`- boss.currentHP: ${boss.currentHP}`, 'saving');
+              debugLog(`- boss.maxHP: ${boss.maxHP}`, 'saving');
+              debugLog(`- boss.position: (${boss.position.x}, ${boss.position.y})`, 'saving');
+              debugLog(`- boss spawned: ${window.gameMapManager.mapXInstance.bossSpawned}`, 'saving');
+            } else {
+              debugLog('Boss entity not found!', 'saving');
+            }
+            
+          } catch (error) {
+            debugLog(`Error getting boss info: ${error.message}`, 'saving');
+          }
+        } else {
+          debugLog('MapX instance not found!', 'saving');
+        }
+      } else {
+        debugLog('Not on boss map', 'saving');
+      }
+    } else {
+      debugLog('GameMapManager not found!', 'saving');
+    }
+    
+    debugLog('=== END BOSS STATE DEBUG ===', 'saving');
+  };
+  
   const handleClearAllSaves = () => {
     debugLog('Clearing all save slots...', 'saving');
     
@@ -775,6 +824,22 @@ export function createSavingTab(debugConfig, toggleLogging, forceUpdate, debugLo
           transition: 'all 0.2s ease'
         }
       }, ' Map Visibility Check'),
+      
+      React.createElement('button', {
+        key: 'debug-boss-state',
+        onClick: handleDebugBossState,
+        style: {
+          padding: '8px 12px',
+          background: 'rgba(255,0,255,0.2)',
+          border: '2px solid rgba(255,0,255,0.5)',
+          borderRadius: '6px',
+          color: '#ff00ff',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          transition: 'all 0.2s ease'
+        }
+      }, ' 👑 Debug Boss State'),
       
       React.createElement('button', {
         key: 'inspect-storage',

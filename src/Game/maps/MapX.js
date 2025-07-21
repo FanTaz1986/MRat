@@ -351,14 +351,22 @@ export default class MapX {
       return {
         isVisible: false,
         currentHealth: 0,
-        maxHealth: 40
+        maxHealth: 40,
+        position: {
+          x: this.bossSpawnPosition.x,
+          y: this.bossSpawnPosition.y
+        }
       };
     }
     
     return {
       isVisible: true, // Always show UI when boss exists
       currentHealth: this.boss.currentHP || 0,
-      maxHealth: this.boss.maxHP || 40
+      maxHealth: this.boss.maxHP || 40,
+      position: {
+        x: this.boss.position.x,
+        y: this.boss.position.y
+      }
     };
   }
 
