@@ -275,6 +275,17 @@ export function createSavingTab(debugConfig, toggleLogging, forceUpdate, debugLo
               if (parsed.timestamp) {
                 debugLog(`Timestamp: ${new Date(parsed.timestamp).toLocaleString()}`, 'saving');
               }
+              
+              // Check for boss data
+              if (parsed.boss) {
+                debugLog(`Boss data found:`, 'saving');
+                debugLog(`- Boss health: ${parsed.boss.health}/${parsed.boss.maxHealth}`, 'saving');
+                debugLog(`- Boss position: (${parsed.boss.position?.x}, ${parsed.boss.position?.y})`, 'saving');
+                debugLog(`- Boss spawned: ${parsed.boss.spawned}`, 'saving');
+                debugLog(`- Boss map: ${parsed.boss.mapId}`, 'saving');
+              } else {
+                debugLog(`No boss data in save`, 'saving');
+              }
             } catch (parseError) {
               debugLog(`Type: String (not JSON)`, 'saving');
               debugLog(`Preview: ${value.substring(0, 100)}${value.length > 100 ? '...' : ''}`, 'saving');
