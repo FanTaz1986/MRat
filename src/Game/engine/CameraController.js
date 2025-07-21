@@ -277,7 +277,14 @@ export default class CameraController {
   }
   
   destroy() {
-    this.app.ticker.remove(this.update);
+    // Safe ticker cleanup
+    try {
+      if (this.app && this.app.ticker && typeof this.app.ticker.remove === 'function') {
+        this.app.ticker.remove(this.update);
+      }
+    } catch (error) {
+      console.warn('Error removing camera from ticker:', error);
+    }
     this.target = null;
   }
   

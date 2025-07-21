@@ -12,6 +12,8 @@ const OptionsMenu = ({
   onContinue, 
   onReturnToMain, 
   onExit, 
+  onSaveGame,
+  onLoadGame,
   initialMusicVolume = 5, 
   initialSfxVolume = 7 
 }) => {
@@ -119,10 +121,12 @@ const OptionsMenu = ({
         }, 100);
       }
     },
+    { label: 'Save Game', action: onSaveGame || (() => console.log('Save Game not implemented')) },
+    { label: 'Load Game', action: onLoadGame || (() => console.log('Load Game not implemented')) },
     { label: 'Continue', action: onContinue },
     { label: 'Return to Main Menu', action: onReturnToMain },
     { label: 'Exit Game', action: onExit }
-  ], [onContinue, onReturnToMain, onExit]);
+  ], [onContinue, onReturnToMain, onExit, onSaveGame, onLoadGame]);
 
   // Handle keyboard navigation
   useEffect(() => {

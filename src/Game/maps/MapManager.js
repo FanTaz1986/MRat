@@ -765,7 +765,12 @@ export default class MapManager {
   }
 
   destroy() {
-    this.unloadCurrentMap();
+    try {
+      this.unloadCurrentMap();
+    } catch (error) {
+      console.warn('Error during MapManager.unloadCurrentMap():', error);
+    }
+    
     this.mapConfigs = null;
     this.onMapChanged = null;
   }

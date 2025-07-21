@@ -470,9 +470,15 @@ export default class Character {
   }
   
   destroy() {
-    this.app.ticker.remove(this.update, this);
-    window.removeEventListener('keydown', this.handleKeyDown);
-    window.removeEventListener('keyup', this.handleKeyUp);
+    // Safe cleanup with null checks
+    if (this.app && this.app.ticker && this.update) {
+      this.app.ticker.remove(this.update, this);
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this.handleKeyDown);
+      window.removeEventListener('keyup', this.handleKeyUp);
+    }
     
     // Clean up gamepad event listeners
     if (this.gamepadConnected) {

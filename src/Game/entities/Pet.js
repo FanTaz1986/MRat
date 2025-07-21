@@ -386,11 +386,15 @@ class Projectile {
   
   destroy() {
     this.isActive = false;
-    if (this.sprite && this.sprite.parent) {
-      this.sprite.parent.removeChild(this.sprite);
-    }
-    if (this.sprite) {
-      this.sprite.destroy();
+    try {
+      if (this.sprite) {
+        if (this.sprite.parent) {
+          this.sprite.parent.removeChild(this.sprite);
+        }
+        this.sprite.destroy();
+      }
+    } catch (error) {
+      console.warn('Error destroying projectile sprite:', error);
     }
   }
 }
@@ -1520,21 +1524,49 @@ export default class Pet {
   }
 
   destroy() {
-    this.app.ticker.remove(this.update, this);
-    window.removeEventListener('keydown', this.handleKeyDown);
-    window.removeEventListener('keyup', this.handleKeyUp);
+    // Safe ticker cleanup
+    try {
+      if (this.app && this.app.ticker && typeof this.app.ticker.remove === 'function') {
+        this.app.ticker.remove(this.update, this);
+      }
+    } catch (error) {
+      console.warn('Error removing pet from ticker:', error);
+    }
     
-    // Clean up all projectiles
-    this.projectiles.forEach(projectile => {
-      projectile.destroy();
-    });
+    // Safe event listener cleanup
+    try {
+      window.removeEventListener('keydown', this.handleKeyDown);
+      window.removeEventListener('keyup', this.handleKeyUp);
+    } catch (error) {
+      console.warn('Error removing pet event listeners:', error);
+    }
+    
+    // Clean up all projectiles safely
+    if (this.projectiles && this.projectiles.length > 0) {
+      this.projectiles.forEach(projectile => {
+        try {
+          if (projectile && typeof projectile.destroy === 'function') {
+            projectile.destroy();
+          }
+        } catch (error) {
+          console.warn('Error destroying pet projectile:', error);
+        }
+      });
+    }
     this.projectiles = [];
     
-    if (this.sprite && this.sprite.parent) {
-      this.sprite.parent.removeChild(this.sprite);
-    }
+    // Safe sprite cleanup
     if (this.sprite) {
-      this.sprite.destroy();
+      try {
+        if (this.sprite.parent && typeof this.sprite.parent.removeChild === 'function') {
+          this.sprite.parent.removeChild(this.sprite);
+        }
+        if (typeof this.sprite.destroy === 'function') {
+          this.sprite.destroy();
+        }
+      } catch (error) {
+        console.warn('Error destroying pet sprite:', error);
+      }
     }
   }
 }

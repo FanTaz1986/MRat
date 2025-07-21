@@ -25,6 +25,7 @@ let globalAssetLoadingInitiated = false;
 function App() {
   const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadGameState, setLoadGameState] = useState(null);
   const { gameState, setGameState, generateNewGameSeed } = useGameStore();
   
   // Load all assets on mount
@@ -259,11 +260,24 @@ function App() {
   }
 
   // Handler for restarting the game: generate new seed for new layouts
-  function handleRestart() {
-    // Generate new game seed for fresh map layouts on restart
+  const handleRestart = () => {
     generateNewGameSeed();
     setGameState('PLAYING');
-  }
+  };
+
+  const handleLoadGame = (gameState) => {
+    console.log('App: Loading game from main menu:', gameState);
+    setLoadGameState(gameState);
+    setGameState('PLAYING');
+  };
+
+  // Clear loadGameState when leaving PLAYING state to prevent interference
+  useEffect(() => {
+    if (gameState !== 'PLAYING' && loadGameState) {
+      console.log('App: Clearing loadGameState (left PLAYING state)');
+      setLoadGameState(null);
+    }
+  }, [gameState, loadGameState]);
 
   // Debug handler for navigating to different screens from debug overlay
   function debugNavigateToScreen(screenName) {
@@ -300,6 +314,7 @@ function App() {
         return (
           <MainMenu 
             onStart={() => setGameState('INTRO')}
+            onLoadGame={handleLoadGame}
             onDebugNavigateToScreen={debugNavigateToScreen}
           />
         );
@@ -329,6 +344,7 @@ function App() {
               onGameEnd={() => setGameState('OUTRO')}
               onReturnToMenu={() => setGameState('MENU')}
               onDebugNavigateToScreen={debugNavigateToScreen}
+              loadGameState={loadGameState}
             />
           </Suspense>
         );

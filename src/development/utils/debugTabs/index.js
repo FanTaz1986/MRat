@@ -9,3 +9,4 @@ export { createCombatTab } from './debugTabCombat.js';
 export { createBossTab } from './debugTabBoss.js';
 export { createEnemyTab } from './debugTabEnemy.js';
 export { createScreensTab } from './debugTabScreens.js';
+export { createSavingTab } from './debugTabSaving.js';

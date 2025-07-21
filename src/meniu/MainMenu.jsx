@@ -10,15 +10,17 @@ import {
   initAudio,
 } from "../utils/AudioManager";
 import { createDebugOverlay } from "../development/utils/Debug";
+import SaveLoadMenu from "./SaveLoadMenu";
 // Removed unused import: useGameStore
 
-const menuItems = ["Start", "Options", "How to Play"];
+const menuItems = ["Start", "Load Game", "Options", "How to Play"];
 
-export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
+export default function MainMenu({ onStart, onDebugNavigateToScreen, onLoadGame }) {
   const [selected, setSelected] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [showLoadGame, setShowLoadGame] = useState(false);
   const [musicVolume, setMusicVolumeState] = useState(5);
   const [sfxVolume, setSfxVolumeState] = useState(7);
   const debugSystemRef = useRef(null);
@@ -123,14 +125,22 @@ export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
       setShowOptions(true);
       setShowCredits(false);
       setShowHowToPlay(false);
+      setShowLoadGame(false);
     } else if (menuItems[idx] === "How to Play") {
       setShowHowToPlay(true);
       setShowOptions(false);
       setShowCredits(false);
+      setShowLoadGame(false);
+    } else if (menuItems[idx] === "Load Game") {
+      setShowLoadGame(true);
+      setShowOptions(false);
+      setShowCredits(false);
+      setShowHowToPlay(false);
     } else {
       setShowOptions(false);
       setShowCredits(false);
       setShowHowToPlay(false);
+      setShowLoadGame(false);
     }
   };
 
@@ -139,6 +149,14 @@ export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
     setTimeout(() => {
       stopMenuMusic();
       onStart && onStart();
+    }, 400);
+  };
+
+  const handleLoadGame = (gameState) => {
+    playMenuStart();
+    setTimeout(() => {
+      stopMenuMusic();
+      onLoadGame && onLoadGame(gameState);
     }, 400);
   };
 
@@ -359,10 +377,21 @@ export default function MainMenu({ onStart, onDebugNavigateToScreen }) {
             setShowCredits(true);
             setShowOptions(false);
             setShowHowToPlay(false);
+            setShowLoadGame(false);
           }}
         >
           Credits
         </button>
+        
+        {/* Save/Load Menu */}
+        {showLoadGame && (
+          <SaveLoadMenu
+            mode="load"
+            onClose={() => setShowLoadGame(false)}
+            onLoadGame={handleLoadGame}
+            isInGame={false}
+          />
+        )}
       </div>
     </div>
   );

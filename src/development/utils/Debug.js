@@ -11,7 +11,8 @@ import {
   createCombatTab, 
   createBossTab, 
   createEnemyTab,
-  createScreensTab 
+  createScreensTab,
+  createSavingTab 
 } from './debugTabs/index.js';
 
 // Debug configuration and state
@@ -46,7 +47,9 @@ let debugConfig = {
     bossattackx: false, // Boss X attack (bolt) debugging - separate toggle
     bossattackc: false, // Boss C attack (melee) debugging - separate toggle
     optionsSubmenu: false, // Options submenu debugging (Audio, How to Play buttons)
-    enemies: false // Enemy system debugging
+    enemies: false, // Enemy system debugging
+    saving: false, // Save operation debugging
+    loading: false // Load operation debugging
   }
 };
 
@@ -842,7 +845,7 @@ function SimpleDebugOverlay({
         flexWrap: 'wrap', // Allow tabs to wrap if needed
         minHeight: '50px' // Ensure minimum height for tabs
       }
-    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'combat', 'boss', 'enemy', 'screens'].map(tab => 
+    }, ['general', 'map', 'tools', 'logging', 'analysis', 'pet', 'saving', 'combat', 'boss', 'enemy', 'screens'].map(tab => 
       React.createElement('button', {
         key: tab,
         onClick: () => setActiveTab(tab),
@@ -876,35 +879,38 @@ function SimpleDebugOverlay({
       }
     }, [
       // General tab
-      activeTab === 'general' && createGeneralTab(mapManager, character, camera),
+      activeTab === 'general' && React.createElement('div', { key: 'general-tab' }, createGeneralTab(mapManager, character, camera)),
       
       // Map tab
-      activeTab === 'map' && createMapTab(teleportToPortal, teleportToSpawn),
+      activeTab === 'map' && React.createElement('div', { key: 'map-tab' }, createMapTab(teleportToPortal, teleportToSpawn)),
       
       // Tools tab
-      activeTab === 'tools' && createToolsTab(teleportToMap, () => teleportToBoss(), camera, character, mapManager),
+      activeTab === 'tools' && React.createElement('div', { key: 'tools-tab' }, createToolsTab(teleportToMap, () => teleportToBoss(), camera, character, mapManager)),
       
       // Pet tab
-      activeTab === 'pet' && createPetTab(debugConfig, toggleLogging, forceUpdate),
+      activeTab === 'pet' && React.createElement('div', { key: 'pet-tab' }, createPetTab(debugConfig, toggleLogging, forceUpdate)),
+      
+      // Saving tab
+      activeTab === 'saving' && React.createElement('div', { key: 'saving-tab' }, createSavingTab(debugConfig, toggleLogging, forceUpdate, debugLog)),
       
       // Logging tab
-      activeTab === 'logging' && createLoggingTab(debugConfig, toggleLogging, forceUpdate),
+      activeTab === 'logging' && React.createElement('div', { key: 'logging-tab' }, createLoggingTab(debugConfig, toggleLogging, forceUpdate)),
       
       // Analysis tab
-      activeTab === 'analysis' && createAnalysisTab(analyzeMapProps, mapManager, character, camera),
+      activeTab === 'analysis' && React.createElement('div', { key: 'analysis-tab' }, createAnalysisTab(analyzeMapProps, mapManager, character, camera)),
       
       // Combat tab
-      activeTab === 'combat' && createCombatTab(debugConfig, toggleLogging, forceUpdate, onHealthChange, debugLog),
+      activeTab === 'combat' && React.createElement('div', { key: 'combat-tab' }, createCombatTab(debugConfig, toggleLogging, forceUpdate, onHealthChange, debugLog)),
       
       // Boss tab
-      activeTab === 'boss' && createBossTab(debugConfig, toggleLogging, forceUpdate, debugLog),
+      activeTab === 'boss' && React.createElement('div', { key: 'boss-tab' }, createBossTab(debugConfig, toggleLogging, forceUpdate, debugLog)),
       
       // Enemy tab
-      activeTab === 'enemy' && createEnemyTab(debugConfig, toggleLogging, forceUpdate, debugLog),
+      activeTab === 'enemy' && React.createElement('div', { key: 'enemy-tab' }, createEnemyTab(debugConfig, toggleLogging, forceUpdate, debugLog)),
       
       // Screens tab
-      activeTab === 'screens' && createScreensTab(onNavigateToScreen)
-    ])
+      activeTab === 'screens' && React.createElement('div', { key: 'screens-tab' }, createScreensTab(onNavigateToScreen))
+    ].filter(Boolean))
   ]);
 }
 
