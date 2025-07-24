@@ -993,6 +993,56 @@ export default class EnemyManager {
     return this.enemies.filter(enemy => enemy.isAlive);
   }
   
+  /**
+   * Restore an enemy from saved state
+   * @param {Object} enemyState - Saved enemy state
+   */
+  async restoreEnemy(enemyState) {
+    try {
+      console.log(`[ENEMY-MANAGER] 🔄 Restoring enemy: ${enemyState.type} at (${enemyState.position.x}, ${enemyState.position.y}) with ${enemyState.currentHP}/${enemyState.maxHP} HP`);
+      
+      // Spawn enemy at the saved position with saved health
+      const enemy = await this.spawnEnemy(
+        enemyState.type, 
+        enemyState.position.x, 
+        enemyState.position.y, 
+        enemyState.maxHP || 1
+      );
+      
+      if (enemy) {
+        // Restore detailed state
+        enemy.currentHP = enemyState.currentHP;
+        enemy.maxHP = enemyState.maxHP;
+        enemy.isAlive = enemyState.isAlive !== false;
+        enemy.direction = enemyState.direction || 'right';
+        enemy.state = enemyState.state || 'idle';
+        enemy.isAttacking = enemyState.isAttacking || false;
+        enemy.attackCooldownStart = enemyState.attackCooldownStart || 0;
+        enemy.lastAIUpdate = enemyState.lastAIUpdate || 0;
+        
+        // Apply scale if saved
+        if (enemyState.scale && enemy.sprite) {
+          enemy.currentScale = enemyState.scale;
+          enemy.sprite.scale.set(enemy.currentScale);
+        }
+        
+        // Update enemy ID to match saved state for consistency
+        if (enemyState.id) {
+          enemy.id = enemyState.id;
+        }
+        
+        console.log(`[ENEMY-MANAGER] ✅ Enemy restored successfully: ${enemy.type} (ID: ${enemy.id})`);
+        return enemy;
+      } else {
+        console.warn(`[ENEMY-MANAGER] ⚠️ Failed to spawn enemy during restoration: ${enemyState.type}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[ENEMY-MANAGER] ❌ Error restoring enemy:`, error);
+      return null;
+    }
+  }
+  
   setDebugEnabled(enabled) {
     if (this.debug) {
       this.debug.setDebugEnabled(enabled);

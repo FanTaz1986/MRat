@@ -551,29 +551,53 @@ export default class Enemy {
       this.isAttacking = false;
     }
     
-    // Only set initial texture when state changes, updateAnimation() will handle frame cycling
-    if (this.sprite && this.animations[newState] && this.animations[newState].valid) {
-      const oldTexture = this.sprite.texture;
-      this.sprite.texture = this.animations[newState];
-      
-      if (this.debugEnabled) {
-        console.log(`Enemy ${this.type} state changed: ${oldState} → ${newState}`, {
-          oldTextureName: this.getTextureName(oldTexture),
-          newTextureName: this.getTextureName(this.sprite.texture),
-          textureChanged: oldTexture !== this.sprite.texture,
-          availableAnimations: Object.keys(this.animations),
-          spriteVisible: this.sprite.visible,
-          spriteAlpha: this.sprite.alpha,
-          isAttacking: this.isAttacking
-        });
+    // Comprehensive sprite validation before texture change
+    const isSpriteValid = this.sprite && 
+                         this.sprite.texture !== null && 
+                         this.sprite.texture !== undefined &&
+                         this.sprite._texture !== null &&
+                         this.sprite._texture !== undefined &&
+                         typeof this.sprite.texture === 'object' &&
+                         this.sprite.parent !== null;
+    
+    // Only set initial texture when state changes and sprite is valid, updateAnimation() will handle frame cycling
+    if (isSpriteValid && this.animations[newState] && this.animations[newState].valid) {
+      try {
+        const oldTexture = this.sprite.texture;
+        this.sprite.texture = this.animations[newState];
+        
+        if (this.debugEnabled) {
+          console.log(`Enemy ${this.type} state changed: ${oldState} → ${newState}`, {
+            oldTextureName: this.getTextureName(oldTexture),
+            newTextureName: this.getTextureName(this.sprite.texture),
+            textureChanged: oldTexture !== this.sprite.texture,
+            availableAnimations: Object.keys(this.animations),
+            spriteVisible: this.sprite.visible,
+            spriteAlpha: this.sprite.alpha,
+            isAttacking: this.isAttacking
+          });
+        }
+      } catch (error) {
+        console.warn(`Enemy ${this.type} texture assignment failed (corrupted sprite):`, error.message);
+        // Mark sprite as corrupted so it can be recreated
+        this.spriteCorrupted = true;
       }
     } else {
-      if (this.debugEnabled) {
+      if (this.debugEnabled || !isSpriteValid) {
         console.error(`Enemy ${this.type} cannot change to state ${newState}:`, {
           hasSprite: !!this.sprite,
+          isSpriteValid,
+          spriteTextureNull: this.sprite?.texture === null,
+          spriteTextureUndefined: this.sprite?.texture === undefined,
+          spriteParentNull: this.sprite?.parent === null,
           hasAnimation: !!this.animations[newState],
           availableAnimations: Object.keys(this.animations)
         });
+      }
+      
+      // If sprite is corrupted, mark it for recreation
+      if (this.sprite && !isSpriteValid) {
+        this.spriteCorrupted = true;
       }
     }
   }
@@ -614,6 +638,24 @@ export default class Enemy {
   
   updateAnimation(deltaTime) {
     const now = Date.now();
+    
+    // Validate sprite before any animation updates
+    const isSpriteValid = this.sprite && 
+                         this.sprite.texture !== null && 
+                         this.sprite.texture !== undefined &&
+                         this.sprite._texture !== null &&
+                         this.sprite._texture !== undefined &&
+                         typeof this.sprite.texture === 'object' &&
+                         this.sprite.parent !== null;
+                         
+    if (!isSpriteValid) {
+      // Skip animation updates if sprite is corrupted
+      if (this.sprite && !this.spriteCorrupted) {
+        console.warn(`Enemy ${this.type} sprite corrupted, skipping animation update`);
+        this.spriteCorrupted = true;
+      }
+      return;
+    }
     
     // Handle attack animation timing
     if (this.isAttacking && this.state === 'attack') {
@@ -657,17 +699,22 @@ export default class Enemy {
       }
       
       // Keep showing attack frame during attack duration
-      if (this.animations.attack && this.sprite && this.animations.attack.valid) {
-        const previousTexture = this.getTextureName(this.sprite.texture);
-        this.sprite.texture = this.animations.attack;
-        
-        if (this.attackDebugEnabled && !previousTexture?.includes('attack')) {
-          console.log(`[ATTACK-DEBUG] ${this.type} slime texture switched to attack frame:`, {
-            previousTexture,
-            newTexture: this.getTextureName(this.sprite.texture),
-            attackElapsed: `${attackElapsed}ms`,
-            timestamp: new Date().toLocaleTimeString()
-          });
+      if (this.animations.attack && this.sprite && this.animations.attack.valid && isSpriteValid) {
+        try {
+          const previousTexture = this.getTextureName(this.sprite.texture);
+          this.sprite.texture = this.animations.attack;
+          
+          if (this.attackDebugEnabled && !previousTexture?.includes('attack')) {
+            console.log(`[ATTACK-DEBUG] ${this.type} slime texture switched to attack frame:`, {
+              previousTexture,
+              newTexture: this.getTextureName(this.sprite.texture),
+              attackElapsed: `${attackElapsed}ms`,
+              timestamp: new Date().toLocaleTimeString()
+            });
+          }
+        } catch (error) {
+          console.warn(`Enemy ${this.type} attack texture assignment failed (corrupted sprite):`, error.message);
+          this.spriteCorrupted = true;
         }
       }
       return;
@@ -682,18 +729,28 @@ export default class Enemy {
       // Alternate between move and idle textures for walking animation
       if (currentTextureName?.includes('move')) {
         // Switch to idle frame
-        if (this.animations.idle && this.animations.idle.valid) {
-          this.sprite.texture = this.animations.idle;
-          if (this.debugEnabled) {
-            console.log(`Enemy ${this.type} frame cycle: move → idle`);
+        if (this.animations.idle && this.animations.idle.valid && isSpriteValid) {
+          try {
+            this.sprite.texture = this.animations.idle;
+            if (this.debugEnabled) {
+              console.log(`Enemy ${this.type} frame cycle: move → idle`);
+            }
+          } catch (error) {
+            console.warn(`Enemy ${this.type} idle texture assignment failed:`, error.message);
+            this.spriteCorrupted = true;
           }
         }
       } else {
         // Switch to move frame
-        if (this.animations.move && this.animations.move.valid) {
-          this.sprite.texture = this.animations.move;
-          if (this.debugEnabled) {
-            console.log(`Enemy ${this.type} frame cycle: idle → move`);
+        if (this.animations.move && this.animations.move.valid && isSpriteValid) {
+          try {
+            this.sprite.texture = this.animations.move;
+            if (this.debugEnabled) {
+              console.log(`Enemy ${this.type} frame cycle: idle → move`);
+            }
+          } catch (error) {
+            console.warn(`Enemy ${this.type} move texture assignment failed:`, error.message);
+            this.spriteCorrupted = true;
           }
         }
       }
@@ -703,12 +760,17 @@ export default class Enemy {
     
     // If idle, ensure we're showing idle texture and stop any cycling
     if (this.state === 'idle') {
-      if (this.animations.idle && this.sprite && this.animations.idle.valid) {
+      if (this.animations.idle && this.sprite && this.animations.idle.valid && isSpriteValid) {
         const currentTextureName = this.getTextureName(this.sprite.texture);
         if (!currentTextureName?.includes('idle')) {
-          this.sprite.texture = this.animations.idle;
-          if (this.debugEnabled) {
-            console.log(`Enemy ${this.type} forced to idle frame`);
+          try {
+            this.sprite.texture = this.animations.idle;
+            if (this.debugEnabled) {
+              console.log(`Enemy ${this.type} forced to idle frame`);
+            }
+          } catch (error) {
+            console.warn(`Enemy ${this.type} idle texture force failed:`, error.message);
+            this.spriteCorrupted = true;
           }
         }
       }

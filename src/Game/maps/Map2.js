@@ -397,6 +397,15 @@ export default class Map2 {
     return true;
   }
     /**
+   * Initialize enemies for Map2
+   * Map2 doesn't currently have enemies implemented, so this is a no-op for compatibility
+   */
+  async initializeEnemies() {
+    debugLog('Map2: No enemies to initialize (not implemented yet)', 'map');
+    return Promise.resolve();
+  }
+
+  /**
    * Clean up resources when map is unloaded
    */
   destroy() {

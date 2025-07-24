@@ -1054,27 +1054,39 @@ export default class Pet {
         this.frameIndices[this.direction] = (this.frameIndices[this.direction] + 1) % 2;
       }
       if (this.direction === 'left') {
-        this.sprite.texture = this.animations[`move_left_${this.currentLevel}`][this.frameIndices.left];
-        // Ensure high-quality rendering for new texture
-        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        const leftMoveAnim = this.animations[`move_left_${this.currentLevel}`];
+        if (leftMoveAnim && leftMoveAnim[this.frameIndices.left]) {
+          this.sprite.texture = leftMoveAnim[this.frameIndices.left];
+          // Ensure high-quality rendering for new texture
+          this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        }
         this.sprite.scale.set(-Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       } else {
-        this.sprite.texture = this.animations[`move_${this.currentLevel}`][this.frameIndices.right];
-        // Ensure high-quality rendering for new texture
-        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        const rightMoveAnim = this.animations[`move_${this.currentLevel}`];
+        if (rightMoveAnim && rightMoveAnim[this.frameIndices.right]) {
+          this.sprite.texture = rightMoveAnim[this.frameIndices.right];
+          // Ensure high-quality rendering for new texture
+          this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        }
         this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       }
     } else {
       // Idle
       if (this.direction === 'left') {
-        this.sprite.texture = this.animations[`idle_left_${this.currentLevel}`][0];
-        // Ensure high-quality rendering for new texture
-        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        const leftIdleAnim = this.animations[`idle_left_${this.currentLevel}`];
+        if (leftIdleAnim && leftIdleAnim[0]) {
+          this.sprite.texture = leftIdleAnim[0];
+          // Ensure high-quality rendering for new texture
+          this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        }
         this.sprite.scale.set(-Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       } else {
-        this.sprite.texture = this.animations[`idle_${this.currentLevel}`][0];
-        // Ensure high-quality rendering for new texture
-        this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        const rightIdleAnim = this.animations[`idle_${this.currentLevel}`];
+        if (rightIdleAnim && rightIdleAnim[0]) {
+          this.sprite.texture = rightIdleAnim[0];
+          // Ensure high-quality rendering for new texture
+          this.sprite.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+        }
         this.sprite.scale.set(Math.abs(this.sprite.scale.x), Math.abs(this.sprite.scale.y));
       }
     }

@@ -380,9 +380,10 @@ export default class MapManager {
       this.character.setBounds(map0Bounds);
     }
     
-    // Add update to ticker
+    // Add update to ticker with enhanced null checks
     this.updateMap0 = (delta) => {
-      if (this.map0Instance) {
+      // CRITICAL: Add multiple layers of null checks to prevent crashes during PIXI repair
+      if (this.map0Instance && this.map0Instance.update && typeof this.map0Instance.update === 'function') {
         try {
           // Limit update frequency to avoid too many loops
           const now = Date.now();
@@ -392,6 +393,11 @@ export default class MapManager {
           }
         } catch (error) {
           console.error("Error in map0 update:", error);
+          // If the map0Instance is corrupted, try to remove this callback to prevent repeated errors
+          if (this.app && this.app.ticker && this.updateMap0) {
+            console.warn('Removing corrupted map0 update callback from ticker');
+            this.app.ticker.remove(this.updateMap0);
+          }
         }
       }
     };
@@ -438,17 +444,23 @@ export default class MapManager {
     }
     
     // Initialize enemies for Map1 (with small delay to ensure everything is set up)
-    if (this.map1Instance.initializeEnemies) {
+    if (this.map1Instance && this.map1Instance.initializeEnemies) {
       setTimeout(() => {
-        this.map1Instance.initializeEnemies().catch(error => {
-          debugLog(`Error initializing Map1 enemies: ${error.message}`, 'map');
-        });
+        // Double-check instance still exists before calling initializeEnemies
+        if (this.map1Instance && this.map1Instance.initializeEnemies) {
+          this.map1Instance.initializeEnemies().catch(error => {
+            debugLog(`Error initializing Map1 enemies: ${error.message}`, 'map');
+          });
+        } else {
+          debugLog('Map1 instance was destroyed before enemy initialization could complete', 'map');
+        }
       }, 100); // 100ms delay to ensure world container is set
     }
     
-    // Add update to ticker
+    // Add update to ticker with enhanced null checks
     this.updateMap1 = (delta) => {
-      if (this.map1Instance) {
+      // CRITICAL: Add multiple layers of null checks to prevent crashes during PIXI repair
+      if (this.map1Instance && this.map1Instance.update && typeof this.map1Instance.update === 'function') {
         try {
           // Limit update frequency to avoid too many loops
           const now = Date.now();
@@ -458,7 +470,15 @@ export default class MapManager {
           }
         } catch (error) {
           console.error("Error in map1 update:", error);
+          // If the map1Instance is corrupted, try to remove this callback to prevent repeated errors
+          if (this.app && this.app.ticker && this.updateMap1) {
+            console.warn('Removing corrupted map1 update callback from ticker');
+            this.app.ticker.remove(this.updateMap1);
+          }
         }
+      } else {
+        // Map1 instance doesn't exist or is invalid - this can happen during PIXI repair
+        // Don't log error as this is expected during map transitions and PIXI reconstruction
       }
     };
     
@@ -499,9 +519,10 @@ export default class MapManager {
     // Generate props (now with correct portal exclusions)
     this.map2Instance.loadProps();
     
-    // Add update to ticker
+    // Add update to ticker with enhanced null checks
     this.updateMap2 = (delta) => {
-      if (this.map2Instance) {
+      // CRITICAL: Add multiple layers of null checks to prevent crashes during PIXI repair
+      if (this.map2Instance && this.map2Instance.update && typeof this.map2Instance.update === 'function') {
         try {
           // Limit update frequency to avoid too many loops
           const now = Date.now();
@@ -511,6 +532,11 @@ export default class MapManager {
           }
         } catch (error) {
           console.error("Error in map2 update:", error);
+          // If the map2Instance is corrupted, try to remove this callback to prevent repeated errors
+          if (this.app && this.app.ticker && this.updateMap2) {
+            console.warn('Removing corrupted map2 update callback from ticker');
+            this.app.ticker.remove(this.updateMap2);
+          }
         }
       }
     };
@@ -541,9 +567,10 @@ export default class MapManager {
     // Generate props (this will also spawn the boss)
     this.mapXInstance.loadProps();
     
-    // Add update to ticker
+    // Add update to ticker with enhanced null checks
     this.updateMapX = (delta) => {
-      if (this.mapXInstance) {
+      // CRITICAL: Add multiple layers of null checks to prevent crashes during PIXI repair
+      if (this.mapXInstance && this.mapXInstance.update && typeof this.mapXInstance.update === 'function') {
         try {
           // Limit update frequency to avoid too many loops
           const now = Date.now();
@@ -553,6 +580,11 @@ export default class MapManager {
           }
         } catch (error) {
           console.error("Error in updateMapX:", error);
+          // If the mapXInstance is corrupted, try to remove this callback to prevent repeated errors
+          if (this.app && this.app.ticker && this.updateMapX) {
+            console.warn('Removing corrupted mapX update callback from ticker');
+            this.app.ticker.remove(this.updateMapX);
+          }
         }
       }
     };

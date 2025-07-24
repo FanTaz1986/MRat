@@ -296,6 +296,15 @@ export default class Map0 {
   }
   
   /**
+   * Initialize enemies for Map0
+   * Map0 (beach area) doesn't have enemies, so this is a no-op for compatibility
+   */
+  async initializeEnemies() {
+    debugLog('Map0: No enemies to initialize (beach area)', 'map');
+    return Promise.resolve();
+  }
+
+  /**
    * Clean up resources when map is unloaded
    */
   destroy() {

@@ -395,11 +395,100 @@ export default class GameStateManager {
         debugLog(`[RESTORE] No camera data in save state`, 'loading');
       }
 
-      // Restore enemy states
+      // Restore enemy states - IMPORTANT: Wait for map to fully load first
       if (gameState.enemies && gameState.enemies.length > 0) {
         debugLog(`[RESTORE] Restoring enemy states (${gameState.enemies.length} enemies)...`, 'loading');
-        await this.restoreEnemyStates(gameState.enemies);
-        debugLog(`[RESTORE] Enemy states restoration completed`, 'loading');
+        
+        // Wait longer for map to fully initialize before restoring enemies
+        // This prevents the "Cannot read properties of null (reading 'initializeEnemies')" error
+        debugLog(`[RESTORE] Waiting for map to fully initialize before enemy restoration...`, 'loading');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Double-check that the map is ready for enemy operations
+        if (mapManager) {
+          let mapInstanceReady = false;
+          let mapInstanceName = '';
+          
+          // Check the appropriate map instance based on current map
+          switch (gameState.currentMap) {
+            case 'maparea0':
+              mapInstanceReady = !!mapManager.map0Instance;
+              mapInstanceName = 'map0Instance';
+              break;
+            case 'maparea1':
+              mapInstanceReady = !!mapManager.map1Instance;
+              mapInstanceName = 'map1Instance';
+              break;
+            case 'maparea2':
+              mapInstanceReady = !!mapManager.map2Instance;
+              mapInstanceName = 'map2Instance';
+              break;
+            case 'mapareax':
+              mapInstanceReady = !!mapManager.mapXInstance;
+              mapInstanceName = 'mapXInstance';
+              break;
+            default:
+              debugLog(`[RESTORE] Unknown map type: ${gameState.currentMap}`, 'loading');
+              mapInstanceReady = true; // Assume ready for unknown maps
+              mapInstanceName = 'unknown';
+          }
+          
+          debugLog(`[RESTORE] Map instance check: ${gameState.currentMap} -> ${mapInstanceName} ready: ${mapInstanceReady}`, 'loading');
+          
+          // If the required map instance is not ready, wait for it
+          if (!mapInstanceReady && mapInstanceName !== 'unknown') {
+            debugLog(`[RESTORE] WARNING: ${mapInstanceName} not ready, waiting longer...`, 'loading');
+            
+            // Wait up to 2 seconds for the map instance to be available
+            let waitTime = 0;
+            const maxWait = 2000;
+            while (!mapInstanceReady && waitTime < maxWait) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+              waitTime += 100;
+              
+              // Re-check the map instance
+              switch (gameState.currentMap) {
+                case 'maparea0':
+                  mapInstanceReady = !!mapManager.map0Instance;
+                  break;
+                case 'maparea1':
+                  mapInstanceReady = !!mapManager.map1Instance;
+                  break;
+                case 'maparea2':
+                  mapInstanceReady = !!mapManager.map2Instance;
+                  break;
+                case 'mapareax':
+                  mapInstanceReady = !!mapManager.mapXInstance;
+                  break;
+                default:
+                  // For unknown maps, assume ready
+                  mapInstanceReady = true;
+                  break;
+              }
+              
+              if (waitTime % 500 === 0) {
+                debugLog(`[RESTORE] Still waiting for ${mapInstanceName}... (${waitTime}ms)`, 'loading');
+              }
+            }
+            
+            if (!mapInstanceReady) {
+              debugLog(`[RESTORE] ERROR: ${mapInstanceName} not available after ${maxWait}ms - skipping enemy restoration`, 'loading');
+              console.warn(`${mapInstanceName} not available for enemy restoration`);
+            } else {
+              debugLog(`[RESTORE] ${mapInstanceName} now available after ${waitTime}ms`, 'loading');
+            }
+          }
+          
+          // Only proceed with enemy restoration if map is properly loaded
+          if (mapInstanceReady) {
+            await this.restoreEnemyStates(gameState.enemies);
+            debugLog(`[RESTORE] Enemy states restoration completed`, 'loading');
+          } else {
+            debugLog(`[RESTORE] Skipping enemy restoration - ${mapInstanceName} not ready`, 'loading');
+          }
+        } else {
+          debugLog(`[RESTORE] ERROR: MapManager not available for enemy restoration`, 'loading');
+        }
       } else {
         debugLog(`[RESTORE] No enemy data in save state`, 'loading');
       }
@@ -705,46 +794,110 @@ export default class GameStateManager {
 
   async restorePetState(petState, mapManager) {
     try {
+      debugLog(`[RESTORE] === PET RESTORATION START ===`, 'loading');
+      debugLog(`[RESTORE] petState: ${JSON.stringify(petState, null, 2)}`, 'loading');
+      
       const pet = window.globalPet || (mapManager.getPet ? mapManager.getPet() : null);
+      debugLog(`[RESTORE] Pet object exists: ${!!pet}`, 'loading');
+      debugLog(`[RESTORE] Pet position object exists: ${!!(pet && pet.position)}`, 'loading');
+      debugLog(`[RESTORE] Pet sprite exists: ${!!(pet && pet.sprite)}`, 'loading');
+      
       if (pet && petState.position) {
-        // Safe position restoration
+        // Safe position restoration with detailed error handling
         try {
+          debugLog(`[RESTORE] Restoring pet position from (${pet.position?.x || 'N/A'}, ${pet.position?.y || 'N/A'}) to (${petState.position.x}, ${petState.position.y})`, 'loading');
+          
+          // Ensure position object exists
+          if (!pet.position) {
+            debugLog(`[RESTORE] Pet position object missing, creating new one`, 'loading');
+            pet.position = {};
+          }
+          
           pet.position.x = petState.position.x;
           pet.position.y = petState.position.y;
+          debugLog(`[RESTORE] Pet position successfully set to (${pet.position.x}, ${pet.position.y})`, 'loading');
         } catch (error) {
           console.warn('Error setting pet position:', error);
+          debugLog(`[RESTORE] ERROR setting pet position: ${error.message}`, 'loading');
+          
           // Initialize position if it doesn't exist
-          pet.position = { x: petState.position.x, y: petState.position.y };
-        }
-        
-        // Safe sprite position update
-        if (pet.sprite) {
           try {
-            // Check if sprite position exists and is valid
-            if (pet.sprite.position && typeof pet.sprite.position.set === 'function') {
-              pet.sprite.position.set(pet.position.x, pet.position.y);
-            }
-          } catch (error) {
-            console.warn('Error setting pet sprite position:', error);
+            pet.position = { x: petState.position.x, y: petState.position.y };
+            debugLog(`[RESTORE] Pet position object recreated: (${pet.position.x}, ${pet.position.y})`, 'loading');
+          } catch (initError) {
+            console.error('Failed to initialize pet position:', initError);
+            debugLog(`[RESTORE] CRITICAL: Failed to initialize pet position: ${initError.message}`, 'loading');
           }
         }
         
+        // Safe sprite position update with enhanced error handling
+        if (pet.sprite) {
+          try {
+            debugLog(`[RESTORE] Pet sprite exists, checking position setter`, 'loading');
+            
+            // Check if sprite position exists and is valid
+            if (pet.sprite.position) {
+              debugLog(`[RESTORE] Pet sprite position object exists: ${typeof pet.sprite.position}`, 'loading');
+              
+              if (typeof pet.sprite.position.set === 'function') {
+                debugLog(`[RESTORE] Using sprite.position.set() method`, 'loading');
+                pet.sprite.position.set(pet.position.x, pet.position.y);
+                debugLog(`[RESTORE] Pet sprite position updated via set() method`, 'loading');
+              } else {
+                debugLog(`[RESTORE] Using direct sprite position property assignment`, 'loading');
+                pet.sprite.position.x = pet.position.x;
+                pet.sprite.position.y = pet.position.y;
+                debugLog(`[RESTORE] Pet sprite position updated via direct assignment`, 'loading');
+              }
+            } else {
+              debugLog(`[RESTORE] WARNING: Pet sprite position object is null/undefined`, 'loading');
+              // Try to recreate sprite position object
+              pet.sprite.position = { x: pet.position.x, y: pet.position.y };
+              debugLog(`[RESTORE] Pet sprite position object recreated`, 'loading');
+            }
+          } catch (error) {
+            console.warn('Error setting pet sprite position:', error);
+            debugLog(`[RESTORE] ERROR setting pet sprite position: ${error.message}`, 'loading');
+            debugLog(`[RESTORE] Pet sprite state: exists=${!!pet.sprite}, position=${!!pet.sprite?.position}, type=${typeof pet.sprite?.position}`, 'loading');
+            
+            // If sprite position update fails, it might mean the sprite is corrupted
+            // Let's skip this and let the pet recreation handle it
+            debugLog(`[RESTORE] Skipping corrupted pet sprite position update`, 'loading');
+          }
+        } else {
+          debugLog(`[RESTORE] Pet sprite doesn't exist - position will be applied when sprite is recreated`, 'loading');
+        }
+        
+        // Restore other pet properties
         if (petState.direction) {
           pet.direction = petState.direction;
+          debugLog(`[RESTORE] Pet direction restored: ${petState.direction}`, 'loading');
         }
         if (typeof petState.isAutoFollowing === 'boolean') {
           pet.isAutoFollowing = petState.isAutoFollowing;
+          debugLog(`[RESTORE] Pet auto-following restored: ${petState.isAutoFollowing}`, 'loading');
+        }
+        if (petState.currentLevel !== undefined) {
+          pet.currentLevel = petState.currentLevel;
+          debugLog(`[RESTORE] Pet level restored: ${petState.currentLevel}`, 'loading');
         }
         if (petState.attackCooldowns) {
           if (typeof petState.attackCooldowns.canRangedAttack === 'boolean') {
             pet.canRangedAttack = petState.attackCooldowns.canRangedAttack;
+            debugLog(`[RESTORE] Pet canRangedAttack restored: ${petState.attackCooldowns.canRangedAttack}`, 'loading');
           }
           if (typeof petState.attackCooldowns.lastRangedAttackTime === 'number') {
             pet.lastRangedAttackTime = petState.attackCooldowns.lastRangedAttackTime;
+            debugLog(`[RESTORE] Pet lastRangedAttackTime restored: ${petState.attackCooldowns.lastRangedAttackTime}`, 'loading');
           }
         }
         
+        debugLog(`[RESTORE] === PET RESTORATION COMPLETED ===`, 'loading');
         console.log('GameStateManager: Pet state restored');
+      } else {
+        debugLog(`[RESTORE] Pet or pet position state missing - skipping restoration`, 'loading');
+        debugLog(`[RESTORE] - Pet exists: ${!!pet}`, 'loading');
+        debugLog(`[RESTORE] - Pet state position exists: ${!!(petState && petState.position)}`, 'loading');
       }
     } catch (error) {
       console.error('GameStateManager: Error restoring pet state:', error);
@@ -771,24 +924,84 @@ export default class GameStateManager {
 
   async restoreEnemyStates(enemyStates) {
     try {
+      debugLog(`[RESTORE] === ENEMY RESTORATION START ===`, 'loading');
+      debugLog(`[RESTORE] Enemy states to restore: ${enemyStates.length}`, 'loading');
+      
       const enemyManager = window.globalEnemyManager;
-      if (enemyManager && enemyStates.length > 0) {
-        // Clear existing enemies first
-        if (enemyManager.clearAllEnemies) {
-          enemyManager.clearAllEnemies();
-        }
-        
-        // Restore each enemy
-        for (const enemyState of enemyStates) {
-          if (enemyManager.restoreEnemy) {
-            enemyManager.restoreEnemy(enemyState);
-          }
-        }
-        
-        console.log(`GameStateManager: Restored ${enemyStates.length} enemies`);
+      debugLog(`[RESTORE] EnemyManager exists: ${!!enemyManager}`, 'loading');
+      
+      if (!enemyManager) {
+        debugLog(`[RESTORE] ERROR: EnemyManager not available - cannot restore enemies`, 'loading');
+        console.warn('EnemyManager not available for enemy restoration');
+        return;
       }
+      
+      if (enemyStates.length === 0) {
+        debugLog(`[RESTORE] No enemies to restore`, 'loading');
+        return;
+      }
+      
+      // Check if EnemyManager has required methods
+      const hasRestoreMethod = typeof enemyManager.restoreEnemy === 'function';
+      const hasClearMethod = typeof enemyManager.clearAllEnemies === 'function';
+      
+      debugLog(`[RESTORE] EnemyManager methods: restoreEnemy=${hasRestoreMethod}, clearAllEnemies=${hasClearMethod}`, 'loading');
+      
+      if (!hasRestoreMethod) {
+        debugLog(`[RESTORE] ERROR: EnemyManager missing restoreEnemy method`, 'loading');
+        console.error('EnemyManager missing restoreEnemy method - enemies cannot be restored');
+        return;
+      }
+      
+      // Clear existing enemies first
+      if (hasClearMethod) {
+        debugLog(`[RESTORE] Clearing existing enemies...`, 'loading');
+        enemyManager.clearAllEnemies();
+        debugLog(`[RESTORE] Existing enemies cleared`, 'loading');
+      } else {
+        debugLog(`[RESTORE] WARNING: Cannot clear existing enemies - clearAllEnemies method missing`, 'loading');
+      }
+      
+      // Wait a moment for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Restore each enemy with detailed logging
+      let restoredCount = 0;
+      let failedCount = 0;
+      
+      for (let i = 0; i < enemyStates.length; i++) {
+        const enemyState = enemyStates[i];
+        debugLog(`[RESTORE] Restoring enemy ${i + 1}/${enemyStates.length}: ${enemyState.type} at (${enemyState.position?.x || 0}, ${enemyState.position?.y || 0})`, 'loading');
+        
+        try {
+          const restoredEnemy = await enemyManager.restoreEnemy(enemyState);
+          if (restoredEnemy) {
+            restoredCount++;
+            debugLog(`[RESTORE] Enemy ${i + 1} restored successfully: ${restoredEnemy.type} (ID: ${restoredEnemy.id})`, 'loading');
+          } else {
+            failedCount++;
+            debugLog(`[RESTORE] Enemy ${i + 1} restoration failed: restoreEnemy returned null`, 'loading');
+          }
+        } catch (enemyError) {
+          failedCount++;
+          debugLog(`[RESTORE] Enemy ${i + 1} restoration error: ${enemyError.message}`, 'loading');
+          console.warn(`Failed to restore enemy ${i + 1}:`, enemyError);
+        }
+        
+        // Small delay between enemy restorations to avoid overwhelming the system
+        if (i < enemyStates.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      debugLog(`[RESTORE] === ENEMY RESTORATION COMPLETED ===`, 'loading');
+      debugLog(`[RESTORE] Results: ${restoredCount} restored, ${failedCount} failed`, 'loading');
+      console.log(`GameStateManager: Restored ${restoredCount}/${enemyStates.length} enemies (${failedCount} failed)`);
+      
     } catch (error) {
       console.error('GameStateManager: Error restoring enemy states:', error);
+      debugLog(`[RESTORE] ERROR in enemy restoration: ${error.message}`, 'loading');
+      debugLog(`[RESTORE] ERROR stack: ${error.stack}`, 'loading');
     }
   }
 

@@ -13,6 +13,7 @@ import OptionsMenu from "./ui/OptionsMenu";
 import GameOverScreen from "../meniu/GameOverScreen";
 import BossAI from "./entities/BossAI";
 import SaveLoadMenu from "../meniu/SaveLoadMenu";
+import LoadingSaveScreen from "../meniu/LoadingSaveScreen";
 import GameStateManager from "./utils/GameStateManager";
 
 // Modern PixiJS v7+ settings - no deprecated APIs
@@ -35,6 +36,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
   const debugSystem = useRef(null);
   const bossAI = useRef(null);
   const gameStateManager = useRef(new GameStateManager());
+  const loadingGameState = useRef(false); // Prevent multiple load attempts
   const { currentMap, setCurrentMap, gameSeed } = useGameStore();
   const [appReady, setAppReady] = useState(false);
   const [mapManagerReady, setMapManagerReady] = useState(false);
@@ -55,6 +57,11 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
   // Save/Load menu state
   const [showSaveMenu, setShowSaveMenu] = useState(false);
   const [showLoadMenu, setShowLoadMenu] = useState(false);
+  
+  // Loading save screen state
+  const [showLoadingSave, setShowLoadingSave] = useState(false);
+  const [loadingSaveProgress, setLoadingSaveProgress] = useState(0);
+  const [loadingSaveComplete, setLoadingSaveComplete] = useState(false);
   
   // Game over state
   const [showGameOver, setShowGameOver] = useState(false);
@@ -159,15 +166,31 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
     setShowSaveMenu(false);
   };
 
-  const handleLoadGame = async (gameState) => {
+  const handleLoadGame = useCallback(async (gameState) => {
+    // Always show loading screen for all loads (main menu and in-game)
+    
     try {
       console.log('Loading game state:', gameState);
+      console.log('About to show loading save screen...');
+      
+      // Always show loading save screen for all loads
+      setShowLoadingSave(true);
+      setLoadingSaveProgress(0);
+      setLoadingSaveComplete(false);
+      
+      setShowLoadMenu(false); // Hide the load menu
+      
+      console.log('Loading save screen state set, pausing game...');
       
       // Pause the game during load
       setIsGamePaused(true);
       if (pixiApp.current && pixiApp.current.ticker) {
         pixiApp.current.ticker.stop();
       }
+      
+      // Update progress: Starting PIXI validation
+      setLoadingSaveProgress(10);
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Check PIXI app state and attempt repair if needed
       debugLog(`[LOAD] PIXI app initial check: pixiApp.current exists = ${!!pixiApp.current}`, 'loading');
@@ -185,6 +208,10 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         
         if (needsRepair) {
           debugLog(`[LOAD] PIXI app needs repair - missing components: renderer=${rendererMissing} (type: ${typeof pixiApp.current.renderer}), stage=${stageMissing} (type: ${typeof pixiApp.current.stage})`, 'loading');
+          
+          // Update progress: Repairing PIXI
+          setLoadingSaveProgress(20);
+          await new Promise(resolve => setTimeout(resolve, 300));
           
           try {
             // Try to recreate the PIXI application
@@ -249,6 +276,16 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
               setMapManagerReady(false);
             }
             
+            // Clear all enemies to prevent sprite corruption issues
+            if (window.globalEnemyManager) {
+              debugLog('[LOAD] Clearing all enemies due to PIXI repair', 'loading');
+              try {
+                window.globalEnemyManager.clearAllEnemies();
+              } catch (error) {
+                console.warn('Error clearing enemies during PIXI repair:', error);
+              }
+            }
+            
           } catch (error) {
             console.error('[LOAD] Failed to repair PIXI app:', error);
             debugLog(`[LOAD] PIXI repair failed: ${error.message}`, 'loading');
@@ -258,6 +295,10 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         }
       } else {
         debugLog('[LOAD] ERROR: No PIXI app available at all - creating new one', 'loading');
+        
+        // Update progress: Creating PIXI
+        setLoadingSaveProgress(25);
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         // Create PIXI app from scratch
         try {
@@ -315,11 +356,25 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
             setMapManagerReady(false);
           }
           
+          // Clear all enemies to prevent sprite corruption issues
+          if (window.globalEnemyManager) {
+            debugLog('[LOAD] Clearing all enemies due to PIXI recreation', 'loading');
+            try {
+              window.globalEnemyManager.clearAllEnemies();
+            } catch (error) {
+              console.warn('Error clearing enemies during PIXI recreation:', error);
+            }
+          }
+          
         } catch (error) {
           console.error('[LOAD] Failed to create PIXI app from scratch:', error);
           debugLog(`[LOAD] PIXI creation failed: ${error.message}`, 'loading');
         }
       }
+
+      // Update progress: Waiting for initialization
+      setLoadingSaveProgress(40);
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Wait for any async operations to complete
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -327,6 +382,10 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
       // If MapManager was destroyed during PIXI repair, wait for it to be reinitialized
       if (!mapManager.current) {
         debugLog('[LOAD] MapManager was destroyed - waiting for reinitialization', 'loading');
+        
+        // Update progress: Reinitializing MapManager
+        setLoadingSaveProgress(50);
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         // Wait for MapManager to be recreated (up to 5 seconds)
         let waitTime = 0;
@@ -344,6 +403,7 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
         if (!mapManager.current) {
           debugLog('[LOAD] ERROR: MapManager failed to reinitialize after PIXI repair', 'loading');
           console.error('Failed to load game: MapManager not available after PIXI repair');
+          setShowLoadingSave(false);
           setIsGamePaused(false);
           return;
         } else {
@@ -352,6 +412,10 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
       } else {
         debugLog('[LOAD] MapManager is already available', 'loading');
       }
+
+      // Update progress: Preparing game references
+      setLoadingSaveProgress(60);
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Prepare game references for restoration
       const gameReferences = {
@@ -365,21 +429,278 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
 
       debugLog(`[LOAD] Game references prepared - mapManager exists: ${!!gameReferences.mapManager}`, 'loading');
 
+      // Update progress: Restoring game state
+      setLoadingSaveProgress(70);
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       // Restore the game state
       const success = await gameStateManager.current.restoreGameState(gameState, gameReferences);
       
-      if (success) {
-        console.log('Game loaded successfully');
-        setShowLoadMenu(false);
+      // Update progress: Validating restoration
+      setLoadingSaveProgress(85);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // CRITICAL: Check and repair PIXI app AFTER game state restoration
+      // The map loading process often corrupts the PIXI app during normal loads too
+      debugLog(`[LOAD] Checking PIXI app state AFTER game state restoration`, 'loading');
+      
+      if (pixiApp.current) {
+        debugLog(`[LOAD] Post-restore PIXI validation: app=${!!pixiApp.current}, renderer=${!!pixiApp.current.renderer}, stage=${!!pixiApp.current.stage}`, 'loading');
         
-        // Resume the game
-        setIsGamePaused(false);
-        if (pixiApp.current && pixiApp.current.ticker) {
-          pixiApp.current.ticker.start();
+        const rendererMissing = !pixiApp.current.renderer || pixiApp.current.renderer === false;
+        const stageMissing = !pixiApp.current.stage || pixiApp.current.stage === false;
+        const needsRepair = rendererMissing || stageMissing;
+        
+        if (needsRepair) {
+          debugLog(`[LOAD] CRITICAL: Game state restoration corrupted PIXI app! Starting repair process...`, 'loading');
+          
+          try {
+            // Get container dimensions
+            const containerWidth = window.innerWidth;
+            const containerHeight = window.innerHeight;
+            
+            // Destroy the corrupted app safely
+            if (pixiApp.current && pixiApp.current.destroy) {
+              try {
+                pixiApp.current.destroy(false, false);
+              } catch (destroyError) {
+                console.warn('[LOAD] Error destroying corrupted PIXI app:', destroyError);
+              }
+              pixiApp.current = null;
+            }
+            
+            // Create new PIXI app
+            debugLog('[LOAD] Creating new PIXI app to replace corrupted one', 'loading');
+            pixiApp.current = new PIXI.Application({
+              width: containerWidth,
+              height: containerHeight,
+              backgroundColor: 0x000000,
+              resolution: window.devicePixelRatio || 1,
+              autoDensity: true,
+              antialias: true,
+              powerPreference: 'high-performance',
+              hello: false
+            });
+            
+            debugLog('[LOAD] PIXI app recreated successfully', 'loading');
+            
+            // Re-add canvas to DOM
+            const gameContainer = gameContainerRef.current;
+            if (gameContainer) {
+              debugLog('[LOAD] Re-adding canvas to DOM', 'loading');
+              
+              // Clear existing canvas
+              while (gameContainer.firstChild) {
+                gameContainer.removeChild(gameContainer.firstChild);
+              }
+              
+              // Add new canvas
+              const canvas = pixiApp.current.canvas || pixiApp.current.view;
+              if (canvas) {
+                gameContainer.appendChild(canvas);
+                canvas.style.width = containerWidth + 'px';
+                canvas.style.height = containerHeight + 'px';
+                canvas.style.display = 'block';
+                debugLog('[LOAD] Canvas re-added to DOM successfully', 'loading');
+              }
+            }
+            
+            // Force MapManager cleanup and reinitialize
+            debugLog('[LOAD] Forcing MapManager reinitialization after PIXI repair', 'loading');
+            if (mapManager.current) {
+              try {
+                if (mapManager.current.destroy) {
+                  mapManager.current.destroy();
+                }
+              } catch (error) {
+                console.warn('Error destroying MapManager during PIXI repair:', error);
+              }
+              mapManager.current = null;
+            }
+            setMapManagerReady(false);
+            
+            // Clear all enemies before reinitializing game engine
+            if (window.globalEnemyManager) {
+              debugLog('[LOAD] Clearing all enemies before game engine reinit', 'loading');
+              try {
+                window.globalEnemyManager.clearAllEnemies();
+              } catch (error) {
+                console.warn('Error clearing enemies during PIXI repair:', error);
+              }
+            }
+            
+            // Reinitialize game engine with new PIXI app
+            debugLog('[LOAD] Reinitializing game engine with new PIXI app', 'loading');
+            const { initializeGameEngine } = await import('./engine/GameEngine.js');
+            initializeGameEngine(pixiApp.current);
+            
+            // Create new MapManager
+            const { default: MapManager } = await import('./maps/MapManager.js');
+            mapManager.current = new MapManager(pixiApp.current, gameSeed);
+            debugLog('[LOAD] MapManager recreated with new PIXI app', 'loading');
+            
+            // Expose mapManager globally for ObjectiveUI and boss system
+            window.gameMapManager = mapManager.current;
+            
+            setMapManagerReady(true);
+            
+            // Wait a moment for MapManager to fully initialize
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Now reload the map with the new MapManager
+            debugLog(`[LOAD] Reloading map ${gameState.currentMap} with repaired PIXI app`, 'loading');
+            
+            await new Promise((resolve) => {
+              mapManager.current.loadMap(gameState.currentMap, () => {
+                debugLog('[LOAD] Map reloaded successfully after PIXI repair', 'loading');
+                resolve();
+              });
+            });
+            
+            // Special case: If we're loading into boss map, initialize the boss
+            if (gameState.currentMap === 'mapareax') {
+              debugLog('[LOAD] Boss map detected - initializing boss after PIXI repair', 'loading');
+              
+              // Wait for map to fully settle
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              if (mapManager.current.mapXInstance) {
+                try {
+                  if (mapManager.current.mapXInstance.boss) {
+                    debugLog('[LOAD] Boss entity exists - checking spawn state', 'loading');
+                    if (!mapManager.current.mapXInstance.bossSpawned) {
+                      debugLog('[LOAD] Spawning boss for fight', 'loading');
+                      mapManager.current.mapXInstance.spawnBoss();
+                    }
+                  } else {
+                    debugLog('[LOAD] No boss entity - initializing boss', 'loading');
+                    await mapManager.current.mapXInstance.initializeBoss();
+                    if (mapManager.current.mapXInstance.boss) {
+                      debugLog('[LOAD] Boss initialized - spawning for fight', 'loading');
+                      mapManager.current.mapXInstance.spawnBoss();
+                    }
+                  }
+                  debugLog('[LOAD] Boss initialization completed', 'loading');
+                } catch (bossError) {
+                  console.warn('[LOAD] Error initializing boss:', bossError);
+                }
+              } else {
+                console.warn('[LOAD] MapX instance not available for boss initialization');
+              }
+            }
+            
+            // Restore character and pet positions now that everything is recreated
+            if (mapManager.current.character && gameState.character) {
+              debugLog('[LOAD] Restoring character position after PIXI repair', 'loading');
+              try {
+                mapManager.current.character.position.x = gameState.character.position.x;
+                mapManager.current.character.position.y = gameState.character.position.y;
+                mapManager.current.character.currentHP = gameState.character.health;
+                
+                // Update sprite position to match
+                if (mapManager.current.character.sprite) {
+                  mapManager.current.character.sprite.position.set(
+                    mapManager.current.character.position.x,
+                    mapManager.current.character.position.y
+                  );
+                }
+                debugLog(`[LOAD] Character position restored to (${gameState.character.position.x}, ${gameState.character.position.y})`, 'loading');
+              } catch (charPosError) {
+                console.warn('[LOAD] Error restoring character position:', charPosError);
+              }
+            }
+            
+            if (mapManager.current.pet && gameState.pet) {
+              debugLog('[LOAD] Restoring pet position after PIXI repair', 'loading');
+              try {
+                mapManager.current.pet.position.x = gameState.pet.position.x;
+                mapManager.current.pet.position.y = gameState.pet.position.y;
+                mapManager.current.pet.currentLevel = gameState.pet.level;
+                
+                // Update sprite position to match
+                if (mapManager.current.pet.sprite) {
+                  mapManager.current.pet.sprite.position.set(
+                    mapManager.current.pet.position.x,
+                    mapManager.current.pet.position.y
+                  );
+                }
+                debugLog(`[LOAD] Pet position restored to (${gameState.pet.position.x}, ${gameState.pet.position.y})`, 'loading');
+              } catch (petPosError) {
+                console.warn('[LOAD] Error restoring pet position:', petPosError);
+              }
+            }
+            
+            if (mapManager.current.camera && gameState.camera) {
+              debugLog('[LOAD] Restoring camera position after PIXI repair', 'loading');
+              try {
+                // Camera position should be set using .x and .y properties, not .set()
+                mapManager.current.camera.position.x = gameState.camera.position.x;
+                mapManager.current.camera.position.y = gameState.camera.position.y;
+                debugLog(`[LOAD] Camera position restored to (${gameState.camera.position.x}, ${gameState.camera.position.y})`, 'loading');
+              } catch (camPosError) {
+                console.warn('[LOAD] Error restoring camera position:', camPosError);
+              }
+            }
+            
+            // IMPORTANT: Restore boss position if we're loading into boss map
+            if (gameState.currentMap === 'mapareax' && gameState.boss && gameState.boss.position) {
+              debugLog('[LOAD] Restoring boss position after PIXI repair', 'loading');
+              
+              // Wait a bit more for boss to be fully initialized
+              await new Promise(resolve => setTimeout(resolve, 300));
+              
+              if (mapManager.current.mapXInstance && mapManager.current.mapXInstance.boss) {
+                try {
+                  mapManager.current.mapXInstance.boss.position.x = gameState.boss.position.x;
+                  mapManager.current.mapXInstance.boss.position.y = gameState.boss.position.y;
+                  mapManager.current.mapXInstance.boss.currentHP = gameState.boss.health;
+                  mapManager.current.mapXInstance.boss.maxHP = gameState.boss.maxHealth;
+                  
+                  // Update sprite position if it exists
+                  if (mapManager.current.mapXInstance.boss.sprite) {
+                    mapManager.current.mapXInstance.boss.sprite.position.set(
+                      gameState.boss.position.x,
+                      gameState.boss.position.y
+                    );
+                  }
+                  
+                  debugLog(`[LOAD] Boss position restored to (${gameState.boss.position.x}, ${gameState.boss.position.y}) with ${gameState.boss.health}/${gameState.boss.maxHealth} HP`, 'loading');
+                } catch (bossPosError) {
+                  console.warn('[LOAD] Error restoring boss position:', bossPosError);
+                }
+              } else {
+                console.warn('[LOAD] Boss entity not available for position restoration');
+              }
+            }
+            
+            debugLog('[LOAD] PIXI repair and game state restoration completed successfully', 'loading');
+            
+          } catch (repairError) {
+            console.error('[LOAD] Failed to repair PIXI app after corruption:', repairError);
+          }
+        } else {
+          debugLog('[LOAD] PIXI app survived game state restoration', 'loading');
         }
       } else {
+        debugLog('[LOAD] No PIXI app available after game state restoration', 'loading');
+      }
+      
+      // Update progress: Finalizing
+      setLoadingSaveProgress(95);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      if (success) {
+        console.log('Game loaded successfully');
+        
+        // Update progress: Complete
+        setLoadingSaveProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Mark as complete
+        setLoadingSaveComplete(true);
+      } else {
         console.error('Failed to load game');
-        // Resume the game even if load failed
+        setShowLoadingSave(false);
         setIsGamePaused(false);
         if (pixiApp.current && pixiApp.current.ticker) {
           pixiApp.current.ticker.start();
@@ -387,13 +708,49 @@ export default function GameScreen({ onGameEnd, onReturnToMenu, onDebugNavigateT
       }
     } catch (error) {
       console.error('Error loading game:', error);
-      // Resume the game on error
+      // Hide loading screen and resume the game on error
+      setShowLoadingSave(false);
       setIsGamePaused(false);
       if (pixiApp.current && pixiApp.current.ticker) {
         pixiApp.current.ticker.start();
       }
     }
+  }, [setCurrentMap, setPlayerHealth, setBossHealth, setMaxBossHealth, setShowBossUI, gameSeed]);
+
+  // Handler for continue button on loading save screen
+  const handleLoadingSaveContinue = () => {
+    setShowLoadingSave(false);
+    setLoadingSaveProgress(0);
+    setLoadingSaveComplete(false);
+    
+    // Resume the game
+    setIsGamePaused(false);
+    if (pixiApp.current && pixiApp.current.ticker) {
+      pixiApp.current.ticker.start();
+    }
   };
+
+  // Test function for debug menu
+  const testLoadingSave = () => {
+    console.log('Debug: Testing LoadingSaveScreen from debug menu');
+    setShowLoadingSave(true);
+    setLoadingSaveProgress(50);
+    setLoadingSaveComplete(false);
+  };
+
+  // Expose test function globally for debug access
+  React.useEffect(() => {
+    if (!window.game) {
+      window.game = {};
+    }
+    window.game.testLoadingSave = testLoadingSave;
+    
+    return () => {
+      if (window.game) {
+        delete window.game.testLoadingSave;
+      }
+    };
+  }, []);
 
   const getCurrentGameState = () => {
     // Use mapManager's currentMap instead of gameStore's stale currentMap
@@ -1166,350 +1523,26 @@ const resizeHandler = () => {
 
   // Load game state if provided (for loading saved games)
   useEffect(() => {
-    console.log(`[MAIN-MENU-LOAD] useEffect triggered: loadGameState=${!!loadGameState}, appReady=${appReady}, mapManagerReady=${mapManagerReady}, mapManager=${!!mapManager.current}`);
+    console.log(`[MAIN-MENU-LOAD] useEffect triggered: loadGameState=${!!loadGameState}, appReady=${appReady}, mapManagerReady=${mapManagerReady}, mapManager=${!!mapManager.current}, loadingInProgress=${loadingGameState.current}`);
     
-    if (loadGameState && appReady && mapManagerReady && mapManager.current) {
+    if (loadGameState && appReady && mapManagerReady && mapManager.current && !loadingGameState.current) {
       console.log('Loading game state from main menu:', loadGameState);
-      console.log(`[MAIN-MENU-LOAD] All conditions met, setting timeout`);
+      console.log(`[MAIN-MENU-LOAD] All conditions met, calling handleLoadGame with loading screen`);
       
-      // Give the map a moment to initialize
-      setTimeout(async () => {
-        console.log(`[MAIN-MENU-LOAD] Timeout executed, starting repair logic`);
-        
-        // ALWAYS run PIXI repair logic for main menu loads
-        console.log(`[MAIN-MENU-LOAD] ===== Starting game load from main menu =====`);
-        console.log(`[MAIN-MENU-LOAD] Initial conditions: loadGameState=${!!loadGameState}, appReady=${appReady}, mapManagerReady=${mapManagerReady}, mapManager=${!!mapManager.current}`);
-        
-        // Check PIXI app state and attempt repair if needed
-        console.log(`[MAIN-MENU-LOAD] PIXI app initial check: pixiApp.current exists = ${!!pixiApp.current}`);
-        
-        try {
-          
-          if (pixiApp.current) {
-            console.log(`[MAIN-MENU-LOAD] Pre-load PIXI validation: app=${!!pixiApp.current}, renderer=${!!pixiApp.current.renderer}, stage=${!!pixiApp.current.stage}`);
-            console.log(`[MAIN-MENU-LOAD] PIXI renderer type: ${typeof pixiApp.current.renderer}, value: ${pixiApp.current.renderer}`);
-            console.log(`[MAIN-MENU-LOAD] PIXI stage type: ${typeof pixiApp.current.stage}, value: ${pixiApp.current.stage}`);
-            
-            // Check if PIXI app is completely broken or missing critical components
-            const rendererMissing = !pixiApp.current.renderer || pixiApp.current.renderer === false;
-            const stageMissing = !pixiApp.current.stage || pixiApp.current.stage === false;
-            const needsRepair = rendererMissing || stageMissing;
-            
-            console.log(`[MAIN-MENU-LOAD] Repair needed: ${needsRepair} (renderer missing: ${rendererMissing}, stage missing: ${stageMissing})`);
-            
-            if (needsRepair) {
-              console.log(`[MAIN-MENU-LOAD] PIXI app needs repair - missing components: renderer=${rendererMissing} (type: ${typeof pixiApp.current.renderer}), stage=${stageMissing} (type: ${typeof pixiApp.current.stage})`);
-              
-              try {
-                console.log(`[MAIN-MENU-LOAD] Starting PIXI repair process`);
-                // Try to recreate the PIXI application
-                const containerWidth = window.innerWidth;
-                const containerHeight = window.innerHeight;
-                
-                // Destroy the old app if it exists
-                if (pixiApp.current && pixiApp.current.destroy) {
-                  debugLog('[MAIN-MENU-LOAD] Destroying old PIXI app', 'loading');
-                  pixiApp.current.destroy(false, false);
-                }
-                
-                // Create new PIXI app
-                debugLog('[MAIN-MENU-LOAD] Creating new PIXI app', 'loading');
-                pixiApp.current = new PIXI.Application({
-                  width: containerWidth,
-                  height: containerHeight,
-                  backgroundColor: 0x000000,
-                  resolution: window.devicePixelRatio || 1,
-                  autoDensity: true,
-                  antialias: true,
-                  powerPreference: 'high-performance',
-                  hello: false
-                });
-                
-                debugLog('[MAIN-MENU-LOAD] PIXI app recreated successfully', 'loading');
-                debugLog(`[MAIN-MENU-LOAD] New PIXI app validation: renderer=${!!pixiApp.current.renderer}, stage=${!!pixiApp.current.stage}`, 'loading');
-                
-                // Re-add canvas to DOM
-                const gameContainer = gameContainerRef.current;
-                if (gameContainer) {
-                  debugLog('[MAIN-MENU-LOAD] Re-adding canvas to DOM', 'loading');
-                  // Clear existing canvas
-                  while (gameContainer.firstChild) {
-                    gameContainer.removeChild(gameContainer.firstChild);
-                  }
-                  
-                  // Add new canvas
-                  const canvas = pixiApp.current.canvas || pixiApp.current.view;
-                  if (canvas) {
-                    gameContainer.appendChild(canvas);
-                    canvas.style.width = containerWidth + 'px';
-                    canvas.style.height = containerHeight + 'px';
-                    canvas.style.display = 'block';
-                    debugLog('[MAIN-MENU-LOAD] Canvas re-added to DOM successfully', 'loading');
-                  } else {
-                    debugLog('[MAIN-MENU-LOAD] ERROR: No canvas available from PIXI app', 'loading');
-                  }
-                }
-                
-                // Force MapManager cleanup to trigger reinitialization
-                if (mapManager.current) {
-                  debugLog('[MAIN-MENU-LOAD] Cleaning up MapManager for reinitialization', 'loading');
-                  try {
-                    if (mapManager.current.destroy) {
-                      mapManager.current.destroy();
-                    }
-                  } catch (error) {
-                    console.warn('Error destroying MapManager during PIXI repair:', error);
-                  }
-                  mapManager.current = null;
-                  setMapManagerReady(false);
-                }
-                
-                // Wait for MapManager to be recreated (up to 5 seconds)
-                debugLog('[MAIN-MENU-LOAD] Waiting for MapManager reinitialization', 'loading');
-                let waitTime = 0;
-                const maxWaitTime = 5000;
-                
-                while (!mapManager.current && waitTime < maxWaitTime) {
-                  await new Promise(resolve => setTimeout(resolve, 100));
-                  waitTime += 100;
-                  
-                  if (waitTime % 1000 === 0) {
-                    debugLog(`[MAIN-MENU-LOAD] Still waiting for MapManager... (${waitTime/1000}s)`, 'loading');
-                  }
-                }
-                
-                if (!mapManager.current) {
-                  debugLog('[MAIN-MENU-LOAD] ERROR: MapManager failed to reinitialize after PIXI repair', 'loading');
-                  console.error('Failed to load game from main menu: MapManager not available after PIXI repair');
-                  return;
-                } else {
-                  debugLog('[MAIN-MENU-LOAD] MapManager reinitialized successfully', 'loading');
-                }
-                
-              } catch (repairError) {
-                console.error('[MAIN-MENU-LOAD] Failed to repair PIXI app:', repairError);
-                debugLog(`[MAIN-MENU-LOAD] PIXI repair failed: ${repairError.message}`, 'loading');
-                debugLog(`[MAIN-MENU-LOAD] Repair error stack: ${repairError.stack}`, 'loading');
-                return;
-              }
-            } else {
-              debugLog('[MAIN-MENU-LOAD] PIXI app appears functional - skipping recreation', 'loading');
-            }
-          } else {
-            debugLog('[MAIN-MENU-LOAD] ERROR: No PIXI app available at all', 'loading');
-            return;
-          }
-
-          debugLog(`[MAIN-MENU-LOAD] PIXI validation complete, proceeding with game state restoration`, 'loading');
-
-          const gameReferences = {
-            mapManager: mapManager.current,
-            setCurrentMap,
-            setPlayerHealth,
-            setBossHealth,
-            setMaxBossHealth,
-            setShowBossUI
-          };
-          
-          debugLog(`[MAIN-MENU-LOAD] Game references prepared - mapManager exists: ${!!gameReferences.mapManager}`, 'loading');
-          
-          const success = await gameStateManager.current.restoreGameState(loadGameState, gameReferences);
-          
-          // CRITICAL: Check and repair PIXI app AFTER game state restoration
-          // The map loading process often corrupts the PIXI app
-          console.log(`[MAIN-MENU-LOAD] Checking PIXI app state AFTER game state restoration`);
-          
-          if (pixiApp.current) {
-            console.log(`[MAIN-MENU-LOAD] Post-restore PIXI validation: app=${!!pixiApp.current}, renderer=${!!pixiApp.current.renderer}, stage=${!!pixiApp.current.stage}`);
-            
-            const rendererMissing = !pixiApp.current.renderer || pixiApp.current.renderer === false;
-            const stageMissing = !pixiApp.current.stage || pixiApp.current.stage === false;
-            const needsRepair = rendererMissing || stageMissing;
-            
-            if (needsRepair) {
-              console.log(`[MAIN-MENU-LOAD] CRITICAL: Game state restoration corrupted PIXI app! Starting repair process...`);
-              
-              try {
-                // Get container dimensions
-                const containerWidth = window.innerWidth;
-                const containerHeight = window.innerHeight;
-                
-                // Destroy the corrupted app safely
-                if (pixiApp.current && pixiApp.current.destroy) {
-                  try {
-                    pixiApp.current.destroy(false, false);
-                  } catch (destroyError) {
-                    console.warn('[MAIN-MENU-LOAD] Error destroying corrupted PIXI app:', destroyError);
-                  }
-                  pixiApp.current = null;
-                }
-                
-                // Create new PIXI app
-                console.log('[MAIN-MENU-LOAD] Creating new PIXI app to replace corrupted one');
-                pixiApp.current = new PIXI.Application({
-                  width: containerWidth,
-                  height: containerHeight,
-                  backgroundColor: 0x000000,
-                  resolution: window.devicePixelRatio || 1,
-                  autoDensity: true,
-                  antialias: true,
-                  powerPreference: 'high-performance',
-                  hello: false
-                });
-                
-                console.log('[MAIN-MENU-LOAD] PIXI app recreated successfully');
-                
-                // Re-add canvas to DOM
-                const gameContainer = gameContainerRef.current;
-                if (gameContainer) {
-                  console.log('[MAIN-MENU-LOAD] Re-adding canvas to DOM');
-                  
-                  // Clear existing canvas
-                  while (gameContainer.firstChild) {
-                    gameContainer.removeChild(gameContainer.firstChild);
-                  }
-                  
-                  // Add new canvas
-                  const canvas = pixiApp.current.canvas || pixiApp.current.view;
-                  if (canvas) {
-                    gameContainer.appendChild(canvas);
-                    canvas.style.width = containerWidth + 'px';
-                    canvas.style.height = containerHeight + 'px';
-                    canvas.style.display = 'block';
-                    console.log('[MAIN-MENU-LOAD] Canvas re-added to DOM successfully');
-                  }
-                }
-                
-                // Force MapManager cleanup and reinitialize
-                console.log('[MAIN-MENU-LOAD] Forcing MapManager reinitialization after PIXI repair');
-                if (mapManager.current) {
-                  try {
-                    if (mapManager.current.destroy) {
-                      mapManager.current.destroy();
-                    }
-                  } catch (error) {
-                    console.warn('Error destroying MapManager during PIXI repair:', error);
-                  }
-                  mapManager.current = null;
-                }
-                setMapManagerReady(false);
-                
-                // Reinitialize game engine with new PIXI app
-                console.log('[MAIN-MENU-LOAD] Reinitializing game engine with new PIXI app');
-                const { initializeGameEngine } = await import('./engine/GameEngine.js');
-                initializeGameEngine(pixiApp.current);
-                
-                // Create new MapManager
-                const { default: MapManager } = await import('./maps/MapManager.js');
-                mapManager.current = new MapManager(pixiApp.current, gameSeed);
-                console.log('[MAIN-MENU-LOAD] MapManager recreated with new PIXI app');
-                
-                // Expose mapManager globally for ObjectiveUI and boss system
-                window.gameMapManager = mapManager.current;
-                
-                setMapManagerReady(true);
-                
-                // Wait a moment for MapManager to fully initialize
-                await new Promise(resolve => setTimeout(resolve, 200));
-                
-                // Now reload the map with the new MapManager
-                console.log(`[MAIN-MENU-LOAD] Reloading map ${loadGameState.currentMap} with repaired PIXI app`);
-                
-                await new Promise((resolve) => {
-                  mapManager.current.loadMap(loadGameState.currentMap, () => {
-                    console.log('[MAIN-MENU-LOAD] Map reloaded successfully after PIXI repair');
-                    resolve();
-                  });
-                });
-                
-                // Special case: If we're loading into boss map, initialize the boss
-                if (loadGameState.currentMap === 'mapareax') {
-                  console.log('[MAIN-MENU-LOAD] Boss map detected - initializing boss after PIXI repair');
-                  
-                  // Wait for map to fully settle
-                  await new Promise(resolve => setTimeout(resolve, 500));
-                  
-                  if (mapManager.current.mapXInstance) {
-                    try {
-                      if (mapManager.current.mapXInstance.boss) {
-                        console.log('[MAIN-MENU-LOAD] Boss entity exists - checking spawn state');
-                        if (!mapManager.current.mapXInstance.bossSpawned) {
-                          console.log('[MAIN-MENU-LOAD] Spawning boss for fight');
-                          mapManager.current.mapXInstance.spawnBoss();
-                        }
-                      } else {
-                        console.log('[MAIN-MENU-LOAD] No boss entity - initializing boss');
-                        await mapManager.current.mapXInstance.initializeBoss();
-                        if (mapManager.current.mapXInstance.boss) {
-                          console.log('[MAIN-MENU-LOAD] Boss initialized - spawning for fight');
-                          mapManager.current.mapXInstance.spawnBoss();
-                        }
-                      }
-                      console.log('[MAIN-MENU-LOAD] Boss initialization completed');
-                    } catch (bossError) {
-                      console.warn('[MAIN-MENU-LOAD] Error initializing boss:', bossError);
-                    }
-                  } else {
-                    console.warn('[MAIN-MENU-LOAD] MapX instance not available for boss initialization');
-                  }
-                }
-                
-                // Restore character and pet positions now that everything is recreated
-                if (mapManager.current.character) {
-                  console.log('[MAIN-MENU-LOAD] Restoring character position after PIXI repair');
-                  mapManager.current.character.position.set(
-                    loadGameState.character.position.x,
-                    loadGameState.character.position.y
-                  );
-                  mapManager.current.character.currentHP = loadGameState.character.health;
-                }
-                
-                if (mapManager.current.pet && loadGameState.pet) {
-                  console.log('[MAIN-MENU-LOAD] Restoring pet position after PIXI repair');
-                  mapManager.current.pet.position.set(
-                    loadGameState.pet.position.x,
-                    loadGameState.pet.position.y
-                  );
-                  mapManager.current.pet.currentLevel = loadGameState.pet.level;
-                }
-                
-                if (mapManager.current.camera && loadGameState.camera) {
-                  console.log('[MAIN-MENU-LOAD] Restoring camera position after PIXI repair');
-                  mapManager.current.camera.position.set(
-                    loadGameState.camera.position.x,
-                    loadGameState.camera.position.y
-                  );
-                }
-                
-                console.log('[MAIN-MENU-LOAD] PIXI repair and game state restoration completed successfully');
-                
-              } catch (repairError) {
-                console.error('[MAIN-MENU-LOAD] Failed to repair PIXI app after corruption:', repairError);
-              }
-            } else {
-              console.log('[MAIN-MENU-LOAD] PIXI app survived game state restoration');
-            }
-          } else {
-            console.log('[MAIN-MENU-LOAD] No PIXI app available after game state restoration');
-          }
-          
-          if (success) {
-            console.log('Game state loaded successfully from main menu');
-          } else {
-            console.error('Failed to load game state from main menu');
-          }
-        } catch (mainError) {
-          console.error('Error loading game state from main menu:', mainError);
-          debugLog(`[MAIN-MENU-LOAD] ERROR in main menu load: ${mainError.message}`, 'loading');
-          debugLog(`[MAIN-MENU-LOAD] Error stack: ${mainError.stack}`, 'loading');
-        }
-      }, 500); // Wait 500ms for map to fully initialize
+      // Mark that we're starting the load process
+      loadingGameState.current = true;
+      
+      // Use the unified handleLoadGame function which now always shows loading screen
+      handleLoadGame(loadGameState).finally(() => {
+        // Reset loading flag when done
+        loadingGameState.current = false;
+      });
     } else {
       if (loadGameState) {
         console.log(`[MAIN-MENU-LOAD] Conditions not met: appReady=${appReady}, mapManagerReady=${mapManagerReady}, mapManager=${!!mapManager.current}`);
       }
     }
-  }, [loadGameState, appReady, mapManagerReady, setCurrentMap, gameSeed]);
+  }, [loadGameState, appReady, mapManagerReady, setCurrentMap, gameSeed, handleLoadGame]);
   
   // Boss health tracking - check for boss health changes on Map X
   useEffect(() => {
@@ -1817,6 +1850,15 @@ const resizeHandler = () => {
           )}
         </>
       )}
+      
+      {/* Loading Save Screen - outside appReady block so it always shows */}
+      <LoadingSaveScreen
+        isVisible={showLoadingSave}
+        progress={loadingSaveProgress}
+        isComplete={loadingSaveComplete}
+        onContinue={handleLoadingSaveContinue}
+      />
+
       {showGameOver && (
         <GameOverScreen
           onMainMenu={handleGameOverMainMenu}

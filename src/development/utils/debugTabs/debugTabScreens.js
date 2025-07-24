@@ -179,6 +179,58 @@ export function createScreensTab(onNavigateToScreen) {
     ]),
     
     React.createElement('div', {
+      key: 'testComponents',
+      style: { marginBottom: '16px' }
+    }, [
+      React.createElement('h5', {
+        key: 'testTitle',
+        style: { 
+          color: '#ff9800', 
+          margin: '0 0 12px 0',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          textShadow: '0 0 8px #ff980088'
+        }
+      }, 'Component Tests'),
+      
+      React.createElement('div', {
+        key: 'testButtons',
+        style: { 
+          display: 'grid',
+          gridTemplateColumns: '1fr',
+          gap: '8px'
+        }
+      }, [
+        React.createElement('button', {
+          key: 'testLoadingSave',
+          onClick: () => {
+            console.log('Debug: Testing LoadingSaveScreen component');
+            
+            // Use the globally exposed test function
+            if (window.game && window.game.testLoadingSave) {
+              window.game.testLoadingSave();
+              console.log('Debug: LoadingSaveScreen test triggered successfully');
+            } else {
+              console.log('Debug: Cannot test LoadingSaveScreen - testLoadingSave function not available. Make sure you are in GameScreen.');
+            }
+          },
+          style: {
+            padding: '10px 12px',
+            background: 'rgba(255, 152, 0, 0.2)',
+            border: '2px solid rgba(255, 152, 0, 0.5)',
+            borderRadius: '10px',
+            color: '#FF9800',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            transition: 'all 0.2s ease',
+            textShadow: '0 0 8px rgba(255, 152, 0, 0.3)'
+          }
+        }, '⏳ Test Loading Save Screen')
+      ])
+    ]),
+    
+    React.createElement('div', {
       key: 'screenNote',
       style: { 
         fontSize: '11px', 

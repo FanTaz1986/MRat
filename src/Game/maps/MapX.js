@@ -381,6 +381,15 @@ export default class MapX {
   }
 
   /**
+   * Initialize enemies for MapX
+   * MapX has a boss, but it's handled by the boss fight system, so this is a no-op for compatibility
+   */
+  async initializeEnemies() {
+    debugLog('MapX: No regular enemies to initialize (boss handled separately)', 'map');
+    return Promise.resolve();
+  }
+
+  /**
    * Create boss entity (separate from spawning)
    */
   createBoss() {
